@@ -383,7 +383,7 @@ export class StackTraceApp {
       demoSingleBtn.addEventListener('click', async (e) => {
         e.preventDefault();
         try {
-          const url = 'https://github.com/dt/crdb-stacks-examples/blob/main/stacks/files/1/stacks.txt';
+          // Use HTTPS URLs for GitHub raw files - they work from both HTTP and HTTPS pages
           const rawUrl = 'https://raw.githubusercontent.com/dt/crdb-stacks-examples/refs/heads/main/stacks/files/1/stacks.txt';
           await this.loadFromUrl(rawUrl, 'crdb-demo-single.txt');
         } catch (error) {
@@ -397,6 +397,7 @@ export class StackTraceApp {
       demoZipBtn.addEventListener('click', async (e) => {
         e.preventDefault();
         try {
+          // Use HTTPS URLs for GitHub raw files - they work from both HTTP and HTTPS pages
           const url = 'https://raw.githubusercontent.com/dt/crdb-stacks-examples/refs/heads/main/stacks.zip';
           await this.loadFromUrl(url, 'crdb-demo.zip');
         } catch (error) {

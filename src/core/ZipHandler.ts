@@ -58,8 +58,6 @@ export class ZipHandler {
           });
           
           filePromises.push(filePromise);
-        } else {
-          console.log(`file ${relativePath} in zip file does not match pattern "${pattern}"`);
         }
       });
       
