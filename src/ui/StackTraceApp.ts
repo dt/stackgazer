@@ -127,6 +127,7 @@ export class StackTraceApp {
   private initializeUI(): void {
     this.setupEventListeners();
     this.setupBrowserHistory();
+    this.initializeDropZone();
   }
 
   private loadPersistedState(): void {
@@ -1921,19 +1922,50 @@ export class StackTraceApp {
     }
   }
 
+  private getInitialDropZoneHTML(): string {
+    return `
+      <div class="drop-message">
+        <div>📁 Drop Go stack trace files here to get started</div>
+        <div style="margin-top: 10px; font-size: 14px; color: #888;">or click to select files</div>
+        <div style="margin-top: 5px; font-size: 12px; color: #666;">Add more files later using the Files panel.</div>
+        <div style="margin-top: 5px; font-size: 12px; color: #666;">
+          You can also drop .zip files from which 
+          <code>**/stacks.txt</code><button title="pattern can be configured in Advanced Settings." tabindex="-1" style="background:transparent;border:1px solid #555;color:#666;border-radius:50%; padding:0px 3px; margin-left:0px">?</button> 
+          files will be extracted.
+        </div>
+        <div style="margin-top: 8px; font-size: 12px; color: #888; font-style: italic;">
+          🔒 All data is analyzed locally in your browser; nothing is uploaded.
+        </div>
+        <div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid #444;">
+          <div style="font-size: 14px; color: #888; margin-bottom: 10px;">⚡️ Or try a quick demo with some example CockroachDB stack dumps:</div>
+          <div style="display: flex; gap: 20px; justify-content: center; flex-wrap: wrap; font-size: 13px;">
+            <a id="demoSingleBtn" href="#" class="demo-link">📄 single file →</a>
+            <a id="demoZipBtn" href="#" class="demo-link">📦 zip file →</a>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  private initializeDropZone(): void {
+    const dropZone = document.getElementById('dropZone')!;
+    // Only initialize if there's no content yet (to avoid overriding existing content)
+    if (!dropZone.classList.contains('has-content')) {
+      dropZone.innerHTML = this.getInitialDropZoneHTML();
+      this.setupDemoButtons();
+    }
+  }
+
   private updateDropZone(): void {
     const dropZone = document.getElementById('dropZone')!;
     const allGoroutines = this.stackCollection.getAllGoroutines();
     
     if (allGoroutines.length === 0) {
       dropZone.classList.remove('has-content');
-      dropZone.innerHTML = `
-        <div class="drop-message">
-          <div>📁 Drop your Go stack trace files or zip archives here</div>
-          <div style="margin-top: 10px; font-size: 14px; color: #888;">or click to select files</div>
-          <div style="margin-top: 5px; font-size: 12px; color: #666;">Zip files will be automatically extracted based on your pattern settings</div>
-        </div>
-      `;
+      dropZone.innerHTML = this.getInitialDropZoneHTML();
+      
+      // Re-setup demo buttons since we just recreated the HTML
+      this.setupDemoButtons();
     }
   }
 
