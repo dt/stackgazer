@@ -1137,6 +1137,8 @@
             position: absolute;
             bottom: 15px;
             left: 15px;
+            display: flex;
+            gap: 10px;
         }
 
         .settings-btn {
@@ -1161,6 +1163,31 @@
             border-color: #666;
             opacity: 1;
             transform: rotate(90deg);
+        }
+
+        /* GitHub link */
+        .github-btn {
+            background: transparent;
+            border: 1px solid #555;
+            color: #666;
+            border-radius: 50%;
+            width: 32px;
+            height: 32px;
+            font-size: 16px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0.6;
+            transition: all 0.2s ease;
+            text-decoration: none;
+        }
+
+        .github-btn:hover {
+            background: #3e3e42;
+            color: #d4d4d4;
+            border-color: #666;
+            opacity: 1;
         }
 
         /* Settings modal specific styles */
@@ -1373,6 +1400,19 @@
         .settings-save-btn:hover {
             background: #0087d4;
         }
+
+        /* Demo link styles */
+        .demo-link {
+            color: #569cd6;
+            text-decoration: none;
+            cursor: pointer;
+            transition: color 0.2s ease, text-decoration 0.2s ease;
+        }
+
+        .demo-link:hover {
+            color: #4fc3f7;
+            text-decoration: underline;
+        }
     </style>
 </head>
 <body>
@@ -1450,10 +1490,10 @@
                         files will be extracted.
                     </div>
                     <div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid #444;">
-                        <div style="font-size: 14px; color: #888; margin-bottom: 10px;">Or try a quick demo with some example CockroachDB stack dumps:</div>
-                        <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
-                            <button id="demoSingleBtn" class="control-btn" style="background: #4caf50; font-size: 12px; padding: 6px 12px;">📄 Single file demo</button>
-                            <button id="demoZipBtn" class="control-btn" style="background: #4caf50; font-size: 12px; padding: 6px 12px;">📦 Zip file demo</button>
+                        <div style="font-size: 14px; color: #888; margin-bottom: 10px;">⚡️ Or try a quick demo with some example CockroachDB stack dumps:</div>
+                        <div style="display: flex; gap: 20px; justify-content: center; flex-wrap: wrap; font-size: 13px;">
+                            <a id="demoSingleBtn" href="#" class="demo-link">📄 single file →</a>
+                            <a id="demoZipBtn" href="#" class="demo-link">📦 zip file →</a>
                         </div>
                     </div>
                 </div>

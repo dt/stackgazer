@@ -320,6 +320,9 @@ export class StackTraceApp {
 
     // Settings modal
     this.setupSettingsModal();
+
+    // Demo buttons
+    this.setupDemoButtons();
   }
 
   private setupSettingsModal(): void {
@@ -370,6 +373,57 @@ export class StackTraceApp {
 
     // Add change listeners to all settings inputs
     this.setupSettingsInputListeners();
+  }
+
+  private setupDemoButtons(): void {
+    const demoSingleBtn = document.getElementById('demoSingleBtn');
+    const demoZipBtn = document.getElementById('demoZipBtn');
+
+    if (demoSingleBtn) {
+      demoSingleBtn.addEventListener('click', async (e) => {
+        e.preventDefault();
+        try {
+          const url = 'https://github.com/dt/crdb-stacks-examples/blob/main/stacks/files/1/stacks.txt';
+          const rawUrl = 'https://raw.githubusercontent.com/dt/crdb-stacks-examples/refs/heads/main/stacks/files/1/stacks.txt';
+          await this.loadFromUrl(rawUrl, 'crdb-demo-single.txt');
+        } catch (error) {
+          console.error('Demo single file load failed:', error);
+          alert('Failed to load demo file. Please try again or check your internet connection.');
+        }
+      });
+    }
+
+    if (demoZipBtn) {
+      demoZipBtn.addEventListener('click', async (e) => {
+        e.preventDefault();
+        try {
+          const url = 'https://raw.githubusercontent.com/dt/crdb-stacks-examples/refs/heads/main/stacks.zip';
+          await this.loadFromUrl(url, 'crdb-demo.zip');
+        } catch (error) {
+          console.error('Demo zip file load failed:', error);
+          alert('Failed to load demo zip file. Please try again or check your internet connection.');
+        }
+      });
+    }
+  }
+
+  private async loadFromUrl(url: string, filename: string): Promise<void> {
+    try {
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      const arrayBuffer = await response.arrayBuffer();
+      const file = new File([arrayBuffer], filename, { 
+        type: filename.endsWith('.zip') ? 'application/zip' : 'text/plain' 
+      });
+      
+      await this.handleFiles([file]);
+    } catch (error) {
+      console.error(`Failed to load file from ${url}:`, error);
+      throw error;
+    }
   }
 
   private setupSettingsInputListeners(): void {
