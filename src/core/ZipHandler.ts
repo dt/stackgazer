@@ -47,12 +47,11 @@ export class ZipHandler {
           const filePromise = zipEntry.async('text').then((content: string) => {
             // Extract just the filename for display, but preserve path for uniqueness
             const fileName = relativePath.split('/').pop() || relativePath;
-            const displayName = fileName === relativePath ? fileName : `${relativePath}`;
             
             matchingFiles.push({
               content,
               path: relativePath,
-              name: displayName
+              name: relativePath
             });
           }).catch((error: any) => {
             console.warn(`Failed to extract file ${relativePath}:`, error);
@@ -67,10 +66,98 @@ export class ZipHandler {
       // Wait for all files to be extracted
       await Promise.all(filePromises);
       
+      // Remove common prefix and suffix from file names.
+      const filePaths = matchingFiles.map(f => f.name);
+      const commonPrefix = this.findCommonPrefix(filePaths);
+      const commonSuffix = this.findCommonSuffix(filePaths);
+      
+      matchingFiles.forEach(f => {
+        let cleanName = f.name;
+        
+        // Remove common prefix
+        if (cleanName.startsWith(commonPrefix)) {
+          cleanName = cleanName.slice(commonPrefix.length);
+        }
+        
+        // Remove common suffix
+        if (cleanName.endsWith(commonSuffix)) {
+          cleanName = cleanName.slice(0, -commonSuffix.length);
+        }
+        
+        f.name = cleanName;
+      });
+
       return matchingFiles;
+
     } catch (error) {
       throw new Error(`Failed to process zip file "${file.name}": ${error instanceof Error ? error.message : String(error)}`);
     }
+  }
+
+  /**
+   * Find the longest common suffix in an array of strings
+   */
+  private static findCommonSuffix(strings: string[]): string {
+    if (strings.length === 0) return '';
+    if (strings.length === 1) return '';
+    
+    let suffix = '';
+    const minLength = Math.min(...strings.map(s => s.length));
+    
+    // Work backwards from the end of the strings
+    for (let i = 1; i <= minLength; i++) {
+      const char = strings[0].charAt(strings[0].length - i);
+      const allMatch = strings.every(str => str.charAt(str.length - i) === char);
+      
+      if (allMatch) {
+        suffix = char + suffix;
+      } else {
+        break;
+      }
+    }
+    
+    return suffix;
+  }
+
+  /**
+   * Find the longest common prefix in an array of strings, but only up to the penultimate /
+   * For example: 'a/b/c/1', 'a/b/c/2', 'a/c/1', 'a/c/2' should return 'a/' (not 'a/b/' or 'a/c/')
+   */
+  private static findCommonPrefix(strings: string[]): string {
+    if (strings.length === 0) return '';
+    if (strings.length === 1) return '';
+    
+    let prefix = '';
+    const minLength = Math.min(...strings.map(s => s.length));
+    
+    // Find character-by-character common prefix
+    for (let i = 0; i < minLength; i++) {
+      const char = strings[0].charAt(i);
+      const allMatch = strings.every(str => str.charAt(i) === char);
+      
+      if (allMatch) {
+        prefix += char;
+      } else {
+        break;
+      }
+    }
+    
+    // Truncate to penultimate slash
+    // Count slashes and keep only up to the penultimate one
+    const slashIndices = [];
+    for (let i = 0; i < prefix.length; i++) {
+      if (prefix.charAt(i) === '/') {
+        slashIndices.push(i);
+      }
+    }
+    
+    // If we have at least 2 slashes, truncate after the penultimate one
+    if (slashIndices.length >= 2) {
+      const penultimateSlashIndex = slashIndices[slashIndices.length - 2];
+      prefix = prefix.slice(0, penultimateSlashIndex + 1);
+    }
+    
+    return prefix;
   }
 
   /**
@@ -128,8 +215,8 @@ export class ZipHandler {
       const blob = new Blob([extracted.content], { type: 'text/plain' });
       
       // Create a File object with a meaningful name
-      // Include zip name and path to make it unique and traceable
-      const fileName = `${originalZipName}:${extracted.path}`;
+      // Use the cleaned name (common suffix already removed)
+      const fileName = extracted.name || extracted.path;
       
       // Create File with proper constructor
       const file = new File([blob], fileName, {

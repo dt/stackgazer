@@ -795,6 +795,8 @@
         .file-name {
             flex: 1;
             margin-right: 8px;
+            overflow-x: auto;
+            white-space: nowrap;
         }
 
         .file-controls {
@@ -1439,10 +1441,21 @@
             </div>
             <div class="drop-zone" id="dropZone">
                 <div class="drop-message">
-                    <div>📁 Drop your Go stack trace files or zip archives here</div>
+                    <div>📁 Drop Go stack trace files here to get started</div>
                     <div style="margin-top: 10px; font-size: 14px; color: #888;">or click to select files</div>
-                    <div style="margin-top: 5px; font-size: 12px; color: #666;">Add more files later using the Files panel →</div>
-                    <div style="margin-top: 5px; font-size: 12px; color: #666;">Zip files will be automatically extracted based on your pattern settings</div>
+                    <div style="margin-top: 5px; font-size: 12px; color: #666;">Add more files later using the Files panel.</div>
+                    <div style="margin-top: 5px; font-size: 12px; color: #666;">
+                        You can also drop .zip files from which 
+                        <code>**/stacks.txt</code><button title="pattern can be configured in Advanced Settings." tabindex="-1" style="background:transparent;border:1px solid #555;color:#666;border-radius:50%; padding:0px 3px; margin-left:0px">?</button> 
+                        files will be extracted.
+                    </div>
+                    <div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid #444;">
+                        <div style="font-size: 14px; color: #888; margin-bottom: 10px;">Or try a quick demo with some example CockroachDB stack dumps:</div>
+                        <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+                            <button id="demoSingleBtn" class="control-btn" style="background: #4caf50; font-size: 12px; padding: 6px 12px;">📄 Single file demo</button>
+                            <button id="demoZipBtn" class="control-btn" style="background: #4caf50; font-size: 12px; padding: 6px 12px;">📦 Zip file demo</button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

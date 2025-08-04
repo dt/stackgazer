@@ -509,21 +509,24 @@ export class FileCollection {
   }
 
   protected ensureUniqueName(proposedName: string, excludeFileName?: string): string {
+    // Clean the proposed name: remove .txt extension and replace dots with underscores
+    let cleanedName = proposedName;
+    if (cleanedName.endsWith('.txt')) {
+      cleanedName = cleanedName.slice(0, -4);
+    }
+    cleanedName = cleanedName.replace(/\./g, '_');
+    
     const existingNames = Array.from(this.files.keys())
       .filter(name => name !== excludeFileName);
     
-    if (!existingNames.includes(proposedName)) {
-      return proposedName;
+    if (!existingNames.includes(cleanedName)) {
+      return cleanedName;
     }
     
-    let counter = 1;
-    const nameParts = proposedName.split('.');
-    const extension = nameParts.length > 1 ? '.' + nameParts.pop() : '';
-    const baseName = nameParts.join('.');
-    
+    let counter = 2;
     let uniqueName: string;
     do {
-      uniqueName = `${baseName} (${counter})${extension}`;
+      uniqueName = `${cleanedName}_${counter}`;
       counter++;
     } while (existingNames.includes(uniqueName));
     
@@ -574,8 +577,14 @@ class NodeIdExtractor implements NameExtractor {
 
   private extractNodeIdFromArgs(argsString: string): number | null {
     try {
-      // Look for pattern {0x0, 0x4, {0x[NUMBER], in the args
-      const match = argsString.match(/\{0x0,\s*0x4,\s*\{0x([0-9a-fA-F]+),/);
+      // Try new format first: {0x1, 0x2, {0x[NODE_ID],
+      let match = argsString.match(/\{0x1,\s*0x2,\s*\{0x([0-9a-fA-F]+),/);
+      if (match && match[1]) {
+        return parseInt(match[1], 16);
+      }
+      
+      // Fall back to old format: {0x0, 0x4, {0x[NODE_ID],
+      match = argsString.match(/\{0x0,\s*0x4,\s*\{0x([0-9a-fA-F]+),/);
       if (match && match[1]) {
         return parseInt(match[1], 16);
       }
