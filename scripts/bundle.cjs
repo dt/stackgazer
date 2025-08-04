@@ -29,9 +29,12 @@ files.forEach(file => {
         console.log(`Reading ${file}...`);
         let content = fs.readFileSync(filePath, 'utf8');
         
-        // Handle JSZip import specially
+        // Handle JSZip import specially - both old and new CDN imports
         if (content.includes('import JSZip from \'jszip\';')) {
             content = content.replace(/import JSZip from \'jszip\';/g, '// JSZip will be loaded from CDN');
+        }
+        if (content.includes('import JSZip from \'https://cdn.skypack.dev/jszip')) {
+            content = content.replace(/import JSZip from \'https:\/\/cdn\.skypack\.dev\/jszip[^']*\';/g, '// JSZip will be loaded from CDN');
         }
         
         // Remove other import statements
