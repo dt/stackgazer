@@ -34,7 +34,7 @@ export class ZipHandler {
       // Check each file in the zip
       const filePromises: Promise<void>[] = [];
       
-      zip.forEach((relativePath, zipEntry) => {
+      zip.forEach((relativePath: string, zipEntry: any) => {
         // Skip directories
         if (zipEntry.dir) {
           return;
@@ -44,7 +44,7 @@ export class ZipHandler {
         if (regex.test(relativePath)) {
           console.log(`file ${relativePath} in zip file matches pattern "${pattern}", extracting...`);
 
-          const filePromise = zipEntry.async('text').then(content => {
+          const filePromise = zipEntry.async('text').then((content: string) => {
             // Extract just the filename for display, but preserve path for uniqueness
             const fileName = relativePath.split('/').pop() || relativePath;
             const displayName = fileName === relativePath ? fileName : `${relativePath}`;
@@ -54,7 +54,7 @@ export class ZipHandler {
               path: relativePath,
               name: displayName
             });
-          }).catch(error => {
+          }).catch((error: any) => {
             console.warn(`Failed to extract file ${relativePath}:`, error);
           });
           
