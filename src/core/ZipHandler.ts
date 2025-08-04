@@ -1,4 +1,5 @@
-import JSZip from 'jszip';
+// @ts-ignore
+import JSZip from 'https://cdn.skypack.dev/jszip@3.10.1';
 
 /**
  * Utility for handling zip file extraction and pattern matching
