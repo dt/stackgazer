@@ -4,7 +4,7 @@
   "type": "module",
   "description": "A single-page app for viewing Go stack traces",
   "scripts": {
-    "build": "tsc && cp index.html dist/",
+    "build": "tsc",
     "watch": "tsc --watch",
     "serve": "python3 -m http.server 8000",
     "build:bundle": "npm run build && node scripts/bundle.cjs",
