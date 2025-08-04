@@ -1,5 +1,5 @@
 {
-  "name": "go-stack-trace-viewer",
+  "name": "stackgazer",
   "version": "1.0.0",
   "type": "module",
   "description": "A single-page app for viewing Go stack traces",
