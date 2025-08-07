@@ -287,32 +287,38 @@
             box-sizing: border-box;
         }
 
-        .stack-group {
+        .stack-group,
+        .stack-section,
+        .section.stack-section {
             margin-bottom: 20px;
             border: 2px solid #007acc;
             border-radius: 8px;
-            overflow: hidden;
+            cursor: text;
+            user-select: text;
+            position: relative;
         }
 
-        .group-header {
+        .header {
             background: #007acc;
             color: white;
             padding: 12px 15px;
             font-weight: bold;
-            cursor: pointer;
-            user-select: none;
+            cursor: text;
+            user-select: text;
             font-size: 14px;
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
 
-        .group-header:hover {
+        .header:hover {
             background: #0087d4;
         }
 
-        .group-title {
-            cursor: pointer;
+        .group-title,
+        .stack-title {
+            cursor: text;
+            user-select: text;
             flex: 1;
             display: flex;
             align-items: center;
@@ -330,6 +336,14 @@
             font-size: 13px;
             padding-left: 12px;
             border-left: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .group-count,
+        .stack-count {
+            font-weight: normal;
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 13px;
+            text-align: right;
         }
 
         .group-controls {
@@ -354,31 +368,50 @@
 
         /* Pin button styles */
         .pin-btn {
-            background: transparent;
-            border: none;
-            color: rgba(255, 255, 255, 0.7);
-            padding: 4px 6px;
-            border-radius: 3px;
+            position: absolute;
+            top: -16px;
+            right: -16px;
+            background: rgba(46, 46, 46, 0.9);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: rgba(255, 255, 255, 0.4);
+            padding: 8px;
+            border-radius: 50%;
             cursor: pointer;
             font-family: inherit;
-            font-size: 14px;
+            font-size: 16px;
             transition: all 0.2s ease;
-            opacity: 0.9;
+            opacity: 0.6;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
         }
 
         .pin-btn:hover {
-            background: rgba(255, 255, 255, 0.2);
+            background: rgba(46, 46, 46, 1);
+            border-color: rgba(255, 255, 255, 0.5);
+            color: rgba(255, 255, 255, 0.7);
+            opacity: 0.8;
+        }
+
+        .pin-btn.pinned {
+            background: rgba(46, 46, 46, 1);
+            border: 2px solid rgba(255, 255, 255, 0.8);
             color: rgba(255, 255, 255, 0.9);
             opacity: 1;
         }
 
-        .pin-btn.pinned {
-            color: #ffd700;
-            opacity: 1;
+        .pin-btn.pinned:hover {
+            color: rgba(255, 255, 255, 1);
+            border: 2px solid rgba(255, 255, 255, 1);
         }
 
-        .pin-btn.pinned:hover {
-            color: #ffed4e;
+        /* Add spacing for count text when near pin buttons */
+        .header .counts,
+        .section-header .counts {
+            margin-right: 24px;
         }
 
         /* Goroutine pin button styles */
@@ -410,11 +443,14 @@
             color: #ffed4e;
         }
 
-        .group-content {
+        .group-content,
+        .stack-content {
             background: #2d2d30;
+            padding-bottom: 1px;
         }
 
-        .group-content.collapsed {
+        .group-content.collapsed,
+        .stack-content.collapsed {
             display: none;
         }
 
@@ -423,6 +459,8 @@
             border: 1px solid #3e3e42;
             border-radius: 6px;
             margin: 10px;
+            cursor: text;
+            user-select: text;
         }
 
         .unique-stack-header {
@@ -433,10 +471,14 @@
             font-weight: bold;
             border-bottom: 1px solid #3e3e42;
             border-radius: 6px 6px 0 0;
+            cursor: text;
+            user-select: text;
         }
 
         .unique-stack-content {
             padding: 15px;
+            cursor: text;
+            user-select: text;
         }
 
         .state-group {
@@ -480,20 +522,20 @@
         }
 
         .show-more-link {
-            padding: 8px 12px;
-            margin: 4px 0;
-            background: #3c3c3c;
-            border: 1px solid #555;
-            border-radius: 4px;
+            padding: 6px 12px;
+            margin: 0;
+            background: transparent;
+            border: none;
             cursor: pointer;
             text-align: center;
             color: #007acc;
-            font-size: 13px;
-            transition: background-color 0.2s;
+            font-size: 11px;
+            transition: color 0.2s;
+            border-bottom: 1px dashed #3e3e42;
         }
 
         .show-more-link:hover {
-            background: #4a4a4a;
+            color: #4fc3f7;
         }
 
         .show-more-text {
@@ -501,9 +543,11 @@
         }
 
         .goroutine-entry {
-            background: #2d2d30;
-            border-bottom: 1px solid #3e3e42;
+            background: transparent;
+            border-bottom: 1px dashed #3e3e42;
             overflow: hidden;
+            cursor: text;
+            user-select: text;
         }
 
         .goroutine-entry:last-child {
@@ -511,18 +555,17 @@
         }
 
         .goroutine-entry.highlighted {
-            background: #4a4a00 !important;
-            border: 2px solid #ffd700 !important;
-            box-shadow: 0 0 10px rgba(255, 215, 0, 0.5) !important;
+            background: rgba(0, 122, 204, 0.25) !important;
+            transition: background-color 0.3s ease;
         }
 
         .goroutine-header {
-            background: #3e3e42;
+            background: transparent;
             color: white;
             padding: 6px 12px;
             font-size: 11px;
-            cursor: pointer;
-            user-select: none;
+            cursor: text;
+            user-select: text;
         }
 
         .goroutine-header-first-line {
@@ -598,6 +641,77 @@
 
         .stack-line {
             margin-bottom: 2px;
+        }
+
+        .stack-trace {
+            background: #3c3c3c;
+            margin: 10px;
+            padding: 10px;
+            border-radius: 4px;
+            border: 1px solid #555;
+            cursor: text;
+            user-select: text;
+        }
+
+        .trace-header {
+            font-weight: bold;
+            color: #007acc;
+            margin-bottom: 8px;
+            font-size: 12px;
+        }
+
+        /* Common section styles for both files and groups */
+        .section {
+            background: #2d2d30;
+            margin: 10px;
+            border: 1px solid #3e3e42;
+            border-radius: 4px;
+            position: relative;
+        }
+
+        .section-header {
+            background: #4e4e52;
+            color: white;
+            padding: 8px 12px;
+            font-weight: bold;
+            font-size: 11px;
+            border-bottom: 1px solid #3e3e42;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .section-content {
+            padding: 10px;
+            transition: all 0.2s ease;
+        }
+
+        /* Pinned section styles - no container changes */
+        .section.pinned {
+            /* No special highlighting for pinned containers */
+        }
+
+        /* Expandable container states - works for any content type */
+        .expandable.collapsed .section-content {
+            display: none;
+        }
+
+        /* Expand/collapse icons using CSS content - reusable for any header */
+        .expandable .expand-icon::before {
+            content: '▼';
+            margin-right: 6px;
+        }
+
+        .expandable.collapsed .expand-icon::before {
+            content: '▶';
+        }
+
+        .group-labels {
+            margin-top: 8px;
+            font-size: 10px;
+            color: #888;
+            font-style: italic;
         }
 
         .function-name {
@@ -738,7 +852,7 @@
         }
 
         .file-section {
-            margin-bottom: 20px;
+            margin-bottom: 10px;
         }
 
         .file-list-container {
@@ -798,6 +912,47 @@
             margin-right: 8px;
             overflow-x: auto;
             white-space: nowrap;
+        }
+
+        .file-name-text {
+            display: inline-block;
+            cursor: pointer;
+            border-radius: 2px;
+            padding: 1px 2px;
+            transition: all 0.2s;
+            position: relative;
+        }
+
+        .file-name-text:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+            transform: translateY(-1px);
+        }
+
+        .file-name-text:hover::after {
+            content: "✏️";
+            position: absolute;
+            right: -16px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 10px;
+            opacity: 0.7;
+        }
+
+        .file-name-text.editing {
+            background-color: #007acc;
+            color: white;
+            outline: 2px solid #4fc3f7;
+            outline-offset: 1px;
+            cursor: text;
+            border-radius: 3px;
+            padding: 2px 4px;
+            box-shadow: 0 0 8px rgba(79, 195, 247, 0.4);
+        }
+
+        .file-name-text.editing:focus {
+            background-color: #0087d4;
+            outline-color: #81d4fa;
+            box-shadow: 0 0 12px rgba(129, 212, 250, 0.6);
         }
 
         .file-controls {
@@ -963,8 +1118,9 @@
             width: 90%;
             max-width: 700px;
             max-height: 80vh;
-            overflow-y: auto;
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+            display: flex;
+            flex-direction: column;
         }
 
         .modal-header {
@@ -1008,6 +1164,8 @@
             padding: 25px;
             color: #d4d4d4;
             line-height: 1.6;
+            flex: 1;
+            overflow-y: auto;
         }
 
         .modal-body h4 {
@@ -1104,34 +1262,7 @@
             font-weight: bold;
         }
 
-        /* Stack display mode CSS-based switching - merge with existing .unique-stack-content */
-
-        /* Hide all display modes by default - use absolute positioning to avoid layout space */
-        .stack-display-combined,
-        .stack-display-side-by-side,
-        .stack-display-functions,
-        .stack-display-locations {
-            display: none;
-            margin: 0;
-            padding: 0;
-        }
-
-        /* Show the appropriate display mode based on data attribute */
-        .unique-stack-content[data-display-mode="combined"] .stack-display-combined {
-            display: block;
-        }
-
-        .unique-stack-content[data-display-mode="side-by-side"] .stack-display-side-by-side {
-            display: block;
-        }
-
-        .unique-stack-content[data-display-mode="functions"] .stack-display-functions {
-            display: block;
-        }
-
-        .unique-stack-content[data-display-mode="locations"] .stack-display-locations {
-            display: block;
-        }
+        /* Stack display mode - content is dynamically generated based on mode */
 
         /* Settings gear icon */
         .settings-container {
@@ -1348,28 +1479,16 @@
             font-style: italic;
         }
 
-        .settings-warning {
-            margin-top: 20px;
-            padding: 12px 15px;
-            background: rgba(255, 193, 7, 0.1);
-            border: 1px solid rgba(255, 193, 7, 0.3);
-            border-radius: 4px;
-            color: #ffc107;
-            font-size: 12px;
-            line-height: 1.4;
-        }
-
-        .settings-warning strong {
-            color: #ffc107;
-        }
 
         .settings-actions {
-            margin-top: 20px;
-            padding-top: 20px;
+            padding: 20px 25px;
             border-top: 1px solid #3e3e42;
+            background: #252526;
             display: flex;
             gap: 10px;
             justify-content: flex-end;
+            border-radius: 0 0 8px 8px;
+            flex-shrink: 0;
         }
 
         .settings-reset-btn {
@@ -1414,6 +1533,155 @@
             color: #4fc3f7;
             text-decoration: underline;
         }
+
+        /* Utility classes for common inline styles */
+        .hidden {
+            display: none !important;
+        }
+
+        .visible {
+            display: block;
+        }
+
+        .flex {
+            display: flex;
+        }
+        
+        /* Filtering system: hide filtered elements when main-content has .filtered class */
+        .main-content.filtered .filtered {
+            display: none !important;
+        }
+
+        .flex-between {
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .cursor-pointer {
+            cursor: pointer;
+        }
+
+        .cursor-default {
+            cursor: default;
+        }
+
+        .font-weight-bold {
+            font-weight: 700;
+        }
+
+        .font-weight-medium {
+            font-weight: 500;
+        }
+
+        .font-weight-normal {
+            font-weight: normal;
+        }
+
+        .font-size-large {
+            font-size: 1.2em;
+        }
+
+        .font-size-small {
+            font-size: 0.95em;
+        }
+
+        .font-italic {
+            font-style: italic;
+        }
+
+        .margin-top-small {
+            margin-top: 4px;
+        }
+
+        .margin-top-medium {
+            margin-top: 6px;
+        }
+
+        .margin-bottom-small {
+            margin-bottom: 8px;
+        }
+
+        /* File header specific styles */
+        .file-header {
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .file-header-left {
+            font-weight: 700;
+            font-size: 1.2em;
+        }
+
+
+        .file-header-right {
+            font-weight: normal;
+        }
+
+        /* Group sub header styles */
+        .group-sub-header {
+            font-size: 1em;
+            color: #333;
+            font-weight: 500;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            padding: 6px 12px;
+            background-color: #3e3e42;
+            border-radius: 3px;
+        }
+
+        .group-sub-header-label {
+            font-weight: 700;
+            font-size: 1.2em;
+            color: #e0e0e0;
+            margin-top: 4px;
+        }
+
+        .group-sub-header-label.unlabeled {
+            font-style: italic;
+            color: #999;
+        }
+
+        .group-sub-header-count {
+            color: #b0b0b0;
+            font-size: 0.95em;
+            font-weight: 500;
+        }
+
+        .group-sub-section {
+            margin-top: 6px;
+        }
+
+        /* Demo message styles */
+        .demo-add-files {
+            margin-top: 10px;
+            font-size: 14px;
+            color: #888;
+        }
+
+        .demo-try-demo {
+            font-size: 14px;
+            color: #888;
+            margin: 20px 0 10px 0;
+        }
+
+        .demo-buttons {
+            text-align: center;
+            margin-top: 10px;
+            gap: 20px;
+            display: flex;
+            justify-content: center;
+        }
+
+        /* Modal utility classes */
+        .modal-visible {
+            display: block !important;
+        }
+
+        .modal-hidden {
+            display: none !important;
+        }
     </style>
 </head>
 <body>
@@ -1436,23 +1704,16 @@
                     <h3>Filter <button class="filter-help-btn" id="filterHelpBtn" title="Show filter syntax help">?</button></h3>
                     <button class="clear-all-btn" id="clearFilterBtn" title="Clear filter">×</button>
                 </div>
-                <input type="text" class="filter-input" id="filterInput" placeholder="Enter filter (e.g., state:run, dur:>5, function_name)">
+                <input type="text" class="filter-input" id="filterInput" placeholder="e.g. flush">
             </div>
 
             <div class="filter-section">
                 <h3>Statistics</h3>
                 <div class="stats" id="stats">
+                    <div class="stats-item">Total stacks: <span id="totalStacks">0</span></div>
+                    <div class="stats-item">Visible stacks: <span id="visibleStacks">0</span></div>
                     <div class="stats-item">Total goroutines: <span id="totalGoroutines">0</span></div>
                     <div class="stats-item">Visible goroutines: <span id="visibleGoroutines">0</span></div>
-                    <div class="stats-item">Hidden goroutines: <span id="hiddenGoroutines">0</span></div>
-                    <div class="stats-item">Unique stacks: <span id="uniqueStacks">0</span></div>
-                    <div class="stats-item">Visible unique stacks: <span id="visibleUniqueStacks">0</span></div>
-                    <div class="stats-item">Pinned stacks: <span id="pinnedStacks">0</span></div>
-                    <div class="stats-item">Pinned goroutines: <span id="pinnedGoroutines">0</span></div>
-                    <div id="stateBreakdown" class="stats-item" style="margin-top: 10px; font-size: 11px;">
-                        <div style="font-weight: bold; margin-bottom: 5px;">Goroutines by state:</div>
-                        <div id="stateList"></div>
-                    </div>
                 </div>
             </div>
 
@@ -1491,15 +1752,6 @@
         </div>
     </div>
 
-    <script type="module">
-        import { StackTraceApp } from './dist/ui/StackTraceApp.js';
-        
-        // Initialize the application
-        const app = new StackTraceApp();
-        
-        // For debugging
-        window.app = app;
-    </script>
 
     <!-- Filter Help Modal -->
     <div id="filterHelpModal" class="modal">
@@ -1595,15 +1847,10 @@
                     <input type="text" id="zipFilePattern" class="setting-text-input" placeholder="**/stacks.txt">
                     <div class="setting-description">Pattern to match stack trace files in zip archives</div>
                 </div>
-
-                <div class="settings-warning">
-                    <strong>⚠️ Note:</strong> altering settings will reload the app; files will need to be reimported.
-                </div>
-
-                <div class="settings-actions">
-                    <button id="resetSettingsBtn" class="settings-reset-btn">Reset to Defaults</button>
-                    <button id="saveSettingsBtn" class="settings-save-btn">Save Settings</button>
-                </div>
+            </div>
+            <div class="settings-actions">
+                <button id="resetSettingsBtn" class="settings-reset-btn">Reset to Defaults</button>
+                <button id="saveSettingsBtn" class="settings-save-btn">Save Settings</button>
             </div>
         </div>
         
@@ -1636,7 +1883,7 @@
     </div>
 
     <script type="module">
-        import { StackTraceApp } from './dist/ui/StackTraceApp.js';
+        import { StackTraceApp } from './ui/StackTraceApp.js';
         
         // Initialize the application
         const app = new StackTraceApp();
