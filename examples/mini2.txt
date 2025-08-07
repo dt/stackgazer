@@ -1,0 +1,11 @@
+goroutine 2001 [runnable]:
+cherry()
+	cherry.go:33 +0x30
+
+goroutine 2002 [runnable]:
+banana()
+	banana.go:22 +0x20
+
+goroutine 2003 [runnable]:
+date()
+	date.go:44 +0x40

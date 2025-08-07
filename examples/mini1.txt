@@ -1,0 +1,11 @@
+goroutine 1001 [select]:
+apple()
+	apple.go:11 +0x10
+
+goroutine 1002 [select]:
+banana()
+	banana.go:22 +0x20
+
+goroutine 1003 [select]:
+date()
+	date.go:44 +0x40

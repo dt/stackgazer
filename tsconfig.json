@@ -4,8 +4,8 @@
     "module": "ES2020",
     "moduleResolution": "node",
     "lib": ["ES2020", "DOM", "WebWorker"],
+    "types": ["node"],
     "outDir": "./dist",
-    "rootDir": "./src",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
@@ -20,6 +20,7 @@
   "exclude": [
     "node_modules",
     "dist",
+    "test",
     "tests"
   ]
 }
