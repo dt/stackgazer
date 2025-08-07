@@ -7,13 +7,12 @@ const path = require('path');
 const distPath = path.join(__dirname, '..', 'dist');
 
 const files = [
-    'core/types.js',
-    'core/SettingsManager.js',
-    'core/FileCollection.js',
-    'core/BackgroundFileCollection.js',
-    'core/StackCollection.js',
-    'core/ViewState.js',
-    'core/ZipHandler.js',
+    'parser/types.js',
+    'parser/parser.js',
+    'app/types.js', 
+    'app/AppState.js',
+    'app/SettingsManager.js',
+    'app/ProfileCollection.js',
     'ui/StackTraceApp.js'
 ];
 
@@ -37,10 +36,13 @@ files.forEach(file => {
             content = content.replace(/import JSZip from \'https:\/\/cdn\.skypack\.dev\/jszip[^']*\';/g, '// JSZip will be loaded from CDN');
         }
         
-        // Remove other import statements
+        // Remove all import statements
         content = content.replace(/^import\s+.*?;$/gm, '');
         
-        // Remove export statements (make classes global)
+        // Remove all export statements (make classes global)
+        content = content.replace(/^export\s+.*?;$/gm, '');
+        content = content.replace(/^export\s+\{[^}]*\}[^;]*;$/gm, '');
+        content = content.replace(/^export\s+\*[^;]*;$/gm, '');
         content = content.replace(/^export\s+/gm, '');
         
         // Remove source map comments
