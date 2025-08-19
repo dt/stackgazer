@@ -21,9 +21,11 @@ export interface Goroutine {
   creator: string;
   creatorExists: boolean;
   created: string[];
+  state: string;
   waitMinutes: number;
   matches: boolean;
   pinned: boolean;
+  stack: UniqueStack;
 }
 
 export interface Group {

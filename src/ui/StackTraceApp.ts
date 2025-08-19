@@ -15,6 +15,7 @@ export class StackTraceApp {
   private filterInputValue: string = '';
   private stackDisplayMode: 'combined' | 'side-by-side' | 'functions' | 'locations' = 'combined';
   private filterDebounceTimer: number | null = null;
+  private tooltip!: HTMLElement;
 
   constructor() {
     // Initialize settings manager and app state
@@ -42,6 +43,7 @@ export class StackTraceApp {
     this.initializeUI();
     this.loadUIState();
     this.updateUnpinButtonVisibility(); // Initialize button visibility
+    this.createTooltip();
   }
 
   private initializeUI(): void {
@@ -934,6 +936,7 @@ export class StackTraceApp {
           e.stopPropagation();
           this.navigateToGoroutine(goroutine.creator!, goroutine.id);
         });
+        this.addTooltipToLink(creatorLink, goroutine.creator);
         createdBySection.appendChild(creatorLink);
       } else {
         const missingCreator = document.createElement('span');
@@ -978,6 +981,7 @@ export class StackTraceApp {
           e.stopPropagation();
           this.navigateToGoroutine(created, goroutine.id);
         });
+        this.addTooltipToLink(createdLink, created);
         secondLine.appendChild(createdLink);
       });
 
@@ -1417,6 +1421,7 @@ export class StackTraceApp {
         e.stopPropagation();
         this.navigateToGoroutine(created, creatorId);
       });
+      this.addTooltipToLink(createdLink, created);
       secondLine.appendChild(createdLink);
     });
   }
@@ -1752,5 +1757,83 @@ export class StackTraceApp {
   private resetSettings(): void {
     this.settingsManager.resetToDefaults();
     this.loadSettingsIntoModal();
+  }
+
+  private createTooltip(): void {
+    this.tooltip = document.createElement('div');
+    this.tooltip.className = 'goroutine-tooltip';
+    this.tooltip.style.display = 'none';
+    document.body.appendChild(this.tooltip);
+  }
+
+  private showTooltip(goroutineId: string, event: MouseEvent): void {
+    const goroutine = this.profileCollection.getGoroutineByID(goroutineId);
+    if (!goroutine) return;
+
+    const stackTitle = goroutine.stack.name;
+    const waitText = goroutine.waitMinutes > 0 ? `, ${goroutine.waitMinutes} mins` : '';
+    
+    this.tooltip.textContent = `[${goroutine.state}${waitText}] ${stackTitle}`;
+    
+    // Position off-screen first to measure it
+    this.tooltip.style.left = '-9999px';
+    this.tooltip.style.top = '-9999px';
+    this.tooltip.style.transform = 'none';
+    this.tooltip.style.display = 'block';
+
+    // Get accurate measurements
+    const tooltipRect = this.tooltip.getBoundingClientRect();
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    
+    // Calculate position relative to cursor
+    let offsetX = -20;
+    let offsetY = 10;
+    
+    // Check if tooltip would go off right edge
+    if (event.clientX - 20 + tooltipRect.width > viewportWidth) {
+      // Flip to left side of cursor, ending just to the right of cursor
+      offsetX = -tooltipRect.width + 15;
+      
+      // If still goes off left edge, clamp to left margin
+      if (event.clientX + offsetX < 0) {
+        offsetX = -event.clientX + 10;
+      }
+    }
+    
+    // Check if tooltip would go off bottom edge
+    if (event.clientY + 10 + tooltipRect.height > viewportHeight) {
+      // Flip above cursor
+      offsetY = -tooltipRect.height - 10;
+      
+      // If still goes off top, clamp to top margin
+      if (event.clientY + offsetY < 0) {
+        offsetY = -event.clientY + 10;
+      }
+    }
+
+    // Position the tooltip
+    this.tooltip.style.left = `${event.pageX}px`;
+    this.tooltip.style.top = `${event.pageY}px`;
+    this.tooltip.style.transform = `translate(${offsetX}px, ${offsetY}px)`;
+  }
+
+  private hideTooltip(): void {
+    this.tooltip.style.display = 'none';
+  }
+
+  private addTooltipToLink(link: HTMLElement, goroutineId: string): void {
+    link.addEventListener('mouseenter', (event) => {
+      this.showTooltip(goroutineId, event as MouseEvent);
+    });
+
+    link.addEventListener('mouseleave', () => {
+      this.hideTooltip();
+    });
+
+    link.addEventListener('mousemove', (event) => {
+      this.tooltip.style.left = `${(event as MouseEvent).pageX - 20}px`;
+      this.tooltip.style.top = `${(event as MouseEvent).pageY + 10}px`;
+    });
   }
 }

@@ -241,33 +241,9 @@ export class ProfileCollection {
 
     // Process each stack group
     for (const group of parserFile.groups) {
-      const g: Group = {
-        id: `g${this.nextGroupId++}`,
-        labels: group.labels,
-        pinned: false,
-        counts: {
-          total: group.count,
-          matches: group.count,
-          priorMatches: group.count,
-          filterMatches: group.count,
-        },
-        goroutines: group.goroutines.map(g => ({ ...g, matches: true, pinned: false })),
-      };
-
       const stackId = `s${group.traceId}`;
-
-      for (const goroutine of g.goroutines) {
-        if (nameInIds) {
-          goroutine.id = `${fileName}.${goroutine.id}`;
-          // Also prefix creator ID if it exists and isn't empty
-          if (goroutine.creator !== '') {
-            goroutine.creator = `${fileName}.${goroutine.creator}`;
-          }
-          goroutine.created = goroutine.created.map(created => `${fileName}.${created}`);
-        }
-        this.goroutinesByID.set(goroutine.id, goroutine);
-      }
-
+      
+      // Find or create the stack first
       let stack = this.stacks.find(stack => stack.id === stackId);
       if (!stack) {
         const trace = this.processFrames(group.trace);
@@ -286,6 +262,38 @@ export class ProfileCollection {
           files: [],
         };
         this.stacks.push(stack);
+      }
+
+      // Now create the group with goroutines that reference the stack
+      const g: Group = {
+        id: `g${this.nextGroupId++}`,
+        labels: group.labels,
+        pinned: false,
+        counts: {
+          total: group.count,
+          matches: group.count,
+          priorMatches: group.count,
+          filterMatches: group.count,
+        },
+        goroutines: group.goroutines.map(g => {
+          // Extract state from group labels
+          const stateLabel = group.labels.find(label => label.startsWith('state='));
+          const state = stateLabel ? stateLabel.split('=')[1] : group.labels[0] || 'unknown';
+          return { ...g, matches: true, pinned: false, stack, state };
+        }),
+      };
+
+      // Update goroutine IDs and store them
+      for (const goroutine of g.goroutines) {
+        if (nameInIds) {
+          goroutine.id = `${fileName}.${goroutine.id}`;
+          // Also prefix creator ID if it exists and isn't empty
+          if (goroutine.creator !== '') {
+            goroutine.creator = `${fileName}.${goroutine.creator}`;
+          }
+          goroutine.created = goroutine.created.map(created => `${fileName}.${created}`);
+        }
+        this.goroutinesByID.set(goroutine.id, goroutine);
       }
 
       let fileSection = stack.files.find(file => file.fileId === fileId);
@@ -335,6 +343,30 @@ export class ProfileCollection {
    */
   getStacks(): UniqueStack[] {
     return this.stacks;
+  }
+
+  getGoroutineByID(id: string): Goroutine | undefined {
+    return this.goroutinesByID.get(id);
+  }
+
+  getFiles(): { name: string; stacks: UniqueStack[] }[] {
+    // Group stacks by their original file names
+    const fileMap = new Map<string, UniqueStack[]>();
+    
+    for (const stack of this.stacks) {
+      for (const fileSection of stack.files) {
+        const fileName = fileSection.fileName;
+        if (!fileMap.has(fileName)) {
+          fileMap.set(fileName, []);
+        }
+        fileMap.get(fileName)!.push(stack);
+      }
+    }
+
+    return Array.from(fileMap.entries()).map(([name, stacks]) => ({
+      name,
+      stacks
+    }));
   }
 
   /**
