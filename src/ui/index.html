@@ -828,6 +828,37 @@
             color: #4fc3f7;
             text-decoration: underline;
         }
+        
+        /* Goroutine tooltip styles */
+        .goroutine-tooltip {
+            position: absolute;
+            background: #2d2d30;
+            border: 1px solid #464647;
+            border-radius: 4px;
+            padding: 8px 12px;
+            font-size: 12px;
+            color: #cccccc;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+            z-index: 1000;
+            pointer-events: none;
+            max-width: 800px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .goroutine-tooltip .tooltip-label {
+            font-weight: bold;
+            color: #569cd6;
+        }
+        .goroutine-tooltip .tooltip-value {
+            color: #d7ba7d;
+        }
+        .goroutine-tooltip .tooltip-stack {
+            margin-top: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 11px;
+            color: #9cdcfe;
+        }
         .creator-missing {
             text-decoration: line-through;
         }
