@@ -3,97 +3,65 @@
 const fs = require('fs');
 const path = require('path');
 
-// Read the compiled JavaScript files in dependency order
 const distPath = path.join(__dirname, '..', 'dist');
 
-const files = [
-    'parser/types.js',
-    'parser/parser.js',
-    'app/types.js', 
-    'app/AppState.js',
-    'app/SettingsManager.js',
-    'app/ProfileCollection.js',
-    'ui/StackTraceApp.js'
-];
+console.log('Creating standalone bundle...');
 
-console.log('Bundling JavaScript files...');
-
+// Read the esbuild IIFE bundle
+const bundlePath = path.join(distPath, 'app-bundle.js');
 let bundledJS = '';
-bundledJS += '// Bundled JavaScript - Generated automatically\n\n';
 
-// Read each file and remove import/export statements
-files.forEach(file => {
-    const filePath = path.join(distPath, file);
-    if (fs.existsSync(filePath)) {
-        console.log(`Reading ${file}...`);
-        let content = fs.readFileSync(filePath, 'utf8');
-        
-        // Handle JSZip import specially - both old and new CDN imports
-        if (content.includes('import JSZip from \'jszip\';')) {
-            content = content.replace(/import JSZip from \'jszip\';/g, '// JSZip will be loaded from CDN');
-        }
-        if (content.includes('import JSZip from \'https://cdn.skypack.dev/jszip')) {
-            content = content.replace(/import JSZip from \'https:\/\/cdn\.skypack\.dev\/jszip[^']*\';/g, '// JSZip will be loaded from CDN');
-        }
-        
-        // Remove all import statements
-        content = content.replace(/^import\s+.*?;$/gm, '');
-        
-        // Remove all export statements (make classes global)
-        content = content.replace(/^export\s+.*?;$/gm, '');
-        content = content.replace(/^export\s+\{[^}]*\}[^;]*;$/gm, '');
-        content = content.replace(/^export\s+\*[^;]*;$/gm, '');
-        content = content.replace(/^export\s+/gm, '');
-        
-        // Remove source map comments
-        content = content.replace(/\/\/# sourceMappingURL=.*$/gm, '');
-        
-        // Clean up extra whitespace
-        content = content.trim();
-        
-        if (content) {
-            bundledJS += `// === ${file} ===\n`;
-            bundledJS += content + '\n\n';
-        }
-    } else {
-        console.warn(`Warning: ${file} not found`);
-    }
-});
-
-// Add initialization code
-bundledJS += `
-// Initialize the application when DOM is ready
-document.addEventListener('DOMContentLoaded', () => {
-    const app = new StackTraceApp();
-    window.app = app;
-    console.log('Go Stack Trace Viewer loaded');
-});
+if (fs.existsSync(bundlePath)) {
+    console.log('Reading app-bundle.js...');
+    bundledJS = fs.readFileSync(bundlePath, 'utf8');
+    
+    // Add initialization code after the IIFE
+    bundledJS += `
+// Initialize the application
+const app = new StackTraceApp();
+window.app = app;
+console.log('Go Stack Trace Viewer loaded');
 `;
-
-// Read the HTML template
-const htmlTemplate = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-
-// Replace the module script with JSZip CDN + bundled script
-// Use exact string matching to avoid corrupting JavaScript regex patterns
-const moduleScriptStart = '<script type="module">';
-const moduleScriptEnd = '</script>';
-const moduleScriptStartIndex = htmlTemplate.indexOf(moduleScriptStart);
-const moduleScriptEndIndex = htmlTemplate.indexOf(moduleScriptEnd, moduleScriptStartIndex) + moduleScriptEnd.length;
-
-if (moduleScriptStartIndex === -1 || moduleScriptEndIndex === -1) {
-    throw new Error('Could not find module script to replace in HTML template');
+} else {
+    console.error('Bundle file not found:', bundlePath);
+    process.exit(1);
 }
 
-const bundledHTML = htmlTemplate.substring(0, moduleScriptStartIndex) +
-    `<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+// Read the HTML template
+const htmlTemplate = fs.readFileSync(path.join(__dirname, '..', 'dist', 'index.html'), 'utf8');
+
+// Replace the module script with JSZip CDN + bundled script
+const moduleScriptStart = '<script type="module">';
+const moduleScriptEnd = '</script>';
+
+const startIndex = htmlTemplate.indexOf(moduleScriptStart);
+const endIndex = htmlTemplate.indexOf(moduleScriptEnd, startIndex) + moduleScriptEnd.length;
+
+if (startIndex === -1 || endIndex === -1) {
+    console.error('Could not find module script in HTML template');
+    process.exit(1);
+}
+
+// Remove the import map and module script, replace with inline script
+const importMapScriptStart = '<script type="importmap">';
+const importMapIndex = htmlTemplate.indexOf(importMapScriptStart);
+if (importMapIndex === -1) {
+    console.error('Could not find import map script in HTML template');
+    process.exit(1);
+}
+const beforeScript = htmlTemplate.substring(0, importMapIndex);
+const afterScript = htmlTemplate.substring(endIndex);
+
+const standalonePlaceholder = `    <!-- Bundled application code (includes JSZip) -->
     <script>
 ${bundledJS}
-    </script>` +
-    htmlTemplate.substring(moduleScriptEndIndex);
+    </script>`;
+
+const standaloneHTML = beforeScript + standalonePlaceholder + afterScript;
 
 // Write the standalone HTML file
-const outputPath = path.join(__dirname, '..', 'dist', 'index-standalone.html');
-fs.writeFileSync(outputPath, bundledHTML);
+const outputPath = path.join(distPath, 'index-standalone.html');
+fs.writeFileSync(outputPath, standaloneHTML);
 
 console.log(`✅ Bundle created: ${outputPath}`);
 console.log('You can now open this file directly in your browser with file:// protocol');
