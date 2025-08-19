@@ -572,6 +572,69 @@ export class ProfileCollection {
   }
 
   /**
+   * Toggle pinned state for a goroutine
+   */
+  toggleGoroutinePin(goroutineId: string): boolean {
+    for (const stack of this.stacks) {
+      for (const fileSection of stack.files) {
+        for (const group of fileSection.groups) {
+          const goroutine = group.goroutines.find(g => g.id === goroutineId);
+          if (goroutine) {
+            goroutine.pinned = !goroutine.pinned;
+            return goroutine.pinned;
+          }
+        }
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Toggle pinned state for a stack and all its children (groups and goroutines)
+   */
+  toggleStackPinWithChildren(stackId: string): boolean {
+    const stack = this.stacks.find(s => s.id === stackId);
+    if (stack) {
+      const newPinnedState = !stack.pinned;
+      stack.pinned = newPinnedState;
+      
+      // Apply same state to all children
+      for (const fileSection of stack.files) {
+        for (const group of fileSection.groups) {
+          group.pinned = newPinnedState;
+          for (const goroutine of group.goroutines) {
+            goroutine.pinned = newPinnedState;
+          }
+        }
+      }
+      return newPinnedState;
+    }
+    return false;
+  }
+
+  /**
+   * Toggle pinned state for a group and all its children (goroutines)
+   */
+  toggleGroupPinWithChildren(groupId: string): boolean {
+    for (const stack of this.stacks) {
+      for (const fileSection of stack.files) {
+        const group = fileSection.groups.find(g => g.id === groupId);
+        if (group) {
+          const newPinnedState = !group.pinned;
+          group.pinned = newPinnedState;
+          
+          // Apply same state to all children
+          for (const goroutine of group.goroutines) {
+            goroutine.pinned = newPinnedState;
+          }
+          return newPinnedState;
+        }
+      }
+    }
+    return false;
+  }
+
+  /**
    * Unpin all stacks, groups, and goroutines
    */
   unpinAllItems(): void {

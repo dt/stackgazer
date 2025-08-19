@@ -366,81 +366,154 @@
             background: rgba(255, 255, 255, 0.3);
         }
 
-        /* Pin button styles */
-        .pin-btn {
+        /* Generic pin button system - reusable across contexts */
+        .pin-button {
             position: absolute;
-            top: -16px;
-            right: -16px;
-            background: rgba(46, 46, 46, 0.9);
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            color: rgba(255, 255, 255, 0.4);
-            padding: 8px;
+            background: rgba(46, 46, 46, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            color: rgba(255, 255, 255, 0.5);
             border-radius: 50%;
             cursor: pointer;
             font-family: inherit;
-            font-size: 16px;
             transition: all 0.2s ease;
-            opacity: 0.6;
-            width: 32px;
-            height: 32px;
+            opacity: 0;
             display: flex;
             align-items: center;
             justify-content: center;
+            font-weight: normal;
+        }
+
+        /* Pin button sizes */
+        .pin-button.size-large {
+            width: 20px;
+            height: 20px;
+            font-size: 12px;
+            top: -10px;
+            right: -10px;
             z-index: 10;
         }
 
-        .pin-btn:hover {
-            background: rgba(46, 46, 46, 1);
-            border-color: rgba(255, 255, 255, 0.5);
-            color: rgba(255, 255, 255, 0.7);
-            opacity: 0.8;
+        .pin-button.size-small {
+            width: 18px;
+            height: 18px;
+            font-size: 10px;
+            top: 3px;
+            right: -10px;
+            z-index: 5;
         }
 
-        .pin-btn.pinned {
+        /* Hover reveal for unpinned pins - only for direct hover */
+        .section:hover > .pin-button.size-large:not(.pinned),
+        .goroutine-entry:hover > .pin-button.size-small:not(.pinned) {
+            opacity: 0.6;
+        }
+
+        /* Expanded click targets */
+        .pin-button.size-large::before {
+            content: '';
+            position: absolute;
+            top: -20px;
+            left: -20px;
+            right: -20px;
+            bottom: -20px;
+            border-radius: 50%;
+        }
+
+        .pin-button.size-small::before {
+            content: '';
+            position: absolute;
+            top: -16px;
+            left: -16px;
+            right: -16px;
+            bottom: -16px;
+            border-radius: 50%;
+        }
+
+        /* Hover states */
+        .pin-button.size-large:hover {
             background: rgba(46, 46, 46, 1);
+            border-color: rgba(255, 255, 255, 0.8);
+            color: rgba(255, 255, 255, 1);
+            opacity: 1;
+            width: 40px;
+            height: 40px;
+            font-size: 20px;
+            top: -20px;
+            right: -20px;
+        }
+
+        .pin-button.size-small:hover {
+            background: rgba(46, 46, 46, 1);
+            border-color: rgba(255, 255, 255, 0.8);
+            color: rgba(255, 255, 255, 1);
+            opacity: 1;
+            width: 32px;
+            height: 32px;
+            font-size: 16px;
+            top: -4px;
+            right: -20px;
+        }
+
+        /* Pinned states */
+        .pin-button.pinned {
+            background: rgba(46, 46, 46, 1);
+            opacity: 1 !important;
+        }
+
+        .pin-button.size-large.pinned {
             border: 2px solid rgba(255, 255, 255, 0.8);
             color: rgba(255, 255, 255, 0.9);
-            opacity: 1;
+            width: 32px;
+            height: 32px;
+            font-size: 16px;
+            top: -16px;
+            right: -16px;
         }
 
-        .pin-btn.pinned:hover {
+        .pin-button.size-small.pinned {
+            border: 2px solid rgba(255, 255, 255, 0.8);
+            color: rgba(255, 255, 255, 0.9);
+            width: 20px;
+            height: 20px;
+            font-size: 11px;
+            top: 2px;
+            right: -12px;
+        }
+
+        /* Pinned hover states */
+        .pin-button.size-large.pinned:hover {
             color: rgba(255, 255, 255, 1);
             border: 2px solid rgba(255, 255, 255, 1);
+            width: 40px;
+            height: 40px;
+            font-size: 20px;
+            top: -20px;
+            right: -20px;
         }
 
-        /* Add spacing for count text when near pin buttons */
+        .pin-button.size-small.pinned:hover {
+            color: rgba(255, 255, 255, 1);
+            border: 2px solid rgba(255, 255, 255, 1);
+            width: 32px;
+            height: 32px;
+            font-size: 16px;
+            top: -4px;
+            right: -18px;
+        }
+
+        /* Consistent spacing to prevent text shifting */
         .header .counts,
         .section-header .counts {
-            margin-right: 24px;
+            margin-right: 32px;
         }
 
-        /* Goroutine pin button styles */
+        /* Legacy class names for backward compatibility */
+        .pin-btn {
+            /* All pin-button styles apply */
+        }
+
         .goroutine-pin-btn {
-            background: transparent;
-            border: none;
-            color: rgba(255, 255, 255, 0.3);
-            padding: 2px 4px;
-            border-radius: 2px;
-            cursor: pointer;
-            font-family: inherit;
-            font-size: 10px;
-            transition: all 0.2s ease;
-            opacity: 0.5;
-        }
-
-        .goroutine-pin-btn:hover {
-            background: rgba(255, 255, 255, 0.2);
-            color: rgba(255, 255, 255, 0.7);
-            opacity: 1;
-        }
-
-        .goroutine-pin-btn.pinned {
-            color: #ffd700;
-            opacity: 1;
-        }
-
-        .goroutine-pin-btn.pinned:hover {
-            color: #ffed4e;
+            /* All pin-button styles apply */
         }
 
         .group-content,
@@ -485,7 +558,7 @@
             background: #3c3c3c;
             margin: 10px;
             border-radius: 4px;
-            overflow: hidden;
+            overflow: visible;
         }
 
         .state-group-header {
@@ -545,9 +618,10 @@
         .goroutine-entry {
             background: transparent;
             border-bottom: 1px dashed #3e3e42;
-            overflow: hidden;
+            overflow: visible;
             cursor: text;
             user-select: text;
+            position: relative;
         }
 
         .goroutine-entry:last-child {

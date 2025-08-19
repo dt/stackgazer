@@ -483,6 +483,12 @@ export class StackTraceApp {
     if (!header) return;
 
     header.addEventListener('click', e => {
+      // Check if there's a text selection - if so, allow it instead of toggling
+      const selection = window.getSelection();
+      if (selection && selection.toString().length > 0) {
+        return; // Don't interfere with text selection
+      }
+
       e.stopPropagation();
       e.preventDefault();
 
@@ -634,7 +640,7 @@ export class StackTraceApp {
     
     // Create pin button (absolutely positioned on the stack element)
     const pinButton = document.createElement('button');
-    pinButton.className = 'pin-btn';
+    pinButton.className = 'pin-button size-large';
     pinButton.innerHTML = '📌';
     pinButton.title = 'Pin/unpin this stack';
     pinButton.addEventListener('click', (e) => {
@@ -642,6 +648,16 @@ export class StackTraceApp {
       const pinned = this.profileCollection.toggleStackPin(stack.id);
       stackElement.classList.toggle('pinned', pinned);
       pinButton.classList.toggle('pinned', pinned);
+      this.setFilter({ filterString: this.filterInputValue });
+      this.updateVisibility();
+      this.updateStats();
+    });
+    
+    pinButton.addEventListener('dblclick', (e) => {
+      e.stopPropagation();
+      const pinned = this.profileCollection.toggleStackPinWithChildren(stack.id);
+      // Update UI for all affected elements
+      this.refreshPinStates();
       this.setFilter({ filterString: this.filterInputValue });
       this.updateVisibility();
       this.updateStats();
@@ -756,7 +772,7 @@ export class StackTraceApp {
     
     // Create pin button for group (absolutely positioned on the group element)
     const pinButton = document.createElement('button');
-    pinButton.className = 'pin-btn';
+    pinButton.className = 'pin-button size-large';
     pinButton.innerHTML = '📌';
     pinButton.title = 'Pin/unpin this group';
     pinButton.addEventListener('click', (e) => {
@@ -764,6 +780,16 @@ export class StackTraceApp {
       const pinned = this.profileCollection.toggleGroupPin(group.id);
       groupSection.classList.toggle('pinned', pinned);
       pinButton.classList.toggle('pinned', pinned);
+      this.setFilter({ filterString: this.filterInputValue });
+      this.updateVisibility();
+      this.updateStats();
+    });
+    
+    pinButton.addEventListener('dblclick', (e) => {
+      e.stopPropagation();
+      this.profileCollection.toggleGroupPinWithChildren(group.id);
+      // Update UI for all affected elements
+      this.refreshPinStates();
       this.setFilter({ filterString: this.filterInputValue });
       this.updateVisibility();
       this.updateStats();
@@ -874,6 +900,23 @@ export class StackTraceApp {
     headerText.textContent = `${goroutine.id}${waitText}:`;
 
     leftContainer.appendChild(headerText);
+
+    // Create pin button for goroutine
+    const pinButton = document.createElement('button');
+    pinButton.className = 'pin-button size-small';
+    pinButton.innerHTML = '📌';
+    pinButton.title = 'Pin/unpin this goroutine';
+    pinButton.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const pinned = this.profileCollection.toggleGoroutinePin(goroutine.id);
+      goroutineElement.classList.toggle('pinned', pinned);
+      pinButton.classList.toggle('pinned', pinned);
+      this.setFilter({ filterString: this.filterInputValue });
+      this.updateVisibility();
+      this.updateStats();
+    });
+
+    goroutineElement.appendChild(pinButton);
 
     // Add created by link on the right side (like old UI)
     const createdBySection = document.createElement('span');
@@ -1008,6 +1051,44 @@ export class StackTraceApp {
     // Also update file stats and unpin button visibility
     this.updateFileStats();
     this.updateUnpinButtonVisibility();
+  }
+
+  /**
+   * Refresh pin states for all DOM elements to match the data model
+   */
+  private refreshPinStates(): void {
+    // Update all stack pin states
+    const stacks = this.profileCollection.getStacks();
+    for (const stack of stacks) {
+      const stackElement = document.getElementById(stack.id);
+      const stackPinButton = stackElement?.querySelector('.pin-button');
+      if (stackElement && stackPinButton) {
+        stackElement.classList.toggle('pinned', stack.pinned);
+        stackPinButton.classList.toggle('pinned', stack.pinned);
+      }
+
+      // Update all group pin states
+      for (const fileSection of stack.files) {
+        for (const group of fileSection.groups) {
+          const groupElement = document.getElementById(group.id);
+          const groupPinButton = groupElement?.querySelector('.pin-button');
+          if (groupElement && groupPinButton) {
+            groupElement.classList.toggle('pinned', group.pinned);
+            groupPinButton.classList.toggle('pinned', group.pinned);
+          }
+
+          // Update all goroutine pin states
+          for (const goroutine of group.goroutines) {
+            const goroutineElement = document.getElementById(`goroutine-${goroutine.id}`);
+            const goroutinePinButton = goroutineElement?.querySelector('.pin-button');
+            if (goroutineElement && goroutinePinButton) {
+              goroutineElement.classList.toggle('pinned', goroutine.pinned);
+              goroutinePinButton.classList.toggle('pinned', goroutine.pinned);
+            }
+          }
+        }
+      }
+    }
   }
 
   private updateFileStats(): void {
