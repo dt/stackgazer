@@ -1882,8 +1882,15 @@
         </div>
     </div>
 
+    <script type="importmap">
+    {
+        "imports": {
+            "jszip": "./jszip.js"
+        }
+    }
+    </script>
     <script type="module">
-        import { StackTraceApp } from './ui/StackTraceApp.js';
+        import { StackTraceApp } from './index.js';
         
         // Initialize the application
         const app = new StackTraceApp();
