@@ -459,7 +459,7 @@ export class ProfileCollection {
   }
 
   setFilter(filterObj: Filter) {
-    this.currentFilter = filterObj.filterString.trim();
+    this.currentFilter = filterObj.filterString.trim().toLowerCase();
 
     const filter = this.currentFilter === '' ? null : this.currentFilter;
 
