@@ -6,7 +6,59 @@
     <title>StackGazer</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔍</text></svg>">
     <link rel="stylesheet" href="styles.css">
+    <script type="text/javascript">
+        // This script sets up default configuration for StackGazer.
+        // Optional: Customize default settings for your deployment
+        // You can override any of these settings based on your organization's needs
+        window.stackGazerDefaults = {
+            // Parsing options - customize for your codebase
+            functionTrimPrefixes: 'github.com/cockroachdb/cockroach/pkg/',
+            fileTrimPrefixes: 'github.com/cockroachdb/cockroach/',            
+            // Title manipulation rules - customize stack trace display
+            titleManipulationRules: [
+                'skip:sync.runtime_notifyListWait',
+                'skip:sync.runtime_Semacquire',
+                'skip:golang.org/x/sync/errgroup.(*Group).Wait',
+                'fold:sync.(*Cond).Wait->condwait',
+                'fold:sync.(*WaitGroup).Wait->waitgroup',
+                'fold:util/ctxgroup.Group.Wait->waitgroup',
+                'fold:util/ctxgroup.GroupWorkers->waitgroup',
+                'fold:util/ctxgroup.GoAndWait->waitgroup',
+                'foldstdlib:net/http->net/http',
+                'foldstdlib:syscall.Syscall->syscall',
+                'foldstdlib:internal/poll.runtime_pollWait->netpoll',
+                'skip:util/cidr.metricsConn.Read',
+                'trim:util/',
+            ].join('\n'),
+            
+            
 
+            categoryIgnoredPrefixes: [
+                'sync.', 'internal/', 'golang.org/x/sync/errgroup', // Stdlib libs that start goroutines.
+                'util/stop', 'util/ctxgroup',                       // CRDB libs that start goroutines.
+                'kv/kvclient/rangefeed.(*RangeFeed).run.func3',     // invoker used to ensure stack is callers'.
+            ].join('\n'),
+
+            // Zip file handling - customize for your file patterns
+            zipFilePattern: '^(.*\/)?stacks\.txt$',
+            // Name extraction patterns - guess file names from the stack frames or labels.
+            nameExtractionPatterns: [
+                {
+                    regex: 'pgwire\\.\\(\\*Server\\)\\.serveImpl.*?\\{0x1,\\s*0x2,\\s*\\{0x([0-9a-fA-F]+),', // new crdb versions
+                    replacement: 'n$1',
+                },
+                {
+                    regex: 'pgwire\\.\\(\\*Server\\)\\.serveImpl.*?\\{0x0,\\s*0x4,\\s*\\{0x([0-9a-fA-F]+),', // old crdb versions
+                    replacement: 'n$1',
+                },
+                {
+                    regex: '# labels:.*?"n":"([0-9]+)"',
+                    replacement: 'n$1',
+                },
+            ]
+        };
+    </script>
+    <!-- JSZip will be injected by vite plugin for lite builds -->
 </head>
 <body>
     <div class="container">
@@ -139,73 +191,9 @@
 
     <script type="module">
         import { StackTraceApp } from './index.js';
-        
-        // Optional: Customize default settings for your deployment
-        // You can override any of these settings based on your organization's needs
-        const customDefaults = {
-            // Parsing options - customize for your codebase
-            functionTrimPrefixes: 'github.com/cockroachdb/cockroach/pkg/',
-            fileTrimPrefixes: 'github.com/cockroachdb/cockroach/',
-            
-            // Title manipulation rules - customize stack trace display
-            titleManipulationRules: [
-                'skip:sync.runtime_notifyListWait',
-                'skip:sync.runtime_Semacquire',
-                'skip:golang.org/x/sync/errgroup.(*Group).Wait',
-                'fold:sync.(*Cond).Wait->condwait',
-                'fold:sync.(*WaitGroup).Wait->waitgroup',
-                'fold:util/ctxgroup.Group.Wait->waitgroup',
-                'fold:util/ctxgroup.GroupWorkers->waitgroup',
-                'fold:util/ctxgroup.GoAndWait->waitgroup',
-                'foldstdlib:net/http->net/http',
-                'foldstdlib:syscall.Syscall->syscall',
-                'foldstdlib:internal/poll.runtime_pollWait->netpoll',
-                'skip:util/cidr.metricsConn.Read',
-                'trim:util/',
-            ].join('\n'),
-            
-            // Name extraction patterns - customize for your application
-            nameExtractionPatterns: [
-                {
-                    regex: 'pgwire\\.\\(\\*Server\\)\\.serveImpl.*?\\{0x1,\\s*0x2,\\s*\\{0x([0-9a-fA-F]+),',
-                    replacement: 'n$1',
-                    description: 'CockroachDB node ID - new format',
-                },
-                {
-                    regex: 'pgwire\\.\\(\\*Server\\)\\.serveImpl.*?\\{0x0,\\s*0x4,\\s*\\{0x([0-9a-fA-F]+),',
-                    replacement: 'n$1',
-                    description: 'CockroachDB node ID - old format',
-                },
-                {
-                    regex: '# labels:.*?"n":"([0-9]+)"',
-                    replacement: 'n$1',
-                    description: 'CockroachDB node ID from labels',
-                },
-            ],
-
-            categoryIgnoredPrefixes: [
-                'runtime.',
-                'sync.',
-                'reflect.',
-                'syscall.',
-                'internal/',
-                'util/stop',
-                'golang.org/x/sync/errgroup',
-                'util/ctxgroup',
-                'kv/kvclient/rangefeed.(*RangeFeed).run.func3', // invoker used to ensure stack is callers'.
-            ].join('\n'),
-
-            // Zip file handling - customize for your file patterns
-            zipFilePattern: '^(.*\/)?stacks\.txt$'
-        };
-        
-        // Initialize the application with custom defaults
-        // Pass undefined or {} to use built-in defaults
-        const app = new StackTraceApp(customDefaults);
-        
-        // For debugging
+        // Initialize the application with custom defaults.
+        const app = new StackTraceApp(window.stackGazerDefaults);
         window.app = app;
-        
         console.log('Go Stack Trace Viewer loaded');
     </script>
 </body>
