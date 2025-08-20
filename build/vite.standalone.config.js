@@ -2,6 +2,7 @@ import { defineConfig } from 'vite'
 import { viteSingleFile } from 'vite-plugin-singlefile'
 import { rename } from 'fs/promises'
 import { join } from 'path'
+import cssnano from 'cssnano'
 
 export default defineConfig({
   root: 'src/ui',
@@ -22,7 +23,8 @@ export default defineConfig({
   build: {
     outDir: '../../dist',
     emptyOutDir: true,
-    sourcemap: true,
+    sourcemap: false,
+    minify: 'esbuild',
     rollupOptions: {
       input: 'src/ui/index.html',
       output: {
@@ -30,6 +32,15 @@ export default defineConfig({
         entryFileNames: 'standalone-bundle.js',
         assetFileNames: 'standalone-bundle.css'
       }
+    }
+  },
+  css: {
+    postcss: {
+      plugins: [
+        cssnano({
+          preset: 'default'
+        })
+      ]
     }
   },
   resolve: {
