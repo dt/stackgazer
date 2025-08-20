@@ -37,24 +37,8 @@ export class FileParser {
   private nameExtractionPatterns: NameExtractionPattern[];
 
   constructor(settings?: ParserSettings) {
-    // Default patterns if none provided
-    this.nameExtractionPatterns = settings?.nameExtractionPatterns || [
-      {
-        regex: 'pgwire\\.\\(\\*Server\\)\\.serveImpl.*?\\{0x1,\\s*0x2,\\s*\\{0x([0-9a-fA-F]+),',
-        replacement: 'n$1',
-        description: 'CockroachDB node ID - new format',
-      },
-      {
-        regex: 'pgwire\\.\\(\\*Server\\)\\.serveImpl.*?\\{0x0,\\s*0x4,\\s*\\{0x([0-9a-fA-F]+),',
-        replacement: 'n$1',
-        description: 'CockroachDB node ID - old format',
-      },
-      {
-        regex: '# labels:.*?"n":"([0-9]+)"',
-        replacement: 'n$1',
-        description: 'CockroachDB node ID from labels',
-      },
-    ];
+    // Use provided patterns or empty array as fallback
+    this.nameExtractionPatterns = settings?.nameExtractionPatterns || [];
   }
 
   /**

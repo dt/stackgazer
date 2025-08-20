@@ -52,3 +52,8 @@ npm test                   # Run unit tests
 - Be direct and honest - skip acknowledgments or pointless praise.
 - Focus on accuracy and efficiency
 - Suggest better alternatives when applicable
+
+## Files to Ignore
+- **dist/** - Build artifacts
+- **node_modules/** - Dependencies
+- **examples/** - Example files

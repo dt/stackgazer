@@ -16,10 +16,11 @@ export class StackTraceApp {
   private stackDisplayMode: 'combined' | 'side-by-side' | 'functions' | 'locations' = 'combined';
   private filterDebounceTimer: number | null = null;
   private tooltip!: HTMLElement;
+  private currentTheme: 'dark' | 'light' = 'dark';
 
-  constructor() {
+  constructor(customDefaults?: Partial<AppSettings>) {
     // Initialize settings manager and app state
-    this.settingsManager = new SettingsManager();
+    this.settingsManager = new SettingsManager(customDefaults);
     this.appState = new AppState();
 
     // Convert settings to ProfileCollectionSettings format
@@ -41,6 +42,7 @@ export class StackTraceApp {
     });
 
     this.initializeUI();
+    this.initializeTheme();
     this.loadUIState();
     this.updateUnpinButtonVisibility(); // Initialize button visibility
     this.createTooltip();
@@ -187,6 +189,14 @@ export class StackTraceApp {
       });
     }
 
+    // Theme toggle button
+    const themeToggleBtn = document.getElementById('themeToggleBtn');
+    if (themeToggleBtn) {
+      themeToggleBtn.addEventListener('click', () => {
+        this.toggleTheme();
+      });
+    }
+
     // Global drag and drop
     window.addEventListener('dragover', e => {
       e.preventDefault();
@@ -266,10 +276,9 @@ export class StackTraceApp {
       const zipContent = await zip.loadAsync(arrayBuffer);
 
       // Find stack trace files in the zip (using default pattern)
-      const pattern = '**/stacks.txt';
+      const pattern = /^(.*\/)?stacks\.txt$/;
       const files = Object.keys(zipContent.files).filter(fileName => {
-        // Simple glob matching for **/stacks.txt
-        return fileName.endsWith('/stacks.txt') || fileName === 'stacks.txt';
+        return pattern.test(fileName);
       });
 
       for (const zipFileName of files) {
@@ -353,6 +362,38 @@ export class StackTraceApp {
     this.updateStats();
 
     this.saveUIState();
+  }
+
+  private initializeTheme(): void {
+    // Load theme from localStorage or default to dark
+    const savedTheme = localStorage.getItem('stackgazer-theme') as 'dark' | 'light' | null;
+    this.currentTheme = savedTheme || 'dark';
+    this.applyTheme(this.currentTheme);
+  }
+
+  private toggleTheme(): void {
+    this.currentTheme = this.currentTheme === 'dark' ? 'light' : 'dark';
+    this.applyTheme(this.currentTheme);
+    localStorage.setItem('stackgazer-theme', this.currentTheme);
+  }
+
+  private applyTheme(theme: 'dark' | 'light'): void {
+    const body = document.body;
+    const themeToggleBtn = document.getElementById('themeToggleBtn');
+    
+    if (theme === 'light') {
+      body.setAttribute('data-theme', 'light');
+      if (themeToggleBtn) {
+        themeToggleBtn.textContent = '☀️';
+        themeToggleBtn.title = 'Switch to dark theme';
+      }
+    } else {
+      body.removeAttribute('data-theme');
+      if (themeToggleBtn) {
+        themeToggleBtn.textContent = '🌙';
+        themeToggleBtn.title = 'Switch to light theme';
+      }
+    }
   }
 
   private expandAllStacks(): void {
@@ -542,9 +583,6 @@ export class StackTraceApp {
       fileItem.className = 'file-item';
       fileItem.dataset.fileName = fileName; // Store fileName for lookups
 
-      const nameDiv = document.createElement('div');
-      nameDiv.className = 'file-name';
-
       // Create separate elements for filename and stats
       const fileNameSpan = document.createElement('span');
       fileNameSpan.className = 'file-name-text';
@@ -561,12 +599,6 @@ export class StackTraceApp {
       statsDiv.className = 'file-stats counts';
       statsDiv.textContent = `${stats.visible} / ${stats.total} goroutines`;
 
-      nameDiv.appendChild(fileNameSpan);
-      nameDiv.appendChild(statsDiv);
-
-      const controlsDiv = document.createElement('div');
-      controlsDiv.className = 'file-controls';
-
       const removeBtn = document.createElement('button');
       removeBtn.className = 'file-remove-btn';
       removeBtn.textContent = '×';
@@ -576,10 +608,9 @@ export class StackTraceApp {
         this.render();
       });
 
-      controlsDiv.appendChild(removeBtn);
-
-      fileItem.appendChild(nameDiv);
-      fileItem.appendChild(controlsDiv);
+      fileItem.appendChild(fileNameSpan);
+      fileItem.appendChild(statsDiv);
+      fileItem.appendChild(removeBtn);
       fileList.appendChild(fileItem);
     });
 
@@ -623,7 +654,7 @@ export class StackTraceApp {
 
     // Stack header
     const header = document.createElement('div');
-    header.className = 'header stack-header';
+    header.className = 'header';
 
     const title = document.createElement('div');
     title.className = 'stack-title';
@@ -704,9 +735,10 @@ export class StackTraceApp {
 
     // File header
     const fileHeader = document.createElement('div');
-    fileHeader.className = 'header section-header file-header';
+    fileHeader.className = 'header';
+
     const leftContent = document.createElement('span');
-    leftContent.className = 'file-header-left';
+    leftContent.className = 'title';
 
     const iconSpan = document.createElement('span');
     iconSpan.className = 'expand-icon';
@@ -718,7 +750,8 @@ export class StackTraceApp {
     leftContent.appendChild(textSpan);
 
     const rightContent = document.createElement('span');
-    rightContent.className = 'file-header-right counts';
+    rightContent.className = 'counts';
+    
     fileHeader.appendChild(leftContent);
     fileHeader.appendChild(rightContent);
 
@@ -746,30 +779,31 @@ export class StackTraceApp {
     groupSection.id = id;
 
     const groupHeader = document.createElement('div');
-    groupHeader.className = 'header section-header group-header';
+    groupHeader.className = 'header';
 
-    const labelContent = document.createElement('span');
-    labelContent.className = 'group-header-label';
+    const leftContent = document.createElement('span');
+    leftContent.className = 'title';
 
     // Add expand icon for groups with content
     if (group.goroutines.length > 0) {
       const iconSpan = document.createElement('span');
       iconSpan.className = 'expand-icon';
-      labelContent.appendChild(iconSpan);
+      leftContent.appendChild(iconSpan);
     }
 
     const textSpan = document.createElement('span');
+    textSpan.className = 'group-header-label';
     if (group.labels.length > 0) {
       textSpan.textContent = `[${group.labels.join(', ')}]`;
     } else {
       textSpan.textContent = 'Goroutines';
     }
-    labelContent.appendChild(textSpan);
+    leftContent.appendChild(textSpan);
 
     const countContent = document.createElement('span');
     countContent.className = 'group-header-count counts';
 
-    groupHeader.appendChild(labelContent);
+    groupHeader.appendChild(leftContent);
     groupHeader.appendChild(countContent);
     
     // Create pin button for group (absolutely positioned on the group element)
@@ -892,16 +926,11 @@ export class StackTraceApp {
     const firstLine = document.createElement('div');
     firstLine.className = 'goroutine-header-first-line';
 
-    // Left side container for header text (no pin button in simplified version)
-    const leftContainer = document.createElement('div');
-    leftContainer.className = 'goroutine-header-left';
-
     // Format like old UI: show wait time if > 0, but no state (since it's in the group)
     const waitText = goroutine.waitMinutes > 0 ? ` (${goroutine.waitMinutes} minutes)` : '';
     const headerText = document.createElement('span');
+    headerText.className = 'goroutine-header-left';
     headerText.textContent = `${goroutine.id}${waitText}:`;
-
-    leftContainer.appendChild(headerText);
 
     // Create pin button for goroutine
     const pinButton = document.createElement('button');
@@ -946,7 +975,7 @@ export class StackTraceApp {
       }
     }
 
-    firstLine.appendChild(leftContainer);
+    firstLine.appendChild(headerText);
     if (goroutine.creator && goroutine.creator !== goroutine.id) {
       firstLine.appendChild(createdBySection);
     }
@@ -1021,7 +1050,7 @@ export class StackTraceApp {
         <div class="drop-message">
           <div>📁 Drop Go stack trace files here to get started</div>
           <div class="demo-add-files">or click + to select files</div>
-          <div class="demo-add-files">🔒 all analysis is local - nothing uploaded</div>
+          <div class="demo-add-files">🔒 all analysis is in-browser - nothing is uploaded</div>
           <div style="margin-top: 25px; padding-top: 5px; border-top: 1px solid #444;">
             <div class="demo-try-demo">⚡️ Or try a quick demo with some example CockroachDB stack dumps:</div>
             <div class="demo-buttons">
@@ -1345,10 +1374,9 @@ export class StackTraceApp {
         const zipContent = await zip.loadAsync(arrayBuffer);
 
         // Find stack trace files in the zip (using default pattern)
-        const pattern = '**/stacks.txt';
+        const pattern = /^(.*\/)?stacks\.txt$/;
         const files = Object.keys(zipContent.files).filter(fileName => {
-          // Simple glob matching for **/stacks.txt
-          return fileName.endsWith('/stacks.txt') || fileName === 'stacks.txt';
+          return pattern.test(fileName);
         });
 
         for (const zipFileName of files) {
@@ -1562,23 +1590,7 @@ export class StackTraceApp {
       functionPrefixesToTrim: this.settingsManager.getFunctionTrimPrefixes(),
       filePrefixesToTrim: this.settingsManager.getFileTrimPrefixes(),
       titleManipulationRules: this.settingsManager.getTitleManipulationRules(),
-      nameExtractionPatterns: [
-        {
-          regex: 'pgwire\\.\\(\\*Server\\)\\.serveImpl.*?\\{0x1,\\s*0x2,\\s*\\{0x([0-9a-fA-F]+),',
-          replacement: 'n$1',
-          description: 'CockroachDB node ID - new format',
-        },
-        {
-          regex: 'pgwire\\.\\(\\*Server\\)\\.serveImpl.*?\\{0x0,\\s*0x4,\\s*\\{0x([0-9a-fA-F]+),',
-          replacement: 'n$1',
-          description: 'CockroachDB node ID - old format',
-        },
-        {
-          regex: '# labels:.*?"n":"([0-9]+)"',
-          replacement: 'n$1',
-          description: 'CockroachDB node ID from labels',
-        },
-      ],
+      nameExtractionPatterns: appSettings.nameExtractionPatterns,
       zipFilePattern: appSettings.zipFilePattern,
     };
   }
@@ -1665,19 +1677,6 @@ export class StackTraceApp {
 
   // Settings configuration map for data-driven modal handling
   private readonly settingsConfig = {
-    autoExpandStacks: {
-      type: 'checkbox' as const,
-      serialize: (value: boolean) => value,
-      deserialize: (value: any) => Boolean(value),
-    },
-    maxInitialGoroutines: {
-      type: 'number' as const,
-      serialize: (value: number) => value,
-      deserialize: (value: any) => {
-        const parsed = parseInt(String(value), 10);
-        return isNaN(parsed) ? undefined : parsed;
-      },
-    },
     functionTrimPrefixes: {
       type: 'text' as const,
       serialize: (value: string) => value,
@@ -1708,12 +1707,7 @@ export class StackTraceApp {
       const element = document.getElementById(key) as HTMLInputElement | HTMLTextAreaElement;
       if (element && key in settings) {
         const value = (settings as any)[key];
-
-        if (config.type === 'checkbox') {
-          (element as HTMLInputElement).checked = config.deserialize(value);
-        } else {
-          element.value = String(config.deserialize(value));
-        }
+        element.value = String(config.deserialize(value));
       }
     });
   }
@@ -1727,16 +1721,7 @@ export class StackTraceApp {
       if (element) {
         let value: any;
 
-        if (config.type === 'checkbox') {
-          value = config.serialize((element as HTMLInputElement).checked);
-        } else if (config.type === 'number') {
-          const deserializedValue = config.deserialize(element.value);
-          if (deserializedValue !== undefined) {
-            value = config.serialize(deserializedValue);
-          }
-        } else {
-          value = config.serialize(config.deserialize(element.value));
-        }
+        value = config.serialize(config.deserialize(element.value));
 
         if (value !== undefined) {
           (updates as any)[key] = value;

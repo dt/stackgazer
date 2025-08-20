@@ -2,15 +2,18 @@
  * Manages application settings with localStorage persistence
  */
 
+export interface NameExtractionPattern {
+  regex: string;
+  replacement: string;
+  description: string;
+}
+
 export interface AppSettings {
   // Parsing options
   functionTrimPrefixes: string;
   fileTrimPrefixes: string;
   titleManipulationRules: string;
-
-  // Display options
-  maxInitialGoroutines: number;
-  autoExpandStacks: boolean;
+  nameExtractionPatterns: NameExtractionPattern[];
 
   // Zip file handling
   zipFilePattern: string;
@@ -20,20 +23,22 @@ export class SettingsManager {
   private static readonly STORAGE_KEY = 'stacktrace-settings';
   private settings: AppSettings;
   private changeCallback: ((settings: AppSettings) => void) | null = null;
+  private defaultSettings: AppSettings;
 
-  constructor() {
-    this.settings = this.getDefaultSettings();
+  constructor(customDefaults?: Partial<AppSettings>) {
+    this.defaultSettings = { ...this.getBuiltinDefaults(), ...customDefaults };
+    this.settings = { ...this.defaultSettings };
     this.loadSettings();
   }
 
   /**
-   * Get default settings values
+   * Get built-in default settings values
    */
-  private getDefaultSettings(): AppSettings {
+  private getBuiltinDefaults(): AppSettings {
     return {
       // Parsing options
       functionTrimPrefixes: '',
-      fileTrimPrefixes: 'github.com/cockroachdb/cockroach/',
+      fileTrimPrefixes: '',
       titleManipulationRules: [
         'skip:sync.runtime_Semacquire',
         'fold:sync.(*WaitGroup).Wait->waitgroup',
@@ -41,19 +46,11 @@ export class SettingsManager {
         'foldstdlib:net/http->net/http',
         'foldstdlib:syscall.Syscall->syscall',
         'foldstdlib:internal/poll.runtime_pollWait->netpoll',
-        'fold:github.com/cockroachdb/cockroach/pkg/util/ctxgroup.Group.Wait->ctxgroup',
-        'fold:github.com/cockroachdb/cockroach/pkg/util/ctxgroup.GroupWorkers->GroupWorkers',
-        'fold:github.com/cockroachdb/cockroach/pkg/util/ctxgroup.GoAndWait->GoAndWait',
-        'skip:github.com/cockroachdb/cockroach/pkg/util/cidr.metricsConn.Read',
-        'trim:github.com/cockroachdb/cockroach/',
       ].join('\n'),
-
-      // Display options
-      maxInitialGoroutines: 5,
-      autoExpandStacks: false,
+      nameExtractionPatterns: [],
 
       // Zip file handling
-      zipFilePattern: '**/stacks.txt',
+      zipFilePattern: '**/*.txt',
     };
   }
 
@@ -65,12 +62,20 @@ export class SettingsManager {
       const saved = localStorage.getItem(SettingsManager.STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
-        // Merge with defaults to handle new settings
-        this.settings = { ...this.getDefaultSettings(), ...parsed };
+        // Merge with defaults to handle new settings, but only include defined values from localStorage
+        this.settings = { ...this.defaultSettings };
+        Object.keys(parsed).forEach(key => {
+          if (parsed[key] !== undefined && key in this.defaultSettings) {
+            (this.settings as any)[key] = parsed[key];
+          }
+        });
+      } else {
+        // No saved settings, use defaults (which include custom defaults)
+        this.settings = { ...this.defaultSettings };
       }
     } catch (error) {
       console.warn('Failed to load settings from localStorage:', error);
-      this.settings = this.getDefaultSettings();
+      this.settings = { ...this.defaultSettings };
     }
   }
 
@@ -114,7 +119,7 @@ export class SettingsManager {
    * Reset all settings to defaults
    */
   resetToDefaults(): void {
-    this.settings = this.getDefaultSettings();
+    this.settings = this.defaultSettings;
     this.saveSettings();
     this.notifyChange();
   }
@@ -143,7 +148,7 @@ export class SettingsManager {
       const imported = JSON.parse(jsonString);
 
       // Validate that imported data has expected shape
-      const defaults = this.getDefaultSettings();
+      const defaults = this.defaultSettings;
       const validKeys = Object.keys(defaults);
       const importedKeys = Object.keys(imported);
 
@@ -177,15 +182,14 @@ export class SettingsManager {
    * Check if a setting has a non-default value
    */
   isModified(key: keyof AppSettings): boolean {
-    const defaults = this.getDefaultSettings();
-    return this.settings[key] !== defaults[key];
+    return this.settings[key] !== this.defaultSettings[key];
   }
 
   /**
    * Get list of all modified settings
    */
   getModifiedSettings(): Array<{ key: keyof AppSettings; value: any; default: any }> {
-    const defaults = this.getDefaultSettings();
+    const defaults = this.defaultSettings;
     const modified: Array<{ key: keyof AppSettings; value: any; default: any }> = [];
 
     for (const key of Object.keys(this.settings) as Array<keyof AppSettings>) {
