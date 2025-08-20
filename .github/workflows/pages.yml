@@ -37,6 +37,10 @@ jobs:
       - name: Run tests
         run: npm test
 
+      - name: Build for deployment
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: npm run build
+
       - name: Prepare deployment
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
