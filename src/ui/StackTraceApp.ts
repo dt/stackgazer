@@ -851,6 +851,12 @@ export class StackTraceApp {
     fileSection.className = 'section expandable file-section';
     fileSection.id = fileId;
 
+    // Add single-group class for conditional file header hiding
+    if (groups.length === 1) {
+      fileSection.classList.add('single-group');
+    }
+
+
     // File header
     const fileHeader = document.createElement('div');
     fileHeader.className = 'header';
@@ -879,7 +885,7 @@ export class StackTraceApp {
     fileContent.className = 'section-content';
 
     groups.forEach(group => {
-      const groupSection = this.createGroupSection(group.id, group);
+      const groupSection = this.createGroupSection(group.id, group, fileName);
       fileContent.appendChild(groupSection);
     });
 
@@ -891,7 +897,7 @@ export class StackTraceApp {
     return fileSection;
   }
 
-  private createGroupSection(id: string, group: Group): HTMLElement {
+  private createGroupSection(id: string, group: Group, fileName?: string): HTMLElement {
     const groupSection = document.createElement('div');
     groupSection.className = 'section expandable group-section';
     groupSection.id = id;
@@ -911,7 +917,12 @@ export class StackTraceApp {
 
     const textSpan = document.createElement('span');
     textSpan.className = 'group-header-label';
-    if (group.labels.length > 0) {
+    
+    // Always show filename with group labels for consistency
+    if (fileName) {
+      const groupLabel = group.labels.length > 0 ? ` [${group.labels.join(', ')}]` : '';
+      textSpan.textContent = `${fileName}${groupLabel}`;
+    } else if (group.labels.length > 0) {
       textSpan.textContent = `[${group.labels.join(', ')}]`;
     } else {
       textSpan.textContent = 'Goroutines';
@@ -1635,7 +1646,7 @@ export class StackTraceApp {
     this.scrollToAndHighlightGoroutine(goroutineElement, goroutineId, addToHistory);
   }
 
-  private expandGroupsContainingGoroutine(goroutineId: string): void {
+  private expandGroupsContainingGoroutine(_goroutineId: string): void {
     // Find all "show more" links and click them to expand collapsed groups
     const showMoreLinks = document.querySelectorAll('.show-more-link');
     showMoreLinks.forEach(link => {
