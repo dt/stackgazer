@@ -11,7 +11,7 @@
     "test": "NODE_OPTIONS=\"--import tsx/esm\" node --test tests/parser.test.ts tests/app.test.ts",
     "test:ui": "NODE_OPTIONS=\"--import tsx/esm\" node --test tests/ui.test.ts",
     "test:all": "NODE_OPTIONS=\"--import tsx/esm\" node --test tests/*.test.ts",
-    "test:coverage": "npm run build:inline && npx tsc test/parser.test.ts --outDir dist --module ES2020 --target ES2020 --moduleResolution node --esModuleInterop --types node && c8 --reporter=text --reporter=html node dist/parser.test.js",
+    "test:coverage": "npx tsc test/parser.test.ts --outDir dist --module ES2020 --target ES2020 --moduleResolution node --esModuleInterop --types node && c8 --reporter=text --reporter=html node dist/parser.test.js",
     "format": "prettier --write 'src/**/*.ts' 'tests/**/*.ts'",
     "format:check": "prettier --check 'src/**/*.ts' 'tests/**/*.ts'"
   },
