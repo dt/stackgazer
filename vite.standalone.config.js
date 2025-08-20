@@ -1,5 +1,7 @@
 import { defineConfig } from 'vite'
 import { viteSingleFile } from 'vite-plugin-singlefile'
+import { rename } from 'fs/promises'
+import { join } from 'path'
 
 export default defineConfig({
   root: 'src/ui',
@@ -7,22 +9,19 @@ export default defineConfig({
     viteSingleFile({
       removeViteModuleLoader: true
     }),
-    // Custom plugin to rename output file
     {
-      name: 'rename-output',
-      generateBundle(options, bundle) {
-        // Find the HTML file and rename it
-        const htmlFile = Object.keys(bundle).find(name => name.endsWith('.html'))
-        if (htmlFile && htmlFile !== 'index-standalone.html') {
-          bundle['index-standalone.html'] = bundle[htmlFile]
-          delete bundle[htmlFile]
-        }
+      name: 'rename-html',
+      async writeBundle() {
+        await rename(
+          join('dist', 'index.html'),
+          join('dist', 'index-standalone.html')
+        )
       }
     }
   ],
   build: {
     outDir: '../../dist',
-    emptyOutDir: true, // Clear dist for clean bundle-only output
+    emptyOutDir: true,
     sourcemap: true,
     rollupOptions: {
       input: 'src/ui/index.html',
