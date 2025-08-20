@@ -365,9 +365,9 @@ export class ProfileCollection {
             },
           };
           this.categories.push(category);
-          this.stackForTraceId.set(group.traceId, {category, stack });
         }
         category.stacks.push(stack);
+        this.stackForTraceId.set(group.traceId, {category, stack });
       }
 
       // Now create the group with goroutines that reference the stack
@@ -436,6 +436,14 @@ export class ProfileCollection {
       category.counts.filterMatches += g.counts.filterMatches;
     }
 
+    // Sort all data structures by name for stable ordering
+    this.categories.sort((a, b) => a.name.localeCompare(b.name));
+    for (const category of this.categories) {
+      category.stacks.sort((a, b) => a.name.localeCompare(b.name));
+      for (const stack of category.stacks) {
+        stack.files.sort((a, b) => a.fileName.localeCompare(b.fileName));
+      }
+    }
   }
 
   /**
@@ -636,7 +644,7 @@ export class ProfileCollection {
     for (const category of this.categories) {
       for (const stack of category.stacks) {
         // If the stack itself matches, just flip everything to match.
-        if (filter == null || stack.searchableText.includes(filter) || category.pinned) {
+        if (filter == null || stack.searchableText.includes(filter)) {
           stack.counts.matches = stack.counts.total;
           stack.counts.filterMatches = stack.counts.total;
           for (const fileSection of stack.files) {
@@ -653,22 +661,24 @@ export class ProfileCollection {
         } else {
           stack.counts.matches = 0;
           stack.counts.filterMatches = 0;
+
           for (const fileSection of stack.files) {
             fileSection.counts.matches = 0;
             fileSection.counts.filterMatches = 0;
 
             for (const group of fileSection.groups) {
-              // Use the sophisticated filter evaluation logic
               const groupMatches = group.labels.some(label => label.includes(filter));
-              if (groupMatches || group.pinned) {
-                // If group matches or is pinned, all goroutines in the group match
+              if (groupMatches) {
+                // If group matches or is pinned, all goroutines in the group match.
                 group.counts.matches = group.counts.total;
-                group.counts.filterMatches = group.pinned ? 0 : group.counts.total;
+                group.counts.filterMatches = group.counts.total;
                 for (const goroutine of group.goroutines) {
                   goroutine.matches = true;
                 }
               } else {
-                // Check individual goroutines
+                const isPinned =  group.pinned || fileSection.pinned || stack.pinned || category.pinned;
+
+                // Check pins and individual goroutines.
                 group.counts.matches = 0;
                 group.counts.filterMatches = 0;
                 for (const goroutine of group.goroutines) {
@@ -678,17 +688,17 @@ export class ProfileCollection {
                     group.counts.filterMatches++;
                     group.counts.matches++;
                   } else if (
-                    filterObj.forcedGoroutine &&
-                    goroutine.id === filterObj.forcedGoroutine
+                    isPinned || goroutine.pinned || 
+                    (filterObj.forcedGoroutine && goroutine.id === filterObj.forcedGoroutine)
                   ) {
-                    // Matches forced, but not filter, so only increment matches.
-                    goroutine.matches = true;
-                    group.counts.matches++;
-                  } else if (goroutine.pinned) {
-                    // Pinned goroutines are visible but don't count as filter matches
+                    // Matches, but not due to filter.
                     goroutine.matches = true;
                     group.counts.matches++;
                   }
+                }
+                // If we don't have individual goroutines we need to set matches directly.
+                if (group.goroutines.length === 0 && isPinned) {
+                  group.counts.matches = group.counts.total;
                 }
               }
               fileSection.counts.matches += group.counts.matches;
@@ -765,11 +775,15 @@ export class ProfileCollection {
    * Toggle pinned state for a goroutine
    */
   toggleGoroutinePin(goroutineId: string): boolean {
+    console.log(`🔍 PIN DEBUG: ProfileCollection.toggleGoroutinePin called with goroutineId: ${goroutineId}`);
     const goroutine = this.goroutinesByID.get(goroutineId);
     if (goroutine) {
+      const oldPinned = goroutine.pinned;
       goroutine.pinned = !goroutine.pinned;
+      console.log(`🔍 PIN DEBUG: Goroutine ${goroutineId} pin state changed from ${oldPinned} to ${goroutine.pinned}`);
       return goroutine.pinned;
     }
+    console.log(`🔍 PIN DEBUG: Goroutine ${goroutineId} not found!`);
     return false;
   }
   

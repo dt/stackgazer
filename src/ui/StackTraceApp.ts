@@ -1,6 +1,6 @@
 import { ProfileCollection, ProfileCollectionSettings } from '../app/ProfileCollection.js';
 import { FileParser } from '../parser/index.js';
-import { UniqueStack, Group, FilterChanges, AppState, Goroutine, Filter, Category } from '../app/types.js';
+import { UniqueStack, Group, FilterChanges, AppState, Goroutine, Filter, Category, Counts } from '../app/types.js';
 import { SettingsManager, AppSettings } from '../app/SettingsManager.js';
 import JSZip from 'jszip';
 
@@ -322,7 +322,6 @@ export class StackTraceApp {
   }
 
   private setFilter(filter: Filter): void {
-    console.log('setFilter called with:', filter);
     this.profileCollection.setFilter(filter);
     this.updateVisibility();
     this.updateStats();
@@ -397,27 +396,59 @@ export class StackTraceApp {
   }
 
   private expandAllStacks(): void {
-    // Find all expandable sections (categories, stacks, file sections, groups) and expand them
-    const expandableSections = document.querySelectorAll('.section.expandable');
-    expandableSections.forEach(section => {
-      section.classList.remove('collapsed');
-      const header = section.querySelector('.header');
-      if (header) {
-        header.setAttribute('aria-expanded', 'true');
-      }
-    });
+    // Progressive expand: if any categories are collapsed, expand all categories
+    // Otherwise, expand all stacks
+    const categories = document.querySelectorAll('.category-section');
+    const hasCollapsedCategories = Array.from(categories).some(cat => cat.classList.contains('collapsed'));
+    
+    if (hasCollapsedCategories) {
+      // Expand all categories
+      categories.forEach(section => {
+        section.classList.remove('collapsed');
+        const header = section.querySelector('.header');
+        if (header) {
+          header.setAttribute('aria-expanded', 'true');
+        }
+      });
+    } else {
+      // Expand all stacks only (not file sections or group sections)
+      const stacks = document.querySelectorAll('.stack-section');
+      stacks.forEach(section => {
+        section.classList.remove('collapsed');
+        const header = section.querySelector('.header');
+        if (header) {
+          header.setAttribute('aria-expanded', 'true');
+        }
+      });
+    }
   }
 
   private collapseAllStacks(): void {
-    // Find all expandable sections (categories, stacks, file sections, groups) and collapse them
-    const expandableSections = document.querySelectorAll('.section.expandable');
-    expandableSections.forEach(section => {
-      section.classList.add('collapsed');
-      const header = section.querySelector('.header');
-      if (header) {
-        header.setAttribute('aria-expanded', 'false');
-      }
-    });
+    // Progressive collapse: if any stacks are expanded, collapse all stacks
+    // Otherwise, collapse all categories
+    const stacks = document.querySelectorAll('.stack-section');
+    const hasExpandedStacks = Array.from(stacks).some(stack => !stack.classList.contains('collapsed'));
+    
+    if (hasExpandedStacks) {
+      // Collapse all stacks only (not file sections or group sections)
+      stacks.forEach(section => {
+        section.classList.add('collapsed');
+        const header = section.querySelector('.header');
+        if (header) {
+          header.setAttribute('aria-expanded', 'false');
+        }
+      });
+    } else {
+      // Collapse all categories
+      const categories = document.querySelectorAll('.category-section');
+      categories.forEach(section => {
+        section.classList.add('collapsed');
+        const header = section.querySelector('.header');
+        if (header) {
+          header.setAttribute('aria-expanded', 'false');
+        }
+      });
+    }
   }
 
   private updateVisibility(force: boolean = false): void {
@@ -441,7 +472,7 @@ export class StackTraceApp {
         if (category.counts.priorMatches == 0) {
           categoryElement.classList.remove('filtered');
         }
-        this.updateDisplayedCount(categoryElement, category.counts.total, category.counts.matches);
+        this.updateDisplayedCount(categoryElement, category.counts);
 
         // Process each stack in the category
         for (const stack of category.stacks) {
@@ -462,7 +493,7 @@ export class StackTraceApp {
             if (stack.counts.priorMatches == 0) {
               stackElement.classList.remove('filtered');
             }
-            this.updateDisplayedCount(stackElement, stack.counts.total, stack.counts.matches);
+            this.updateDisplayedCount(stackElement, stack.counts);
 
             for (const fileSection of stack.files) {
               if (!force && fileSection.counts.matches == fileSection.counts.priorMatches) {
@@ -480,11 +511,7 @@ export class StackTraceApp {
                 if (fileSection.counts.priorMatches === 0) {
                   fileSectionElement.classList.remove('filtered');
                 }
-                this.updateDisplayedCount(
-                  fileSectionElement,
-                  fileSection.counts.total,
-                  fileSection.counts.matches
-                );
+                this.updateDisplayedCount(fileSectionElement,fileSection.counts);
 
                 for (const group of fileSection.groups) {
                   if (!force && group.counts.matches === group.counts.priorMatches) {
@@ -501,7 +528,7 @@ export class StackTraceApp {
                     if (group.counts.priorMatches === 0) {
                       groupElement.classList.remove('filtered');
                     }
-                    this.updateDisplayedCount(groupElement, group.counts.total, group.counts.matches);
+                    this.updateDisplayedCount(groupElement, group.counts);
 
                     for (const goroutine of group.goroutines) {
                       const goroutineElement = document.getElementById(
@@ -522,15 +549,15 @@ export class StackTraceApp {
     this.profileCollection.clearFilterChanges();
   }
 
-  updateDisplayedCount(element: HTMLElement, totalCount: number, currentCount: number): void {
+  updateDisplayedCount(element: HTMLElement, counts: Counts): void {
     const countElement =
       element.querySelector(':scope > .header .counts') || element.querySelector('.header .counts');
 
     if (countElement) {
-      if (totalCount === currentCount) {
-        countElement.textContent = `${totalCount} goroutines`;
+      if (counts.total === counts.filterMatches) {
+        countElement.textContent = `${counts.total} goroutines`;
       } else {
-        countElement.textContent = `${currentCount} (of ${totalCount}) goroutines`;
+        countElement.textContent = `${counts.filterMatches} (of ${counts.total}) goroutines`;
       }
     }
   }
@@ -661,9 +688,8 @@ export class StackTraceApp {
     stackDisplay.className = 'stack-display';
     stackDisplay.id = 'stackDisplay';
 
-    // Sort categories by name before rendering
-    const sortedCategories = [...categories].sort((a, b) => a.name.localeCompare(b.name));
-    sortedCategories.forEach(category => {
+    // Render categories in existing order (sorted at import time)
+    categories.forEach(category => {
       const categoryElement = this.createCategoryElement(category);
       stackDisplay.appendChild(categoryElement);
     });
@@ -717,16 +743,15 @@ export class StackTraceApp {
       this.updateStats();
     });
     
-    categoryElement.appendChild(pinButton);
+    header.appendChild(pinButton);
     categoryElement.appendChild(header);
 
     // Category content - contains stacks
     const content = document.createElement('div');
     content.className = 'section-content category-content';
 
-    // Render all stacks in this category, sorted by title
-    const sortedStacks = [...category.stacks].sort((a, b) => a.name.localeCompare(b.name));
-    for (const stack of sortedStacks) {
+    // Render all stacks in this category in existing order (sorted at import time)
+    for (const stack of category.stacks) {
       const stackElement = this.createStackElement(stack);
       content.appendChild(stackElement);
     }
@@ -759,13 +784,7 @@ export class StackTraceApp {
     header.appendChild(title);
     header.appendChild(countElement);
     
-    // Add header to stackElement first so updateDisplayedCount can find the count element
-    stackElement.appendChild(header);
-    
-    // Set initial count display
-    this.updateDisplayedCount(stackElement, stack.counts.total, stack.counts.matches);
-    
-    // Create pin button (absolutely positioned on the stack element)
+    // Create pin button (now child of header)
     const pinButton = document.createElement('button');
     pinButton.className = 'pin-button size-large';
     pinButton.innerHTML = '📌';
@@ -790,7 +809,13 @@ export class StackTraceApp {
       this.updateStats();
     });
     
-    stackElement.appendChild(pinButton);
+    header.appendChild(pinButton);
+    
+    // Add header to stackElement so updateDisplayedCount can find the count element
+    stackElement.appendChild(header);
+    
+    // Set initial count display
+    this.updateDisplayedCount(stackElement, stack.counts);
 
     // Stack content
     const content = document.createElement('div');
@@ -800,10 +825,10 @@ export class StackTraceApp {
     const traceElement = this.createTraceElement(stack.trace);
     content.appendChild(traceElement);
 
-    // Render all groups, sorted by filename with file hierarchy
-    const sortedFileEntries = stack.files.sort((a, b) => a.fileName.localeCompare(b.fileName));
+    // Render all groups in existing order (sorted at import time)
+    const fileEntries = stack.files;
 
-    for (const fileSection of sortedFileEntries) {
+    for (const fileSection of fileEntries) {
       // Create file section DOM element
       const fileSectionElement = this.createFileSection(
         fileSection.id,
@@ -899,7 +924,7 @@ export class StackTraceApp {
     groupHeader.appendChild(leftContent);
     groupHeader.appendChild(countContent);
     
-    // Create pin button for group (absolutely positioned on the group element)
+    // Create pin button for group (now child of header)
     const pinButton = document.createElement('button');
     pinButton.className = 'pin-button size-large';
     pinButton.innerHTML = '📌';
@@ -924,7 +949,7 @@ export class StackTraceApp {
       this.updateStats();
     });
     
-    groupSection.appendChild(pinButton);
+    groupHeader.appendChild(pinButton);
     groupSection.appendChild(groupHeader);
 
     // Add click handler for expand/collapse if group has content
