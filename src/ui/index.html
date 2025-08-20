@@ -25,7 +25,6 @@
 
             <div class="filter-section">
                 <div class="filter-header">
-                    <h3>Filter <button class="filter-help-btn" id="filterHelpBtn" title="Show filter syntax help">?</button></h3>
                     <button class="clear-all-btn" id="clearFilterBtn" title="Clear filter">×</button>
                 </div>
                 <input type="text" class="filter-input" id="filterInput" placeholder="e.g. flush">
@@ -77,37 +76,6 @@
         </div>
     </div>
 
-
-    <!-- Filter Help Modal -->
-    <div id="filterHelpModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>Filter Syntax Help</h3>
-                <button class="modal-close" id="modalCloseBtn">&times;</button>
-            </div>
-            <div class="modal-body">
-                <h4>Syntax</h4>
-                <ul>
-                    <li><code>state:run</code> <code>state:select</code> - Match by goroutine state</li>
-                    <li><code>dur:>5</code> <code>dur:>=10</code> <code>dur:<2</code> <code>dur:<=1</code> - Duration filters (minutes)</li>
-                    <li><code>-state:select</code> <code>-dur:>5</code> - Exclude with minus prefix</li>
-                    <li><code>function1</code> <code>main</code> <code>123</code> - Text search in IDs and stack traces</li>
-                </ul>
-
-                <h4>Examples</h4>
-                <ul>
-                    <li><code>state:running</code> <code>dur:>10</code> <code>-GOROOT</code> - Single filters</li>
-                    <li><code>state:running function1</code> <code>dur:>5 -state:select</code> - Combined filters (AND logic)</li>
-                    <li><code>main.worker</code> <code>state:select dur:<5</code> - Text + field combinations</li>
-                </ul>
-
-                <h4>Notes</h4>
-                <ul>
-                    <li>Case-insensitive • Pinned items always visible • Multiple terms = AND logic</li>
-                </ul>
-            </div>
-        </div>
-    </div>
 
     <!-- Settings Modal -->
     <div id="settingsModal" class="modal">
