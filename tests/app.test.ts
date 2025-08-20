@@ -113,7 +113,11 @@ async function runTests() {
   await test('ProfileCollection: Stack properties', async () => {
     const collection = new ProfileCollection(DEFAULT_SETTINGS);
     await addFile(collection, TEST_DATA.format2, 'test.txt');
-    const stack = collection.getCategories()[0].stacks[0];
+    
+    // Find the main.worker stack (in 'main' category)
+    const mainCategory = collection.getCategories().find(c => c.name === 'main');
+    if (!mainCategory) throw new Error('Should have main category');
+    const stack = mainCategory.stacks[0];
 
     // Searchable text tests
     if (!stack.searchableText.includes('main.worker')) throw new Error('Should contain function name');
