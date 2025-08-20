@@ -4,6 +4,10 @@ import { UniqueStack, Group, FilterChanges, AppState, Goroutine, Filter, Categor
 import { SettingsManager, AppSettings } from '../app/SettingsManager.js';
 import JSZip from 'jszip';
 
+export interface StackTraceAppOptions extends Partial<AppSettings> {
+  initialTheme?: 'dark' | 'light';
+}
+
 /**
  * Main application class that manages the UI and coordinates with ProfileCollection
  */
@@ -17,8 +21,13 @@ export class StackTraceApp {
   private filterDebounceTimer: number | null = null;
   private tooltip!: HTMLElement;
   private currentTheme: 'dark' | 'light' = 'dark';
+  private initialTheme?: 'dark' | 'light';
 
-  constructor(customDefaults?: Partial<AppSettings>) {
+  constructor(options?: StackTraceAppOptions) {
+    // Extract theme setting and settings defaults
+    const { initialTheme, ...customDefaults } = options || {};
+    this.initialTheme = initialTheme;
+    
     // Initialize settings manager and app state
     this.settingsManager = new SettingsManager(customDefaults);
     this.appState = new AppState();
@@ -364,9 +373,9 @@ export class StackTraceApp {
   }
 
   private initializeTheme(): void {
-    // Load theme from localStorage or default to dark
+    // Priority: savedTheme > initialTheme > 'dark' default
     const savedTheme = localStorage.getItem('stackgazer-theme') as 'dark' | 'light' | null;
-    this.currentTheme = savedTheme || 'dark';
+    this.currentTheme = savedTheme || this.initialTheme || 'dark';
     this.applyTheme(this.currentTheme);
   }
 
