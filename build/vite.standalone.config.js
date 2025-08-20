@@ -20,9 +20,6 @@ export default defineConfig({
       }
     }
   ],
-  define: {
-    __ZIP_EXTERNAL__: false, // bundled build
-  },
   build: {
     outDir: '../../dist',
     emptyOutDir: true,

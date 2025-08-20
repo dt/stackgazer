@@ -5,7 +5,6 @@
 export interface NameExtractionPattern {
   regex: string;
   replacement: string;
-  description: string;
 }
 
 export interface AppSettings {

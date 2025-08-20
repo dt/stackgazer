@@ -4,21 +4,20 @@
 
 import { ExtractResult, ZipFile } from './types.js';
 
-declare const __ZIP_EXTERNAL__: boolean;
-
-export type JSZipType = typeof import('jszip')['default'];
+export type JSZipType = typeof import('jszip');
 
 export async function getJSZip(): Promise<JSZipType | null> {
-  if (!__ZIP_EXTERNAL__) {
-    // Normal build: bundled dynamic import
+  try {
+    // Try bundled dynamic import first
     const mod = await import('jszip');
     return (mod as any).default ?? (mod as any);
+  } catch {
+    // Fall back to global from CDN tag
+    const g = globalThis as any;
+    const hasFailed = !!g.__zipCdnFailed;
+    const JSZip = g.JSZip ?? null;
+    return hasFailed || !JSZip ? null : JSZip;
   }
-  // Lite build: look for global from CDN tag
-  const g = globalThis as any;
-  const hasFailed = !!g.__zipCdnFailed;
-  const JSZip = g.JSZip ?? null;
-  return hasFailed || !JSZip ? null : JSZip;
 }
 
 export class ZipHandler {
