@@ -7,30 +7,10 @@ const distPath = path.join(__dirname, '..', 'dist');
 
 console.log('Creating standalone bundle...');
 
-// Read the esbuild IIFE bundle
-const bundlePath = path.join(distPath, 'app-bundle.js');
-let bundledJS = '';
-
-if (fs.existsSync(bundlePath)) {
-    console.log('Reading app-bundle.js...');
-    bundledJS = fs.readFileSync(bundlePath, 'utf8');
-    
-    // Add initialization code after the IIFE
-    bundledJS += `
-// Initialize the application
-const app = new StackTraceApp();
-window.app = app;
-console.log('Go Stack Trace Viewer loaded');
-`;
-} else {
-    console.error('Bundle file not found:', bundlePath);
-    process.exit(1);
-}
-
-// Read the HTML template
+// Read the HTML template first to extract initialization code
 const htmlTemplate = fs.readFileSync(path.join(__dirname, '..', 'dist', 'index.html'), 'utf8');
 
-// Replace the module script with JSZip CDN + bundled script
+// Extract the original module script content to preserve custom defaults
 const moduleScriptStart = '<script type="module">';
 const moduleScriptEnd = '</script>';
 
@@ -39,6 +19,28 @@ const endIndex = htmlTemplate.indexOf(moduleScriptEnd, startIndex) + moduleScrip
 
 if (startIndex === -1 || endIndex === -1) {
     console.error('Could not find module script in HTML template');
+    process.exit(1);
+}
+
+// Extract the original initialization code (including custom defaults)
+const originalModuleScript = htmlTemplate.substring(startIndex + moduleScriptStart.length, endIndex - moduleScriptEnd.length);
+
+// Extract everything after the import statement
+const importLineEnd = originalModuleScript.indexOf('\n', originalModuleScript.indexOf('import'));
+const originalInitCode = originalModuleScript.substring(importLineEnd + 1).trim();
+
+// Read the esbuild IIFE bundle
+const bundlePath = path.join(distPath, 'app-bundle.js');
+let bundledJS = '';
+
+if (fs.existsSync(bundlePath)) {
+    console.log('Reading app-bundle.js...');
+    bundledJS = fs.readFileSync(bundlePath, 'utf8');
+    
+    // Add the original initialization code (preserves custom defaults)
+    bundledJS += '\n' + originalInitCode;
+} else {
+    console.error('Bundle file not found:', bundlePath);
     process.exit(1);
 }
 

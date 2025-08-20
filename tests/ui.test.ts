@@ -289,6 +289,66 @@ async function runTests() {
     console.log('  ✅ UI counts are consistent');
   });
 
+  // Test 6: Settings modal CRDB defaults test
+  await test('Settings modal shows CRDB defaults correctly', async () => {
+    // Clear localStorage to ensure we're testing fresh state
+    await page.evaluate(() => {
+      localStorage.clear();
+    });
+
+    // Reload page to ensure fresh state
+    await page.reload();
+    await page.waitForSelector('.drop-zone', { timeout: 10000 });
+
+    // Open settings modal
+    await page.click('#settingsBtn');
+    await page.waitForSelector('#settingsModal', { state: 'visible', timeout: 5000 });
+
+    // Check that CRDB-specific defaults are present
+    const fileTrimPrefixes = await page.inputValue('#fileTrimPrefixes');
+    console.log(`  File trim prefixes: "${fileTrimPrefixes}"`);
+    
+    if (!fileTrimPrefixes.includes('github.com/cockroachdb/cockroach/')) {
+      throw new Error(`Expected CRDB file trim prefix, got: "${fileTrimPrefixes}"`);
+    }
+
+    // Check title manipulation rules contain CRDB-specific rules
+    const titleRules = await page.inputValue('#titleManipulationRules');
+    console.log(`  Title rules (first 100 chars): "${titleRules.substring(0, 100)}..."`);
+    
+    if (!titleRules.includes('trim:github.com/cockroachdb/cockroach/')) {
+      throw new Error('Expected CRDB trim rule in title manipulation rules');
+    }
+
+    if (!titleRules.includes('fold:sync.(*WaitGroup).Wait->waitgroup')) {
+      throw new Error('Expected waitgroup fold rule in title manipulation rules');
+    }
+
+    // Test that settings persist after saving
+    const testPrefix = 'test-prefix-';
+    await page.fill('#fileTrimPrefixes', fileTrimPrefixes + ',' + testPrefix);
+    await page.click('#saveSettingsBtn');
+    
+    // Wait for modal to close
+    await page.waitForSelector('#settingsModal', { state: 'hidden', timeout: 5000 });
+
+    // Reopen settings and verify the change was saved
+    await page.click('#settingsBtn');
+    await page.waitForSelector('#settingsModal', { state: 'visible', timeout: 5000 });
+    
+    const updatedFileTrimPrefixes = await page.inputValue('#fileTrimPrefixes');
+    if (!updatedFileTrimPrefixes.includes(testPrefix)) {
+      throw new Error(`Settings not saved properly, expected to find "${testPrefix}"`);
+    }
+
+    // Close modal
+    await page.click('#settingsModalCloseBtn');
+    await page.waitForSelector('#settingsModal', { state: 'hidden', timeout: 5000 });
+
+    console.log('  ✅ CRDB defaults loaded correctly in settings modal');
+    console.log('  ✅ Settings save/load functionality works');
+  });
+
   await teardown();
   console.log('\n🎉 All UI interaction tests passed!');
 }
