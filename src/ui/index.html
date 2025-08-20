@@ -245,7 +245,19 @@
                     description: 'CockroachDB node ID from labels',
                 },
             ],
-            
+
+            categoryIgnoredPrefixes: [
+                'runtime.',
+                'sync.',
+                'reflect.',
+                'syscall.',
+                'internal/',
+                'util/stop',
+                'golang.org/x/sync/errgroup',
+                'util/ctxgroup',
+                'kv/kvclient/rangefeed.(*RangeFeed).run.func3',
+            ].join('\n'),
+
             // Zip file handling - customize for your file patterns
             zipFilePattern: '^(.*\/)?stacks\.txt$'
         };
