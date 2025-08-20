@@ -3,7 +3,7 @@ import { viteSingleFile } from 'vite-plugin-singlefile'
 import { rename, unlink } from 'fs/promises'
 import { join } from 'path'
 import cssnano from 'cssnano'
-import htmlMinify from 'vite-plugin-html-minify'
+import { createHtmlPlugin } from 'vite-plugin-html-minifier'
 
 function injectJsZipCdn() {
   return {
@@ -36,14 +36,12 @@ export default defineConfig({
     viteSingleFile({
       removeViteModuleLoader: true
     }),
-    htmlMinify({
-      minifyOptions: {
-        removeComments: true,
-        collapseWhitespace: true,
-        removeAttributeQuotes: true,
-        minifyCSS: true,
-        minifyJS: true
-      }
+    createHtmlPlugin({
+      removeComments: true,
+      collapseWhitespace: true,
+      removeAttributeQuotes: true,
+      minifyCSS: true,
+      minifyJS: true
     }),
     {
       name: 'rename-and-cleanup',
@@ -64,9 +62,6 @@ export default defineConfig({
       }
     }
   ],
-  define: {
-    __ZIP_EXTERNAL__: true, // CDN build
-  },
   build: {
     outDir: '../../dist',
     emptyOutDir: true,

@@ -23,7 +23,6 @@ async function fingerprint(frames: Frame[]): Promise<string> {
 interface NameExtractionPattern {
   regex: string;
   replacement: string;
-  description: string;
 }
 
 interface ParserSettings {
@@ -63,9 +62,8 @@ export class FileParser {
         if (match) {
           // Apply replacement template (e.g., "n$1" becomes "n" + first capture group)
           let result = pattern.replacement;
-
-          // Handle hex conversion for serveImpl patterns
-          if (pattern.description.includes('serveImpl')) {
+          if (result.startsWith('hex:')) {
+            result = result.slice(4);
             // Replace $1 with hex-to-decimal conversion
             result = result.replace('$1', parseInt(match[1], 16).toString());
           } else {

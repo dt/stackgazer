@@ -14,6 +14,13 @@
             // Parsing options - customize for your codebase
             functionTrimPrefixes: 'github.com/cockroachdb/cockroach/pkg/',
             fileTrimPrefixes: 'github.com/cockroachdb/cockroach/',            
+            
+            categoryIgnoredPrefixes: [
+                'sync.', 'internal/', 'golang.org/x/sync/errgroup', // Stdlib libs that start goroutines.
+                'util/stop', 'util/ctxgroup',                   // CRDB libs that start goroutines.
+                'kv/kvclient/rangefeed.(*RangeFeed).run.func3', // invoker used to ensure stack is callers'.
+            ].join('\n'),
+
             // Title manipulation rules - customize stack trace display
             titleManipulationRules: [
                 'skip:sync.runtime_notifyListWait',
@@ -30,26 +37,19 @@
                 'skip:util/cidr.metricsConn.Read',
                 'trim:util/',
             ].join('\n'),
-            
-            
-
-            categoryIgnoredPrefixes: [
-                'sync.', 'internal/', 'golang.org/x/sync/errgroup', // Stdlib libs that start goroutines.
-                'util/stop', 'util/ctxgroup',                       // CRDB libs that start goroutines.
-                'kv/kvclient/rangefeed.(*RangeFeed).run.func3',     // invoker used to ensure stack is callers'.
-            ].join('\n'),
 
             // Zip file handling - customize for your file patterns
             zipFilePattern: '^(.*\/)?stacks\.txt$',
-            // Name extraction patterns - guess file names from the stack frames or labels.
+
+            // Name extraction patterns - customize for your application
             nameExtractionPatterns: [
                 {
-                    regex: 'pgwire\\.\\(\\*Server\\)\\.serveImpl.*?\\{0x1,\\s*0x2,\\s*\\{0x([0-9a-fA-F]+),', // new crdb versions
-                    replacement: 'n$1',
+                    regex: 'pgwire\\.\\(\\*Server\\)\\.serveImpl.*?\\{0x1,\\s*0x2,\\s*\\{0x([0-9a-fA-F]+),',
+                    replacement: 'hex:n$1',
                 },
                 {
-                    regex: 'pgwire\\.\\(\\*Server\\)\\.serveImpl.*?\\{0x0,\\s*0x4,\\s*\\{0x([0-9a-fA-F]+),', // old crdb versions
-                    replacement: 'n$1',
+                    regex: 'pgwire\\.\\(\\*Server\\)\\.serveImpl.*?\\{0x0,\\s*0x4,\\s*\\{0x([0-9a-fA-F]+),',
+                    replacement: 'hex:n$1',
                 },
                 {
                     regex: '# labels:.*?"n":"([0-9]+)"',
