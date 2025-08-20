@@ -31,7 +31,7 @@
     "tsx": "^4.20.4",
     "typescript": "^5.0.0",
     "vite": "^7.1.3",
-    "vite-plugin-html-minify": "^1.0.0",
+    "vite-plugin-html-minifier": "^1.0.5",
     "vite-plugin-singlefile": "^2.3.0"
   },
   "dependencies": {
