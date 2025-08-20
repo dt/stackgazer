@@ -488,6 +488,21 @@ body {
     background: var(--header-hover-light);
 }
 
+/* Hide file section headers only for single-group sections to avoid redundancy */
+.file-section.single-group > .header {
+    display: none;
+}
+
+/* Style all group headers with file-like appearance since they contain filenames */
+.file-section .group-section .header {
+    background: var(--bg-quaternary);
+    color: var(--text-primary);
+}
+
+.file-section .group-section .header:hover {
+    background: var(--header-hover-light);
+}
+
 .group-title,
 .stack-title {
     cursor: text;
@@ -579,16 +594,16 @@ body {
     --pin-size: 18px;
     --pin-font: 10px;
     --pin-top: 3px;
-    --pin-right: -10px;
+    --pin-right: -25px;
     --pin-z: 5;
     --pin-hover-size: 32px;
     --pin-hover-font: 16px;
-    --pin-hover-offset: -20px;
+    --pin-hover-offset: -30px;
     --pin-hover-top: -4px;
     --pin-pinned-size: 20px;
     --pin-pinned-font: 11px;
     --pin-pinned-top: 2px;
-    --pin-pinned-offset: -12px;
+    --pin-pinned-offset: -27px;
     --pin-target-size: 16px;
 }
 
@@ -656,7 +671,7 @@ body {
 
 .pin-button.size-small.pinned:hover {
     top: var(--pin-hover-top, var(--pin-hover-offset));
-    right: calc(var(--pin-hover-offset) + 2px);
+    right: var(--pin-hover-offset);
 }
 
 /* Consistent spacing to prevent text shifting */
@@ -897,6 +912,38 @@ body {
     position: relative;
 }
 
+/* Remove margins for groups inside file sections so they fill completely */
+.file-section .group-section {
+    margin: 0 0 0 10px;
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+}
+
+/* For single-group file sections, remove left margin so header fills full width */
+.file-section.single-group .group-section {
+    margin-left: 0;
+}
+
+/* First group gets top border radius, last group gets bottom border radius */
+.file-section .group-section:first-child {
+    border-top-left-radius: 4px;
+    border-top-right-radius: 4px;
+    border-top: 1px solid var(--border-primary);
+}
+
+.file-section .group-section:last-child {
+    border-bottom-left-radius: 4px;
+    border-bottom-right-radius: 4px;
+    border-bottom: 1px solid var(--border-primary);
+}
+
+/* Only group gets all borders and radius */
+.file-section .group-section:only-child {
+    border: 1px solid var(--border-primary);
+    border-radius: 4px;
+}
+
 /* Category sections get more prominent rounded corners */
 .category-section {
     border-radius: 12px;
@@ -905,6 +952,11 @@ body {
 .section-content {
     padding: 10px;
     transition: all 0.2s ease;
+}
+
+/* Remove padding from file section content so groups fill completely */
+.file-section > .section-content {
+    padding: 0;
 }
 
 /* Expandable container states - works for any content type */
