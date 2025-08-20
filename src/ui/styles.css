@@ -896,6 +896,11 @@ body {
     position: relative;
 }
 
+/* Category sections get more prominent rounded corners */
+.category-section {
+    border-radius: 12px;
+}
+
 .section-content {
     padding: 10px;
     transition: all 0.2s ease;

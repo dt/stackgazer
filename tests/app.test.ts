@@ -20,6 +20,7 @@ const defaultSettings = {
   titleManipulationRules: [],
   nameExtractionPatterns: [],
   zipFilePattern: '^(.*\/)?stacks\.txt$',
+  categoryIgnoredPrefixes: [],
 };
 
 // Test data
@@ -87,9 +88,10 @@ function assertCounts(
   expectedFiles: number,
   testName: string
 ) {
-  if (collection.getStacks().length !== expectedStacks) {
+  const stacks = collection.getCategories().reduce((acc, x) => acc + x.stacks.length, 0);
+  if (stacks !== expectedStacks) {
     throw new Error(
-      `${testName}: expected ${expectedStacks} stacks, got ${collection.getStacks().length}`
+      `${testName}: expected ${expectedStacks} stacks, got ${stacks}`
     );
   }
   if (collection.getFileNames().length !== expectedFiles) {
@@ -104,8 +106,9 @@ function assertFirstGoroutineIdPrefixed(
   shouldBePrefixed: boolean,
   testName: string
 ) {
-  if (collection.getStacks().length === 0) return;
-  const firstId = collection.getStacks()[0].files[0].groups[0].goroutines[0].id;
+  
+  if (collection.getCategories().length === 0) return;
+  const firstId = collection.getCategories()[0].stacks[0].files[0].groups[0].goroutines[0].id;
   const isPrefixed = firstId.includes('.');
   if (isPrefixed !== shouldBePrefixed) {
     const expected = shouldBePrefixed ? 'prefixed' : 'unprefixed';
@@ -209,6 +212,7 @@ main.worker()
           titleManipulationRules: [],
           nameExtractionPatterns: [],
           zipFilePattern: '^(.*\/)?stacks\.txt$',
+          categoryIgnoredPrefixes: [],
         },
         expectFuncTrimmed: true,
         expectFileTrimmed: true,
@@ -232,6 +236,7 @@ main.worker()
           ],
           nameExtractionPatterns: [],
           zipFilePattern: '^(.*\/)?stacks\.txt$',
+          categoryIgnoredPrefixes: [],
         },
         expectStackName: 'waitgroup worker',
       },
@@ -242,12 +247,12 @@ main.worker()
       await addFile(collection, t.content, 'test.txt');
 
       if (t.newSettings) {
-        const stack = collection.getStacks()[0];
+        const stack = collection.getCategories()[0].stacks[0];
         const originalFunc = stack.trace[0].func;
         const originalFile = stack.trace[0].file;
 
         collection.updateSettings(t.newSettings);
-        const updatedStack = collection.getStacks()[0];
+        const updatedStack = collection.getCategories()[0].stacks[0];
 
         if (t.expectFuncTrimmed && originalFunc.startsWith('main.')) {
           const expected = originalFunc.substring('main.'.length);
@@ -264,7 +269,7 @@ main.worker()
       }
 
       if (t.expectStackName) {
-        const stack = collection.getStacks()[0];
+        const stack = collection.getCategories()[0].stacks[0];
         if (stack.name !== t.expectStackName) {
           throw new Error(`${t.name}: Expected '${t.expectStackName}', got '${stack.name}'`);
         }
@@ -275,7 +280,7 @@ main.worker()
   test('ProfileCollection: Stack properties', async () => {
     const collection = new ProfileCollection(defaultSettings);
     await addFile(collection, format2Content, 'test.txt');
-    const stack = collection.getStacks()[0];
+    const stack = collection.getCategories()[0].stacks[0];
 
     // Searchable text tests
     if (!stack.searchableText.includes('main.worker'))
@@ -290,15 +295,15 @@ main.worker()
     const sameTrace = `goroutine 1 [running]:\nmain.worker()\n\t/main.go:10 +0x10`;
     await addFile(collection, sameTrace, 'file1.txt');
     await addFile(collection, sameTrace, 'file2.txt');
-    if (collection.getStacks().length !== 1) throw new Error('Expected 1 merged stack');
-    const mergedStack = collection.getStacks()[0];
+    if (collection.getCategories()[0].stacks.length !== 1) throw new Error('Expected 1 merged stack');
+    const mergedStack = collection.getCategories()[0].stacks[0];
     if (mergedStack.files.length !== 2) throw new Error('Expected stack in 2 files');
     if (mergedStack.counts.total !== 2) throw new Error('Expected total count of 2');
 
     // Title rules update test
     const originalName = mergedStack.name;
     collection.updateTitleRules(['trim:main.']);
-    const newName = collection.getStacks()[0].name;
+    const newName = collection.getCategories()[0].stacks[0].name;
     if (originalName === newName) throw new Error('Title should change after updating rules');
     if (!originalName.startsWith('main.') || newName.startsWith('main.'))
       throw new Error('Trim rule not applied correctly');
@@ -379,11 +384,13 @@ main.worker()
     // Count helper function
     function countGoroutinesWithLabel(labelPredicate: (label: string) => boolean): number {
       let count = 0;
-      for (const stack of collection.getStacks()) {
-        for (const fileSection of stack.files) {
-          for (const group of fileSection.groups) {
-            if (group.labels.some(labelPredicate)) {
-              count += group.counts.total;
+      for (const category of collection.getCategories()) {
+        for (const stack of category.stacks) {
+          for (const fileSection of stack.files) {
+            for (const group of fileSection.groups) {
+              if (group.labels.some(labelPredicate)) {
+                count += group.counts.total;
+              }
             }
           }
         }
@@ -427,20 +434,22 @@ main.worker()
 
     // Test clearFilterChanges
     collection.setFilter({ filterString: '4' });
-    const stack = collection.getStacks()[0];
+    const stack = collection.getCategories()[0].stacks[0];
     if (stack.counts.matches === stack.counts.priorMatches)
       throw new Error('Expected matches to differ from priorMatches after filtering');
 
     collection.clearFilterChanges();
-    for (const stack of collection.getStacks()) {
-      if (stack.counts.priorMatches !== stack.counts.matches)
-        throw new Error('Stack priorMatches should equal matches after clearFilterChanges');
-      for (const file of stack.files) {
-        if (file.counts.priorMatches !== file.counts.matches)
-          throw new Error('File priorMatches should equal matches after clearFilterChanges');
-        for (const group of file.groups) {
-          if (group.counts.priorMatches !== group.counts.matches)
-            throw new Error('Group priorMatches should equal matches after clearFilterChanges');
+    for (const cat of collection.getCategories()) {
+      for (const stack of cat.stacks) {
+        if (stack.counts.priorMatches !== stack.counts.matches)
+          throw new Error('Stack priorMatches should equal matches after clearFilterChanges');
+        for (const file of stack.files) {
+          if (file.counts.priorMatches !== file.counts.matches)
+            throw new Error('File priorMatches should equal matches after clearFilterChanges');
+          for (const group of file.groups) {
+            if (group.counts.priorMatches !== group.counts.matches)
+              throw new Error('Group priorMatches should equal matches after clearFilterChanges');
+          }
         }
       }
     }
@@ -490,7 +499,7 @@ main.worker()
     await addFile(collection, testData, 'test.txt');
     
     // Get initial state
-    const stacks = collection.getStacks();
+    const stacks = collection.getCategories()[0].stacks;
     if (stacks.length === 0) throw new Error('Should have stacks');
     
     const stack = stacks[0];
@@ -534,6 +543,108 @@ main.worker()
     collection.setFilter({ filterString: 'nonexistent' });
     if (stack.counts.matches > 0) throw new Error('Unpinned stack should not be visible with non-matching filter');
     if (group.counts.matches > 0) throw new Error('Unpinned group should not be visible with non-matching filter');
+    
+    // Test category functionality within pinning test
+    console.log('\n🧪 Category functionality test');
+    
+    const categories = collection.getCategories();
+    console.log(`✅ Found ${categories.length} categories`);
+    if (categories.length === 0) throw new Error('Expected at least one category');
+    
+    // Verify each category has stacks
+    let totalStacksInCategories = 0;
+    for (const category of categories) {
+      console.log(`  Category "${category.name}": ${category.stacks.length} stacks, ${category.counts.total} goroutines`);
+      totalStacksInCategories += category.stacks.length;
+      if (category.stacks.length === 0) throw new Error(`Category ${category.name} should have stacks`);
+    }
+    
+    // Verify all stacks are in categories
+    const totalStacks = collection.getCategories().reduce((acc, x) => acc + x.stacks.length, 0) ;
+    if (totalStacksInCategories !== totalStacks) {
+      throw new Error(`All stacks should be in categories: ${totalStacksInCategories} vs ${totalStacks}`);
+    }
+    
+    console.log('✅ Category functionality verified');
+  });
+
+  test('Category extraction pattern: prefix up to second slash OR first dot', async () => {
+    const categoryTests = [
+      // Basic cases - no slash, stop at dot
+      { func: 'main.worker', expected: 'main' },
+      { func: 'fmt.Printf', expected: 'fmt' },
+      
+      // Single slash - no second slash, so use first dot rule (no dot = whole string)
+      { func: 'package/function', expected: 'package/function' },
+      { func: 'main/worker', expected: 'main/worker' },
+      
+      // Pattern matches: domain/path1/path2 up to dots
+      { func: 'github.com/user/repo.Function', expected: 'github.com/user/repo' },
+      { func: 'go.uber.org/zap/zapcore.NewCore', expected: 'go.uber.org/zap/zapcore' },
+      { func: 'company.com/project/service.Start', expected: 'company.com/project/service' },
+      { func: 'google.golang.org/grpc.(*Server).serveStreams.func1.1', expected: 'google.golang.org/grpc' },
+      { func: 'a/b/c', expected: 'a/b' },
+      { func: 'a/b.c', expected: 'a/b' },
+      
+      // Fallback to first dot rule (pattern doesn't match)
+      { func: 'main.worker/helper', expected: 'main' },
+      { func: 'fmt.Printf/internal', expected: 'fmt' },
+      
+      // No slash or dot - return whole function
+      { func: 'main', expected: 'main' },
+      { func: 'runtime', expected: 'runtime' },
+      { func: 'worker', expected: 'worker' },
+      
+      // Edge cases
+      { func: '', expected: '' },
+      { func: '/', expected: '' },
+      { func: '.', expected: '' },
+      { func: 'a.', expected: 'a' },
+      { func: 'a/', expected: 'a' },
+      { func: '/a', expected: '' },
+      { func: 'a//b', expected: 'a/' },
+      { func: 'a..b', expected: 'a' },
+    ];
+
+    console.log('\n🧪 Testing category extraction patterns:');
+    
+    for (const test of categoryTests) {
+      // Create a simple test collection with category ignored prefixes
+      const testSettings = {
+        ...defaultSettings,
+        categoryIgnoredPrefixes: [],
+      };
+      
+      const collection = new ProfileCollection(testSettings);
+      
+      // Create test content with the function we want to test
+      const testContent = `goroutine 1 [running]:
+${test.func}()
+\t/test.go:10 +0x10`;
+      
+      try {
+        await addFile(collection, testContent, 'test.txt');
+        const categories = collection.getCategories();
+        
+        if (categories.length === 0) {
+          throw new Error(`No categories found for function: ${test.func}`);
+        }
+        
+        const actualCategory = categories[0].name;
+        if (actualCategory !== test.expected) {
+          throw new Error(
+            `Function "${test.func}": expected category "${test.expected}", got "${actualCategory}"`
+          );
+        }
+        
+        console.log(`  ✅ "${test.func}" → "${actualCategory}"`);
+      } catch (error) {
+        console.error(`  ❌ "${test.func}" → error: ${(error as Error).message}`);
+        throw error;
+      }
+    }
+    
+    console.log('✅ All category extraction tests passed');
   });
 
   console.log('\n✅ All data model and filtering tests passed');
