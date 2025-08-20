@@ -568,6 +568,124 @@ main.worker()
     console.log('✅ Category functionality verified');
   });
 
+  test('Category pin with children behavior', async () => {
+    const collection = new ProfileCollection(defaultSettings);
+    
+    // Add test data with multiple categories, stacks, groups, and goroutines
+    const testData = `goroutine 1 [running]:
+main.worker()
+	/main.go:10 +0x10
+
+goroutine 2 [select]:
+main.worker()
+	/main.go:10 +0x10
+
+goroutine 3 [running]:
+io.read()
+	/io.go:5 +0x05`;
+    
+    await addFile(collection, testData, 'test.txt');
+    
+    const categories = collection.getCategories();
+    if (categories.length < 2) throw new Error('Should have at least 2 categories');
+    
+    const mainCategory = categories.find(c => c.name === 'main');
+    if (!mainCategory) throw new Error('Should have main category');
+    
+    // Verify initial state - nothing should be pinned
+    if (mainCategory.pinned) throw new Error('Category should not be pinned initially');
+    
+    for (const stack of mainCategory.stacks) {
+      if (stack.pinned) throw new Error('Stack should not be pinned initially');
+      for (const fileSection of stack.files) {
+        for (const group of fileSection.groups) {
+          if (group.pinned) throw new Error('Group should not be pinned initially');
+          for (const goroutine of group.goroutines) {
+            if (goroutine.pinned) throw new Error('Goroutine should not be pinned initially');
+          }
+        }
+      }
+    }
+    
+    // Test toggleCategoryPinWithChildren - should pin category and all children
+    const categoryPinned = collection.toggleCategoryPinWithChildren(mainCategory.id);
+    if (!categoryPinned) throw new Error('Category should be pinned after toggle');
+    if (!mainCategory.pinned) throw new Error('Category pinned property should be true');
+    
+    // Verify all children are pinned
+    for (const stack of mainCategory.stacks) {
+      if (!stack.pinned) throw new Error('Stack should be pinned after category pin with children');
+      for (const fileSection of stack.files) {
+        for (const group of fileSection.groups) {
+          if (!group.pinned) throw new Error('Group should be pinned after category pin with children');
+          for (const goroutine of group.goroutines) {
+            if (!goroutine.pinned) throw new Error('Goroutine should be pinned after category pin with children');
+          }
+        }
+      }
+    }
+    
+    // Test second toggle - should unpin category and all children
+    const categoryUnpinned = collection.toggleCategoryPinWithChildren(mainCategory.id);
+    if (categoryUnpinned) throw new Error('Category should be unpinned after second toggle');
+    if (mainCategory.pinned) throw new Error('Category pinned property should be false');
+    
+    // Verify all children are unpinned
+    for (const stack of mainCategory.stacks) {
+      if (stack.pinned) throw new Error('Stack should be unpinned after category unpin with children');
+      for (const fileSection of stack.files) {
+        for (const group of fileSection.groups) {
+          if (group.pinned) throw new Error('Group should be unpinned after category unpin with children');
+          for (const goroutine of group.goroutines) {
+            if (goroutine.pinned) throw new Error('Goroutine should be unpinned after category unpin with children');
+          }
+        }
+      }
+    }
+    
+    console.log('✅ Category pin with children functionality verified');
+  });
+
+  test('Category ignored prefixes can be passed at init', async () => {
+    // Test custom categoryIgnoredPrefixes passed during initialization
+    const customSettings = {
+      categoryIgnoredPrefixes: 'runtime.\nsync.\ntest.'
+    };
+    
+    // Create ProfileCollection directly with custom settings
+    const testSettings = {
+      ...defaultSettings,
+      categoryIgnoredPrefixes: ['runtime.', 'sync.', 'test.']
+    };
+    
+    const collection = new ProfileCollection(testSettings);
+    
+    // Test data with frames that should be ignored
+    const testData = `goroutine 1 [running]:
+runtime.gopark()
+\t/runtime/proc.go:123 +0x10
+sync.(*WaitGroup).Wait()
+\t/sync/waitgroup.go:130 +0x10
+test.helper()
+\t/test/helper.go:15 +0x10
+main.worker()
+\t/main.go:10 +0x10`;
+    
+    await addFile(collection, testData, 'test.txt');
+    
+    const categories = collection.getCategories();
+    if (categories.length === 0) throw new Error('Should have categories');
+    
+    // Should categorize as "main" since runtime, sync, and test prefixes are ignored
+    const mainCategory = categories.find(c => c.name === 'main');
+    if (!mainCategory) {
+      const categoryNames = categories.map(c => c.name);
+      throw new Error(`Should have main category. Found: ${categoryNames.join(', ')}`);
+    }
+    
+    console.log('✅ Category ignored prefixes properly passed at init and used for categorization');
+  });
+
   test('Category extraction pattern: prefix up to second slash OR first dot', async () => {
     const categoryTests = [
       // Basic cases - no slash, stop at dot

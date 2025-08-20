@@ -1684,6 +1684,20 @@ export class StackTraceApp {
   }
 
   /**
+   * Parse category ignored prefixes string into array
+   */
+  private parseCategoryIgnoredPrefixes(categoryIgnoredPrefixes: string): string[] {
+    if (!categoryIgnoredPrefixes || typeof categoryIgnoredPrefixes !== 'string') {
+      return [];
+    }
+
+    return categoryIgnoredPrefixes
+      .split('\n')
+      .map(prefix => prefix.trim())
+      .filter(prefix => prefix.length > 0);
+  }
+
+  /**
    * Convert AppSettings to ProfileCollectionSettings format
    */
   private convertToProfileCollectionSettings(appSettings: AppSettings): ProfileCollectionSettings {
@@ -1693,7 +1707,7 @@ export class StackTraceApp {
       titleManipulationRules: this.settingsManager.getTitleManipulationRules(),
       nameExtractionPatterns: appSettings.nameExtractionPatterns,
       zipFilePattern: appSettings.zipFilePattern,
-      categoryIgnoredPrefixes: this.settingsManager.getCategoryIgnoredPrefixes(),
+      categoryIgnoredPrefixes: this.parseCategoryIgnoredPrefixes(appSettings.categoryIgnoredPrefixes),
     };
   }
 
