@@ -952,13 +952,14 @@ body {
 /* Sticky header styles */
 .category-section > .header {
     position: sticky;
-    top: -20px; /* Account for section margin */
+    top: -23px; /* Account for section margin */
     z-index: 100;
+    border-radius: 6px 6px 0 0;
 }
 
 .stack-section > .header {
     position: sticky;
-    top: 23px; /* Stack headers stick below category headers, accounting for margin */
+    top: 20px; /* Stack headers stick below category headers, accounting for margin */
     z-index: 90;
 }
 
