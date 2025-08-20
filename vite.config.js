@@ -2,6 +2,7 @@ import { defineConfig } from 'vite'
 
 export default defineConfig({
   root: 'src/ui',
+  base: './', // Use relative paths
   build: {
     outDir: '../../dist',
     emptyOutDir: false, // Don't clear dist since we may have other files
