@@ -19,7 +19,7 @@ const defaultSettings = {
   filePrefixesToTrim: [] as RegExp[],
   titleManipulationRules: [],
   nameExtractionPatterns: [],
-  zipFilePattern: '**/stacks.txt',
+  zipFilePattern: '^(.*\/)?stacks\.txt$',
 };
 
 // Test data
@@ -208,7 +208,7 @@ main.worker()
           filePrefixesToTrim: [/^\/usr\/local\/go\/src\//],
           titleManipulationRules: [],
           nameExtractionPatterns: [],
-          zipFilePattern: '**/stacks.txt',
+          zipFilePattern: '^(.*\/)?stacks\.txt$',
         },
         expectFuncTrimmed: true,
         expectFileTrimmed: true,
@@ -231,7 +231,7 @@ main.worker()
             'trim:main.',
           ],
           nameExtractionPatterns: [],
-          zipFilePattern: '**/stacks.txt',
+          zipFilePattern: '^(.*\/)?stacks\.txt$',
         },
         expectStackName: 'waitgroup worker',
       },
