@@ -1,0 +1,141 @@
+/**
+ * Shared test data and helpers to eliminate duplication across test files
+ */
+
+import { ProfileCollection } from '../src/app/ProfileCollection.ts';
+import { FileParser } from '../src/parser/parser.ts';
+import { readFileSync } from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const examplesDir = join(__dirname, '../examples');
+
+// Standard test data
+export const TEST_DATA = {
+  format1: `goroutine profile: total 4
+2 @ 0x1000
+#	0x1000	main.worker	/main.go:10
+
+1 @ 0x1000
+# labels {"state":"running"}
+#	0x1000	main.worker	/main.go:10
+
+1 @ 0x2000
+#	0x2000	io.read	/io.go:5`,
+
+  format2: `goroutine 1 [running]:
+main.worker()
+	/main.go:10 +0x10
+
+goroutine 2 [select]:
+io.read()
+	/io.go:5 +0x05
+
+goroutine 3 [select]:
+main.worker()
+	/main.go:10 +0x10
+created by main.start() in goroutine 1
+
+goroutine 4 [running]:
+main.worker()
+	/main.go:10 +0x10
+created by main.start() in goroutine 1`,
+
+  multiCategory: `goroutine 1 [running]:
+main.worker()
+	/main.go:10 +0x10
+
+goroutine 2 [select]:
+main.worker()
+	/main.go:10 +0x10
+
+goroutine 3 [running]:
+io.read()
+	/io.go:5 +0x05`,
+
+  withTrimming: `goroutine 1 [running]:
+main.worker()
+	/usr/local/go/src/main.go:10 +0x10`,
+
+  withManipulation: `goroutine 1 [running]:
+runtime.gopark()
+	runtime/proc.go:123 +0x10
+sync.(*WaitGroup).Wait()
+	sync/waitgroup.go:45 +0x20
+main.worker()
+	main.go:10 +0x30`,
+
+  exampleStacks2: readFileSync(join(examplesDir, 'stacks.txt'), 'utf8'),
+  exampleWithLabels: readFileSync(join(examplesDir, 'stacks_with_labels.txt'), 'utf8'),
+};
+
+// Default settings for tests
+export const DEFAULT_SETTINGS = {
+  functionPrefixesToTrim: [] as RegExp[],
+  filePrefixesToTrim: [] as RegExp[],
+  titleManipulationRules: [],
+  nameExtractionPatterns: [],
+  zipFilePattern: '^(.*\/)?stacks\.txt$',
+  categoryIgnoredPrefixes: [],
+};
+
+// Parser instance
+export const parser = new FileParser();
+
+// Test helpers
+export async function addFile(
+  collection: ProfileCollection,
+  content: string,
+  name: string,
+  customName?: string
+) {
+  const result = await parser.parseFile(content, name);
+  if (!result.success) throw new Error('Parse failed');
+  collection.addFile(result.data, customName);
+  return collection;
+}
+
+export function assertCounts(
+  collection: ProfileCollection,
+  expectedStacks: number,
+  expectedFiles: number,
+  testName: string
+) {
+  const stacks = collection.getCategories().reduce((acc, x) => acc + x.stacks.length, 0);
+  if (stacks !== expectedStacks) {
+    throw new Error(`${testName}: expected ${expectedStacks} stacks, got ${stacks}`);
+  }
+  if (collection.getFileNames().length !== expectedFiles) {
+    throw new Error(`${testName}: expected ${expectedFiles} files, got ${collection.getFileNames().length}`);
+  }
+}
+
+export function assertFirstGoroutineIdPrefixed(
+  collection: ProfileCollection,
+  shouldBePrefixed: boolean,
+  testName: string
+) {
+  if (collection.getCategories().length === 0) return;
+  const firstId = collection.getCategories()[0].stacks[0].files[0].groups[0].goroutines[0].id;
+  const isPrefixed = firstId.includes('.');
+  if (isPrefixed !== shouldBePrefixed) {
+    const expected = shouldBePrefixed ? 'prefixed' : 'unprefixed';
+    throw new Error(`${testName}: expected ${expected} ID, got ${firstId}`);
+  }
+}
+
+export async function test(name: string, fn: () => void | Promise<void>): Promise<void> {
+  console.log(`\n🧪 ${name}`);
+  try {
+    const result = fn();
+    if (result instanceof Promise) {
+      await result;
+    }
+    console.log(`✅ PASS`);
+  } catch (error) {
+    console.error(`❌ FAIL: ${(error as Error).message}`);
+    throw error;
+  }
+}
