@@ -824,6 +824,32 @@ export class ProfileCollection {
   }
 
   /**
+   * Toggle pinned state for a category and all its children (stacks, groups, goroutines)
+   */
+  toggleCategoryPinWithChildren(categoryId: string): boolean {
+    const category = this.categories.find(c => c.id === categoryId);
+    if (category) {
+      const newPinnedState = !category.pinned;
+      category.pinned = newPinnedState;
+      
+      // Apply same state to all children
+      for (const stack of category.stacks) {
+        stack.pinned = newPinnedState;
+        for (const fileSection of stack.files) {
+          for (const group of fileSection.groups) {
+            group.pinned = newPinnedState;
+            for (const goroutine of group.goroutines) {
+              goroutine.pinned = newPinnedState;
+            }
+          }
+        }
+      }
+      return newPinnedState;
+    }
+    return false;
+  }
+
+  /**
    * Unpin all categories, stacks, groups, and goroutines
    */
   unpinAllItems(): void {
