@@ -4,9 +4,8 @@
   "type": "module",
   "description": "A single-page app for viewing Go stack traces",
   "scripts": {
-    "build": "npm run build:dev",
-    "build:dev": "rm -rf dist coverage && esbuild src/ui/index.ts --bundle --outdir=dist --format=esm --sourcemap --external:jszip && cp src/ui/index.html src/ui/styles.css dist/ && esbuild node_modules/jszip/dist/jszip.min.js --outfile=dist/jszip.js --format=esm && node scripts/inline-worker.cjs && vite build",
-    "build:bundle": "rm -rf dist && vite build --config vite.standalone.config.js",
+    "build": "vite build",
+    "build:bundle": "vite build --config vite.standalone.config.js",
     "watch": "tsc --watch",
     "serve": "python3 -m http.server 8000",
     "test": "NODE_OPTIONS=\"--import tsx/esm\" node --test tests/parser.test.ts tests/app.test.ts",

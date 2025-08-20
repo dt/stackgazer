@@ -20,8 +20,8 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      // Map jszip import to the bundled version
-      'jszip': '/jszip.js'
+      // Use jszip from node_modules
+      'jszip': 'jszip'
     }
   }
 })
