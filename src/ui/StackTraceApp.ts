@@ -2,7 +2,7 @@ import { ProfileCollection, ProfileCollectionSettings } from '../app/ProfileColl
 import { FileParser } from '../parser/index.js';
 import { UniqueStack, Group, FilterChanges, AppState, Goroutine, Filter, Category, Counts } from '../app/types.js';
 import { SettingsManager, AppSettings } from '../app/SettingsManager.js';
-import JSZip from 'jszip';
+import { getJSZip } from '../parser/zip.js';
 
 export interface StackTraceAppOptions extends Partial<AppSettings> {
   initialTheme?: 'dark' | 'light';
@@ -280,9 +280,18 @@ export class StackTraceApp {
 
   private async handleZipFile(file: File): Promise<void> {
     try {
+      console.log('StackTraceApp: Starting zip file handling for:', file.name);
       const arrayBuffer = await file.arrayBuffer();
-      const zip = new JSZip();
+      console.log('StackTraceApp: Got array buffer, size:', arrayBuffer.byteLength);
+      const JSZipClass = await getJSZip();
+      if (!JSZipClass) {
+        throw new Error('JSZip failed to load from CDN. Please check your internet connection and try again.');
+      }
+      console.log('StackTraceApp: Got JSZip class:', typeof JSZipClass);
+      const zip = new JSZipClass();
+      console.log('StackTraceApp: JSZip instance created:', zip);
       const zipContent = await zip.loadAsync(arrayBuffer);
+      console.log('StackTraceApp: Zip loaded successfully');
 
       // Find stack trace files in the zip (using settings pattern)
       const pattern = this.settingsManager.getZipFilePatternRegex();
@@ -1515,9 +1524,18 @@ export class StackTraceApp {
 
       if (fileName.endsWith('.zip')) {
         // Handle zip files
+        console.log('StackTraceApp: Handling zip file from URL:', fileName);
         const arrayBuffer = await response.arrayBuffer();
-        const zip = new JSZip();
+        console.log('StackTraceApp: Got array buffer from URL, size:', arrayBuffer.byteLength);
+        const JSZipClass = await getJSZip();
+        if (!JSZipClass) {
+          throw new Error('JSZip failed to load from CDN. Please check your internet connection and try again.');
+        }
+        console.log('StackTraceApp: Got JSZip class for URL zip:', typeof JSZipClass);
+        const zip = new JSZipClass();
+        console.log('StackTraceApp: URL JSZip instance created:', zip);
         const zipContent = await zip.loadAsync(arrayBuffer);
+        console.log('StackTraceApp: URL zip loaded successfully');
 
         // Find stack trace files in the zip (using settings pattern)
         const pattern = this.settingsManager.getZipFilePatternRegex();

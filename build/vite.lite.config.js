@@ -3,12 +3,47 @@ import { viteSingleFile } from 'vite-plugin-singlefile'
 import { rename, unlink } from 'fs/promises'
 import { join } from 'path'
 import cssnano from 'cssnano'
+import htmlMinify from 'vite-plugin-html-minify'
+
+function injectJsZipCdn() {
+  return {
+    name: 'inject-jszip-cdn',
+    transformIndexHtml() {
+      const flag = {
+        tag: 'script',
+        children: 'window.__zipCdnFailed = false;',
+        injectTo: 'head'
+      };
+      const jszip = {
+        tag: 'script',
+        attrs: {
+          src: 'https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js',
+          defer: true,
+          crossorigin: 'anonymous',
+          onerror: 'window.__zipCdnFailed = true'
+        },
+        injectTo: 'head'
+      };
+      return { tags: [flag, jszip] };
+    }
+  };
+}
 
 export default defineConfig({
   root: 'src/ui',
   plugins: [
+    injectJsZipCdn(),
     viteSingleFile({
       removeViteModuleLoader: true
+    }),
+    htmlMinify({
+      minifyOptions: {
+        removeComments: true,
+        collapseWhitespace: true,
+        removeAttributeQuotes: true,
+        minifyCSS: true,
+        minifyJS: true
+      }
     }),
     {
       name: 'rename-and-cleanup',
@@ -29,16 +64,19 @@ export default defineConfig({
       }
     }
   ],
+  define: {
+    __ZIP_EXTERNAL__: true, // CDN build
+  },
   build: {
     outDir: '../../dist',
-    emptyOutDir: true, // Always nuke dist to ensure no stale files
+    emptyOutDir: true,
     sourcemap: false,
     minify: 'terser',
     terserOptions: {
       mangle: {
         toplevel: true,
         properties: {
-          regex: /^_|^[a-zA-Z]/,  // mangle properties starting with _ or any letter
+          regex: /^_/,
           reserved: ['constructor', 'prototype', 'toString', 'valueOf']
         },
         reserved: ['require', 'exports', 'module']
@@ -59,8 +97,11 @@ export default defineConfig({
         entryFileNames: 'lite-bundle.js',
         assetFileNames: 'lite-bundle.css'
       },
-      external: ['jszip'], // Exclude JSZip from bundle
+      external: ['jszip'],
     }
+  },
+  optimizeDeps: {
+    exclude: ['jszip']
   },
   css: {
     postcss: {
