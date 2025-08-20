@@ -130,7 +130,10 @@ class StackNamer {
 
         if (rule.type === 'fold' && rule.pattern && functionName.startsWith(rule.pattern)) {
           if (rule.prefix) {
-            currentPrefix += rule.prefix + ' ';
+            const append = rule.prefix + ' ';
+            if (!currentPrefix.endsWith(append)) {
+              currentPrefix += append;
+            }
           }
           shouldSkip = true;
           break;
