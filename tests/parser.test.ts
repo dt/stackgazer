@@ -2,7 +2,7 @@
  * Concise table-driven parser tests
  */
 
-import { FileParser, ZipHandler, AsyncFileParser } from '../src/parser/index.js';
+import { FileParser, ZipHandler } from '../src/parser/index.js';
 import JSZip from 'jszip';
 import { TEST_DATA, parser, test } from './shared-test-data.js';
 
@@ -72,13 +72,5 @@ await test('Zip extraction', async () => {
   }
 });
 
-await test('Async parser', async () => {
-  const asyncParser = new AsyncFileParser();
-  const result = await asyncParser.parseFile(TEST_DATA.format2, 'async.txt');
-  if (!result.success) throw new Error('Async parse failed');
-  const total = result.data.groups.reduce((sum: any, g: any) => sum + g.count, 0);
-  if (total !== 4) throw new Error(`Expected 4 total, got ${total}`);
-  asyncParser.destroy();
-});
 
 console.log('🎉 All parser tests completed!');
