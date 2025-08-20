@@ -5,7 +5,7 @@ export default defineConfig({
   base: './', // Use relative paths
   build: {
     outDir: '../../dist',
-    emptyOutDir: false, // Don't clear dist since we may have other files
+    emptyOutDir: true,
     sourcemap: true,
     rollupOptions: {
       input: 'src/ui/index.html',
