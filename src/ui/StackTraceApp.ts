@@ -603,8 +603,35 @@ export class StackTraceApp {
       e.stopPropagation();
       e.preventDefault();
 
+      const wasExpanded = !container.classList.contains('collapsed');
+      
       // Simply toggle the collapsed class
       container.classList.toggle('collapsed');
+
+      // If we just collapsed and the header is above the viewport, scroll to it
+      if (wasExpanded) {
+        const headerRect = header.getBoundingClientRect();
+        if (headerRect.top < 0) {
+          header.scrollIntoView({ behavior: 'instant', block: 'start' });
+          // For stack headers that are above viewport, scrolling "into view"
+          // still leaves them behind the category header, so if that happens,
+          // we can scroll them again but this time with a scroll margin set to
+          // the height of the cat header (or just a tad less to avoid a gap),
+          // then restore its scroll margin.
+          if (container.classList.contains('stack-section')) {
+            console.log('stack was above the fold: scroll it.')
+            const parentCategory = container.closest('.category-section');
+            const parentHeader = parentCategory ? parentCategory.querySelector('.header') as HTMLElement : null;
+            if (parentHeader) {
+              const headerHeight = parentHeader.clientHeight;
+              const tmp = header.style.scrollMarginTop ;
+              header.style.scrollMarginTop = `${headerHeight-2}px`;
+              header.scrollIntoView({ behavior: 'instant', block: 'start' });
+              header.style.scrollMarginTop = tmp;
+            }
+          }
+        }
+      }
 
       // Update aria-expanded for accessibility
       const isExpanded = !container.classList.contains('collapsed');
