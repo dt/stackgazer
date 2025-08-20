@@ -356,6 +356,148 @@ async function runTests() {
     console.log('  ✅ Settings save/load functionality works');
   });
 
+  // Test 7: Progressive expand/collapse behavior
+  await test('Progressive expand/collapse behavior', async () => {
+    // First ensure we have some data loaded (from previous tests)
+    await page.waitForSelector('.category-section', { timeout: 5000 });
+    
+    // Test progressive collapse: if any stacks are expanded, collapse all stacks
+    // First expand everything to have a known state
+    await page.click('#expandAllBtn');
+    await page.waitForTimeout(100);
+    
+    const hasExpandedStacks = await page.evaluate(() => {
+      const stacks = document.querySelectorAll('.stack-section');
+      return Array.from(stacks).some(stack => !stack.classList.contains('collapsed'));
+    });
+    
+    if (!hasExpandedStacks) {
+      throw new Error('Expected some stacks to be expanded after expand all');
+    }
+    
+    // Now collapse - should collapse stacks first
+    await page.click('#collapseAllBtn');
+    await page.waitForTimeout(100);
+    
+    const allStacksCollapsed = await page.evaluate(() => {
+      const stacks = document.querySelectorAll('.stack-section');
+      return Array.from(stacks).every(stack => stack.classList.contains('collapsed'));
+    });
+    
+    const categoriesStillExpanded = await page.evaluate(() => {
+      const categories = document.querySelectorAll('.category-section');
+      return Array.from(categories).some(cat => !cat.classList.contains('collapsed'));
+    });
+    
+    if (!allStacksCollapsed || !categoriesStillExpanded) {
+      throw new Error('First collapse should only collapse stacks, leaving categories expanded');
+    }
+    
+    // Second collapse should collapse categories
+    await page.click('#collapseAllBtn');
+    await page.waitForTimeout(100);
+    
+    const allCategoriesCollapsed = await page.evaluate(() => {
+      const categories = document.querySelectorAll('.category-section');
+      return Array.from(categories).every(cat => cat.classList.contains('collapsed'));
+    });
+    
+    if (!allCategoriesCollapsed) {
+      throw new Error('Second collapse should collapse all categories');
+    }
+    
+    // Test progressive expand: if any categories are collapsed, expand all categories
+    await page.click('#expandAllBtn');
+    await page.waitForTimeout(100);
+    
+    const categoriesExpanded = await page.evaluate(() => {
+      const categories = document.querySelectorAll('.category-section');
+      return Array.from(categories).every(cat => !cat.classList.contains('collapsed'));
+    });
+    
+    const stacksStillCollapsed = await page.evaluate(() => {
+      const stacks = document.querySelectorAll('.stack-section');
+      return Array.from(stacks).every(stack => stack.classList.contains('collapsed'));
+    });
+    
+    if (!categoriesExpanded || !stacksStillCollapsed) {
+      throw new Error('First expand should only expand categories, leaving stacks collapsed');
+    }
+    
+    // Second expand should expand stacks
+    await page.click('#expandAllBtn');
+    await page.waitForTimeout(100);
+    
+    const finalStacksExpanded = await page.evaluate(() => {
+      const stacks = document.querySelectorAll('.stack-section');
+      return Array.from(stacks).some(stack => !stack.classList.contains('collapsed'));
+    });
+    
+    if (!finalStacksExpanded) {
+      throw new Error('Second expand should expand stacks');
+    }
+    
+    console.log('  ✅ Progressive collapse behavior works correctly');
+    console.log('  ✅ Progressive expand behavior works correctly');
+  });
+
+  await test('File groups remain visible after collapse-all then individual stack expand', async () => {
+    // This test reproduces the reported bug where file groups disappear
+    await page.waitForSelector('.category-section', { timeout: 5000 });
+    
+    // First expand everything to ensure file groups are visible
+    await page.click('#expandAllBtn');
+    await page.click('#expandAllBtn'); // Second click to expand stacks
+    await page.waitForTimeout(100);
+    
+    // Verify file groups are visible
+    const fileGroupsVisible = await page.evaluate(() => {
+      const fileGroups = document.querySelectorAll('.file-section');
+      return Array.from(fileGroups).some(section => !section.classList.contains('collapsed'));
+    });
+    
+    if (!fileGroupsVisible) {
+      throw new Error('Expected file groups to be visible after expand all');
+    }
+    
+    // Now collapse all
+    await page.click('#collapseAllBtn');
+    await page.click('#collapseAllBtn'); // Second click to collapse categories
+    await page.waitForTimeout(100);
+    
+    // Expand just the categories to see stacks
+    await page.click('#expandAllBtn');
+    await page.waitForTimeout(100);
+    
+    // Manually expand one stack by clicking its header
+    const firstStackExpanded = await page.evaluate(() => {
+      const stackHeaders = document.querySelectorAll('.stack-section .header');
+      if (stackHeaders.length === 0) return false;
+      
+      (stackHeaders[0] as HTMLElement).click();
+      return true;
+    });
+    
+    if (!firstStackExpanded) {
+      throw new Error('Could not expand a stack manually');
+    }
+    
+    await page.waitForTimeout(100);
+    
+    // BUG: File groups should still be visible after manually expanding one stack
+    // but currently they are collapsed due to the buggy collapse-all implementation
+    const fileGroupsStillVisible = await page.evaluate(() => {
+      const fileGroups = document.querySelectorAll('.file-section');
+      return Array.from(fileGroups).some(section => !section.classList.contains('collapsed'));
+    });
+    
+    if (!fileGroupsStillVisible) {
+      throw new Error('BUG: File groups should remain visible after expanding individual stack');
+    }
+    
+    console.log('  ✅ File groups remain visible after manual stack expansion');
+  });
+
   await teardown();
   console.log('\n🎉 All UI interaction tests passed!');
 }

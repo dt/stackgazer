@@ -471,6 +471,7 @@ body {
     justify-content: space-between;
     align-items: center;
     gap: 8px;
+    position: relative;
 }
 
 .header:hover {
@@ -592,7 +593,7 @@ body {
 }
 
 /* Hover reveal for unpinned pins */
-.section:hover > .pin-button:not(.pinned),
+.section:hover > .header > .pin-button:not(.pinned),
 .goroutine-entry:hover > .pin-button:not(.pinned) {
     opacity: 0.6;
 }
