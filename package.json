@@ -5,7 +5,7 @@
   "description": "A single-page app for viewing Go stack traces",
   "scripts": {
     "build": "npm run build:base && node scripts/inline-worker.cjs && node scripts/bundle.cjs",
-    "build:base": "rm -rf dist coverage && esbuild src/ui/index.ts --bundle --outdir=dist --format=esm --sourcemap --external:jszip && cp src/ui/index.html dist/ && esbuild node_modules/jszip/dist/jszip.min.js --outfile=dist/jszip.js --format=esm",
+    "build:base": "rm -rf dist coverage && esbuild src/ui/index.ts --bundle --outdir=dist --format=esm --sourcemap --external:jszip && cp src/ui/index.html src/ui/styles.css dist/ && esbuild node_modules/jszip/dist/jszip.min.js --outfile=dist/jszip.js --format=esm",
     "build:inline": "npm run build:base && node scripts/inline-worker.cjs",
     "build:bundle": "npm run build:base && esbuild src/ui/index.ts --bundle --outfile=dist/app-bundle.js --format=iife --global-name=StackGazer --footer:js=\"window.StackTraceApp = StackGazer.StackTraceApp;\" && node scripts/bundle.cjs",
     "watch": "tsc --watch",
