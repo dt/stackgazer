@@ -20,7 +20,7 @@ export interface AppSettings {
 }
 
 export class SettingsManager {
-  private static readonly STORAGE_KEY = 'stacktrace-settings';
+  private static readonly STORAGE_KEY = 'stackgazer-settings';
   private settings: AppSettings;
   private changeCallback: ((settings: AppSettings) => void) | null = null;
   private defaultSettings: AppSettings;
@@ -50,7 +50,7 @@ export class SettingsManager {
       nameExtractionPatterns: [],
 
       // Zip file handling
-      zipFilePattern: '**/*.txt',
+      zipFilePattern: '^(.*\/)?.*\.txt$',
     };
   }
 
@@ -80,11 +80,20 @@ export class SettingsManager {
   }
 
   /**
-   * Save settings to localStorage
+   * Save settings to localStorage (only non-default values)
    */
   private saveSettings(): void {
     try {
-      localStorage.setItem(SettingsManager.STORAGE_KEY, JSON.stringify(this.settings));
+      const overrides: Partial<AppSettings> = {};
+      
+      // Only save values that differ from defaults
+      for (const key of Object.keys(this.settings) as Array<keyof AppSettings>) {
+        if (this.settings[key] !== this.defaultSettings[key]) {
+          (overrides as any)[key] = this.settings[key];
+        }
+      }
+      
+      localStorage.setItem(SettingsManager.STORAGE_KEY, JSON.stringify(overrides));
     } catch (error) {
       console.warn('Failed to save settings to localStorage:', error);
     }
@@ -119,8 +128,9 @@ export class SettingsManager {
    * Reset all settings to defaults
    */
   resetToDefaults(): void {
-    this.settings = this.defaultSettings;
-    this.saveSettings();
+    this.settings = { ...this.defaultSettings };
+    // Clear localStorage so new defaults will be used on next load
+    localStorage.removeItem(SettingsManager.STORAGE_KEY);
     this.notifyChange();
   }
 
@@ -290,5 +300,24 @@ export class SettingsManager {
    */
   setTitleManipulationRules(rules: string): void {
     this.updateSetting('titleManipulationRules', rules);
+  }
+
+  /**
+   * Get zip file pattern as regex
+   */
+  getZipFilePatternRegex(): RegExp {
+    const pattern = this.settings.zipFilePattern;
+    if (!pattern || typeof pattern !== 'string') {
+      // Default pattern for stacks.txt files
+      return /^(.*\/)?stacks\.txt$/;
+    }
+
+    try {
+      return new RegExp(pattern);
+    } catch (e) {
+      console.warn(`Invalid zip file pattern regex "${pattern}":`, e);
+      // Fallback to default pattern
+      return /^(.*\/)?stacks\.txt$/;
+    }
   }
 }

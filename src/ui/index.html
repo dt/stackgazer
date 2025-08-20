@@ -2021,10 +2021,10 @@
                 <div class="setting-group">
                     <div class="setting-title">
                         <span>Zip File Pattern</span>
-                        <button class="setting-help-icon" data-tooltip="Glob pattern to match files inside zip archives that should be extracted and parsed as stack trace files. Use ** for recursive directory matching. Examples: '**/stacks.txt', 'logs/*.txt', '*.log'">?</button>
+                        <button class="setting-help-icon" data-tooltip="Regex pattern to match files inside zip archives that should be extracted and parsed as stack trace files. Examples: '^(.*\/)?stacks\.txt$', '^logs\/.*\.txt$', '^.*\.log$'">?</button>
                     </div>
-                    <input type="text" id="zipFilePattern" class="setting-text-input" placeholder="**/stacks.txt">
-                    <div class="setting-description">Pattern to match stack trace files in zip archives</div>
+                    <input type="text" id="zipFilePattern" class="setting-text-input" placeholder="^(.*\/)?stacks\.txt$">
+                    <div class="setting-description">Regex pattern to match stack trace files in zip archives</div>
                 </div>
             </div>
             <div class="settings-actions">
@@ -2075,7 +2075,7 @@
         // You can override any of these settings based on your organization's needs
         const customDefaults = {
             // Parsing options - customize for your codebase
-            // functionTrimPrefixes: 'github.com/myorg/,internal/',
+            functionTrimPrefixes: 'github.com/cockroachdb/cockroach/pkg/',
             fileTrimPrefixes: 'github.com/cockroachdb/cockroach/',
             
             // Title manipulation rules - customize stack trace display
@@ -2113,7 +2113,7 @@
             ],
             
             // Zip file handling - customize for your file patterns
-            zipFilePattern: '**/stacks.txt'
+            zipFilePattern: '^(.*\/)?stacks\.txt$'
         };
         
         // Initialize the application with custom defaults

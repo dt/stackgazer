@@ -275,8 +275,8 @@ export class StackTraceApp {
       const zip = new JSZip();
       const zipContent = await zip.loadAsync(arrayBuffer);
 
-      // Find stack trace files in the zip (using default pattern)
-      const pattern = /^(.*\/)?stacks\.txt$/;
+      // Find stack trace files in the zip (using settings pattern)
+      const pattern = this.settingsManager.getZipFilePatternRegex();
       const files = Object.keys(zipContent.files).filter(fileName => {
         return pattern.test(fileName);
       });
@@ -1373,8 +1373,8 @@ export class StackTraceApp {
         const zip = new JSZip();
         const zipContent = await zip.loadAsync(arrayBuffer);
 
-        // Find stack trace files in the zip (using default pattern)
-        const pattern = /^(.*\/)?stacks\.txt$/;
+        // Find stack trace files in the zip (using settings pattern)
+        const pattern = this.settingsManager.getZipFilePatternRegex();
         const files = Object.keys(zipContent.files).filter(fileName => {
           return pattern.test(fileName);
         });
