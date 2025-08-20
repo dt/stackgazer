@@ -59,8 +59,8 @@
     --accent-success: #28a745;
     
     --code-function: #0969da;
-    --code-file: #0451a5;
-    --code-line: #098658;
+    --code-file: #098658;
+    --code-line: #0451a5;
     --code-keyword: #0969da;
     --code-string: #032f62;
     --code-bg: #f8f9fa;
@@ -1053,13 +1053,13 @@ body {
 /* Goroutine tooltip styles */
 .goroutine-tooltip {
     position: absolute;
-    background: #2d2d30;
-    border: 1px solid #464647;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-light);
     border-radius: 4px;
     padding: 8px 12px;
     font-size: 12px;
-    color: #cccccc;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    color: var(--text-primary);
+    box-shadow: 0 4px 8px var(--bg-overlay);
     z-index: 1000;
     pointer-events: none;
     max-width: 800px;
@@ -1070,18 +1070,18 @@ body {
 
 .goroutine-tooltip .tooltip-label {
     font-weight: bold;
-    color: #569cd6;
+    color: var(--code-keyword);
 }
 
 .goroutine-tooltip .tooltip-value {
-    color: #d7ba7d;
+    color: var(--code-string);
 }
 
 .goroutine-tooltip .tooltip-stack {
     margin-top: 4px;
     font-family: 'Courier New', monospace;
     font-size: 11px;
-    color: #9cdcfe;
+    color: var(--code-file);
 }
 
 .creator-missing {
