@@ -142,6 +142,14 @@
                     <textarea id="titleManipulationRules" class="setting-text-input" placeholder="skip:sync.runtime_Semacquire&#10;fold:sync.(*WaitGroup).Wait->Group&#10;trim:github.com/cockroachdb/cockroach/" rows="5" style="resize: vertical; min-height: 100px;"></textarea>
                     <div class="setting-description">Rules to customize how stack trace titles are generated (one per line)</div>
                 </div>
+                <div class="setting-group">
+                    <div class="setting-title">
+                        <span>Category Ignored Prefixes</span>
+                        <button class="setting-help-icon" data-tooltip="Function prefixes to skip when determining categories (one per line):&#10;• runtime. - Skip runtime functions&#10;• sync. - Skip sync functions&#10;• internal/ - Skip internal packages&#10;Categories are determined by the first non-ignored frame's package">?</button>
+                    </div>
+                    <textarea id="categoryIgnoredPrefixes" class="setting-text-input" placeholder="runtime.&#10;sync.&#10;reflect.&#10;syscall.&#10;internal/" rows="5" style="resize: vertical; min-height: 100px;"></textarea>
+                    <div class="setting-description">Skip these function prefixes when categorizing stacks (one per line)</div>
+                </div>
 
                 <h4>File Handling</h4>
                 <div class="setting-group">

@@ -27,7 +27,7 @@
  */
 
 import { File as ParserFile, Frame as ParserFrame } from '../parser/types.js';
-import { UniqueStack, Frame, Group, NameExtractionPattern, Filter, Goroutine } from './types.js';
+import { UniqueStack, Frame, Group, NameExtractionPattern, Filter, Goroutine, Category } from './types.js';
 
 /**
  * Determine if a function name represents a Go standard library function
@@ -177,16 +177,19 @@ export interface ProfileCollectionSettings {
   titleManipulationRules: string[];
   nameExtractionPatterns: NameExtractionPattern[];
   zipFilePattern: string;
+  categoryIgnoredPrefixes: string[];
 }
 
 export class ProfileCollection {
-  private stacks: UniqueStack[] = [];
+  private categories: Category[] = [];
+  private stackForTraceId: Map<string, { category: Category; stack: UniqueStack }> = new Map();
   private parsedFiles = new Map<string, ParserFile>();
   private settings: ProfileCollectionSettings;
   private stackNamer: StackNamer;
   private currentFilter: string = '';
   private nextGroupId: number = 1;
   private nextFileId: number = 1;
+  private nextCategoryId: number = 1;
   private goroutinesByID: Map<string, Goroutine> = new Map();
 
   constructor(settings: ProfileCollectionSettings) {
@@ -200,6 +203,91 @@ export class ProfileCollection {
   private generateStackName(trace: Frame[]): string {
     if (trace.length === 0) return 'empty';
     return this.stackNamer.generateTitle(trace);
+  }
+
+  /**
+   * Generate a category name from the trace using pattern: prefix up to second slash OR first dot
+   * Uses prefix up to second slash OR first dot, whichever comes first
+   * Skips frames that match any of the categoryIgnoredPrefixes
+   */
+  private generateCategoryName(trace: Frame[]): string {
+    if (trace.length === 0) return 'empty';
+    
+    // Start from the last frame and work backwards to find a non-ignored frame
+    for (let i = trace.length - 1; i >= 0; i--) {
+      const frame = trace[i];
+      const func = frame.func;
+      
+      // Check if this frame should be ignored
+      const shouldIgnore = this.settings.categoryIgnoredPrefixes.some(prefix => 
+        func.startsWith(prefix)
+      );
+      
+      if (!shouldIgnore) {
+        // Found a non-ignored frame, use it for categorization
+        return this.extractCategoryFromFunction(func);
+      }
+    }
+    
+    // If all frames are ignored, fall back to the last frame
+    const lastFrame = trace[trace.length - 1];
+    return this.extractCategoryFromFunction(lastFrame.func);
+  }
+
+  /**
+   * Extract category name using pattern: prefix up to second slash OR first dot in second part
+   * Pattern: part1/part2 where part2 stops at first dot or slash
+   * Returns first part, slash, and second part up to dot or second slash
+   */
+  private extractCategoryFromFunction(func: string): string {
+    // Handle empty string or empty function notation
+    if (func === '' || func === '()') {
+      return '';
+    }
+    
+    // Handle edge cases that should return empty
+    if (func === '/' || func === '.' || func.startsWith('/')) {
+      return '';
+    }
+    
+    // Handle double slash case like "a//b" -> "a/"
+    if (func.includes('//')) {
+      const doubleSlashIndex = func.indexOf('//');
+      return func.substring(0, doubleSlashIndex + 1);
+    }
+    
+    const firstDot = func.indexOf('.');
+    const firstSlash = func.indexOf('/');
+    
+    // Special case: if dot comes before slash and there's only one slash, prefer dot rule
+    // BUT skip this if the pattern looks like a domain (has multiple dots before first slash)
+    if (firstDot !== -1 && firstSlash !== -1 && firstDot < firstSlash) {
+      // Count slashes and dots before first slash
+      const slashCount = (func.match(/\//g) || []).length;
+      const dotsBeforeSlash = func.substring(0, firstSlash).split('.').length - 1;
+      if (slashCount === 1 && dotsBeforeSlash === 1) {
+        // Only one slash and one dot before it, use dot rule
+        return func.substring(0, firstDot);
+      }
+    }
+    
+    // Try to match the pattern (([^/.]*\.[^/]*)*/)?[^/.]+(/[^/.]+)?
+    // This captures optional domain-like patterns followed by path segments
+    const match = func.match(/^((([^\/.]*\.[^\/]*)*\/)?[^\/.]+(\/[^\/.]+)?)/);
+    
+    if (match) {
+      // Found the pattern, return the captured group
+      return match[1];
+    }
+    
+    // Fallback: if no slash but has dot, use prefix up to first dot
+    if (firstSlash === -1 && firstDot !== -1) {
+      // No slash but has dot, use dot rule
+      return func.substring(0, firstDot);
+    }
+    
+    // No pattern match, return whole function
+    return func;
   }
 
   /**
@@ -242,9 +330,7 @@ export class ProfileCollection {
     // Process each stack group
     for (const group of parserFile.groups) {
       const stackId = `s${group.traceId}`;
-      
-      // Find or create the stack first
-      let stack = this.stacks.find(stack => stack.id === stackId);
+      let { category, stack } = this.stackForTraceId.get(group.traceId) || {};
       if (!stack) {
         const trace = this.processFrames(group.trace);
         stack = {
@@ -261,7 +347,27 @@ export class ProfileCollection {
           },
           files: [],
         };
-        this.stacks.push(stack);
+      }
+      if (!category) {
+        const catName = this.generateCategoryName(stack.trace);
+        category = this.categories.find(c => c.name === catName);
+        if (!category) {
+          category = {
+            id: `cat${this.nextCategoryId++}`,
+            name: catName,
+            stacks: [],
+            pinned: false,
+            counts: {
+              total: 0,
+              matches: 0,
+              priorMatches: 0,
+              filterMatches: 0,
+            },
+          };
+          this.categories.push(category);
+          this.stackForTraceId.set(group.traceId, {category, stack });
+        }
+        category.stacks.push(stack);
       }
 
       // Now create the group with goroutines that reference the stack
@@ -323,7 +429,13 @@ export class ProfileCollection {
       stack.counts.matches += g.counts.matches;
       stack.counts.priorMatches += g.counts.priorMatches;
       stack.counts.filterMatches += g.counts.filterMatches;
+
+      category.counts.total += g.counts.total;
+      category.counts.matches += g.counts.matches;
+      category.counts.priorMatches += g.counts.priorMatches;
+      category.counts.filterMatches += g.counts.filterMatches;
     }
+
   }
 
   /**
@@ -339,34 +451,15 @@ export class ProfileCollection {
   }
 
   /**
-   * Get all unique stacks in the collection
+   * Get all categories in the collection
    */
-  getStacks(): UniqueStack[] {
-    return this.stacks;
+  getCategories(): Category[] {
+    return this.categories;
   }
+
 
   getGoroutineByID(id: string): Goroutine | undefined {
     return this.goroutinesByID.get(id);
-  }
-
-  getFiles(): { name: string; stacks: UniqueStack[] }[] {
-    // Group stacks by their original file names
-    const fileMap = new Map<string, UniqueStack[]>();
-    
-    for (const stack of this.stacks) {
-      for (const fileSection of stack.files) {
-        const fileName = fileSection.fileName;
-        if (!fileMap.has(fileName)) {
-          fileMap.set(fileName, []);
-        }
-        fileMap.get(fileName)!.push(stack);
-      }
-    }
-
-    return Array.from(fileMap.entries()).map(([name, stacks]) => ({
-      name,
-      stacks
-    }));
   }
 
   /**
@@ -408,20 +501,41 @@ export class ProfileCollection {
     this.parsedFiles.delete(fileName);
 
     // Remove all stacks that only contain this file
-    this.stacks = this.stacks.filter(stack => {
-      stack.files = stack.files.filter(file => file.fileName !== fileName);
-      stack.counts.matches = stack.files.reduce((sum, file) => sum + file.counts.matches, 0);
-      stack.counts.total = stack.files.reduce((sum, file) => sum + file.counts.total, 0);
-      stack.counts.priorMatches = stack.files.reduce(
-        (sum, file) => sum + file.counts.priorMatches,
-        0
-      );
-      stack.counts.filterMatches = stack.files.reduce(
-        (sum, file) => sum + file.counts.filterMatches,
-        0
-      );
-      return stack.counts.total > 0;
+    this.categories = this.categories.filter(cat => {
+      cat.stacks = cat.stacks.filter(stack => {
+        stack.files = stack.files.filter(file => {
+          if (file.fileName === fileName) {
+            file.groups.forEach(group => {
+              group.goroutines.forEach(goroutine => {
+                this.goroutinesByID.delete(goroutine.id);
+              });
+            });
+            return false;
+          }
+          return true;
+        });
+
+        if (stack.files.length === 0) {
+          return false;
+        }
+        stack.counts.matches = stack.files.reduce((sum, x) => sum + x.counts.matches, 0);
+        stack.counts.total = stack.files.reduce((sum, x) => sum + x.counts.total, 0);
+        stack.counts.priorMatches = stack.files.reduce((sum, x) => sum + x.counts.priorMatches, 0);
+        stack.counts.filterMatches = stack.files.reduce((sum, x) => sum + x.counts.filterMatches, 0);
+        return true;
+      });
+      if (cat.stacks.length === 0) {
+        return false;
+      }
+      cat.counts.matches = cat.stacks.reduce((sum, x) => sum + x.counts.matches, 0);
+      cat.counts.total = cat.stacks.reduce((sum, x) => sum + x.counts.total, 0);
+      cat.counts.priorMatches = cat.stacks.reduce((sum, x) => sum + x.counts.priorMatches, 0);
+      cat.counts.filterMatches = cat.stacks.reduce((sum, x) => sum + x.counts.filterMatches, 0);
+      return true;
     });
+
+    // Rebuild stackForTraceId map to remove references to deleted stacks
+    this.rebuildStackForTraceIdMap();
 
     // If only one file remains, remove prefixes from goroutine IDs
     if (this.parsedFiles.size === 1) {
@@ -432,6 +546,21 @@ export class ProfileCollection {
   }
 
   /**
+   * Rebuild the stackForTraceId map based on current stacks
+   */
+  private rebuildStackForTraceIdMap(): void {
+    this.stackForTraceId.clear();
+    
+    for (const category of this.categories) {
+      for (const stack of category.stacks) {
+        // Extract traceId from stack.id (format is "s<traceId>")
+        const traceId = stack.id.substring(1);
+        this.stackForTraceId.set(traceId, { category, stack });
+      }
+    }
+  }
+
+  /**
    * Rename a file in the collection
    */
   renameFile(from: string, to: string, nameInIds: boolean): void {
@@ -439,6 +568,7 @@ export class ProfileCollection {
     if (!content) {
       return;
     }
+    
     this.removeFile(from);
     this.parsedFiles.set(to, content);
     this.importParsedFile(content, to, nameInIds);
@@ -469,8 +599,13 @@ export class ProfileCollection {
     }
 
     // Clear collection
-    this.stacks = [];
+    this.categories = [];
     this.parsedFiles.clear();
+    this.goroutinesByID.clear();
+    this.stackForTraceId.clear();
+    this.nextGroupId = 1;
+    this.nextFileId = 1;
+    this.nextCategoryId = 1;
 
     // Re-add all files
     for (const file of files) {
@@ -479,12 +614,15 @@ export class ProfileCollection {
   }
 
   clearFilterChanges(): void {
-    for (const stack of this.stacks) {
-      stack.counts.priorMatches = stack.counts.matches;
-      for (const fileSection of stack.files) {
-        fileSection.counts.priorMatches = fileSection.counts.matches;
-        for (const group of fileSection.groups) {
-          group.counts.priorMatches = group.counts.matches;
+    for (const category of this.categories) {
+      category.counts.priorMatches = category.counts.matches;
+      for (const stack of category.stacks) {
+        stack.counts.priorMatches = stack.counts.matches;
+        for (const fileSection of stack.files) {
+          fileSection.counts.priorMatches = fileSection.counts.matches;
+          for (const group of fileSection.groups) {
+            group.counts.priorMatches = group.counts.matches;
+          }
         }
       }
     }
@@ -495,76 +633,80 @@ export class ProfileCollection {
 
     const filter = this.currentFilter === '' ? null : this.currentFilter;
 
-    for (const stack of this.stacks) {
-      // If the stack itself matches, just flip everything to match.
-      if (filter == null || stack.searchableText.includes(filter)) {
-        stack.counts.matches = stack.counts.total;
-        stack.counts.filterMatches = stack.counts.total;
-        for (const fileSection of stack.files) {
-          fileSection.counts.matches = fileSection.counts.total;
-          fileSection.counts.filterMatches = fileSection.counts.total;
-          for (const group of fileSection.groups) {
-            group.counts.matches = group.counts.total;
-            group.counts.filterMatches = group.counts.total;
-            for (const goroutine of group.goroutines) {
-              goroutine.matches = true;
-            }
-          }
-        }
-      } else {
-        stack.counts.matches = 0;
-        stack.counts.filterMatches = 0;
-        for (const fileSection of stack.files) {
-          fileSection.counts.matches = 0;
-          fileSection.counts.filterMatches = 0;
-
-          for (const group of fileSection.groups) {
-            // Use the sophisticated filter evaluation logic
-            const groupMatches = group.labels.some(label => label.includes(filter));
-            if (groupMatches || group.pinned) {
-              // If group matches or is pinned, all goroutines in the group match
+    for (const category of this.categories) {
+      for (const stack of category.stacks) {
+        // If the stack itself matches, just flip everything to match.
+        if (filter == null || stack.searchableText.includes(filter) || category.pinned) {
+          stack.counts.matches = stack.counts.total;
+          stack.counts.filterMatches = stack.counts.total;
+          for (const fileSection of stack.files) {
+            fileSection.counts.matches = fileSection.counts.total;
+            fileSection.counts.filterMatches = fileSection.counts.total;
+            for (const group of fileSection.groups) {
               group.counts.matches = group.counts.total;
-              group.counts.filterMatches = group.pinned ? 0 : group.counts.total;
+              group.counts.filterMatches = group.counts.total;
               for (const goroutine of group.goroutines) {
                 goroutine.matches = true;
               }
-            } else {
-              // Check individual goroutines
-              group.counts.matches = 0;
-              group.counts.filterMatches = 0;
-              for (const goroutine of group.goroutines) {
-                // First check normal filter logic
-                goroutine.matches = goroutine.id.includes(filter);
-                if (goroutine.matches) {
-                  group.counts.filterMatches++;
-                  group.counts.matches++;
-                } else if (
-                  filterObj.forcedGoroutine &&
-                  goroutine.id === filterObj.forcedGoroutine
-                ) {
-                  // Matches forced, but not filter, so only increment matches.
+            }
+          }
+        } else {
+          stack.counts.matches = 0;
+          stack.counts.filterMatches = 0;
+          for (const fileSection of stack.files) {
+            fileSection.counts.matches = 0;
+            fileSection.counts.filterMatches = 0;
+
+            for (const group of fileSection.groups) {
+              // Use the sophisticated filter evaluation logic
+              const groupMatches = group.labels.some(label => label.includes(filter));
+              if (groupMatches || group.pinned) {
+                // If group matches or is pinned, all goroutines in the group match
+                group.counts.matches = group.counts.total;
+                group.counts.filterMatches = group.pinned ? 0 : group.counts.total;
+                for (const goroutine of group.goroutines) {
                   goroutine.matches = true;
-                  group.counts.matches++;
-                } else if (goroutine.pinned) {
-                  // Pinned goroutines are visible but don't count as filter matches
-                  goroutine.matches = true;
-                  group.counts.matches++;
+                }
+              } else {
+                // Check individual goroutines
+                group.counts.matches = 0;
+                group.counts.filterMatches = 0;
+                for (const goroutine of group.goroutines) {
+                  // First check normal filter logic
+                  goroutine.matches = goroutine.id.includes(filter);
+                  if (goroutine.matches) {
+                    group.counts.filterMatches++;
+                    group.counts.matches++;
+                  } else if (
+                    filterObj.forcedGoroutine &&
+                    goroutine.id === filterObj.forcedGoroutine
+                  ) {
+                    // Matches forced, but not filter, so only increment matches.
+                    goroutine.matches = true;
+                    group.counts.matches++;
+                  } else if (goroutine.pinned) {
+                    // Pinned goroutines are visible but don't count as filter matches
+                    goroutine.matches = true;
+                    group.counts.matches++;
+                  }
                 }
               }
+              fileSection.counts.matches += group.counts.matches;
+              fileSection.counts.filterMatches += group.counts.filterMatches;
             }
-            fileSection.counts.matches += group.counts.matches;
-            fileSection.counts.filterMatches += group.counts.filterMatches;
+            stack.counts.matches += fileSection.counts.matches;
+            stack.counts.filterMatches += fileSection.counts.filterMatches;
           }
-          stack.counts.matches += fileSection.counts.matches;
-          stack.counts.filterMatches += fileSection.counts.filterMatches;
-        }
-        
-        // If stack is pinned and has no matches from children, make it visible
-        if (stack.pinned && stack.counts.matches === 0) {
-          stack.counts.matches = stack.counts.total;
-          // Don't add to filterMatches since it's pinned, not filter-matched
+          
+          // If stack is pinned and has no matches from children, make it visible
+          if (stack.pinned && stack.counts.matches === 0) {
+            stack.counts.matches = stack.counts.total;
+            // Don't add to filterMatches since it's pinned, not filter-matched
+          }
         }
       }
+      category.counts.matches = category.stacks.reduce((sum, x) => sum + x.counts.matches, 0) ;
+      category.counts.filterMatches = category.stacks.reduce((sum, x) => sum + x.counts.filterMatches, 0) ;
     }
   }
 
@@ -576,13 +718,27 @@ export class ProfileCollection {
   }
 
   /**
+   * Toggle pinned state for a category
+   */
+  toggleCategoryPin(categoryId: string): boolean {
+    const category = this.categories.find(c => c.id === categoryId);
+    if (category) {
+      category.pinned = !category.pinned;
+      return category.pinned;
+    }
+    return false;
+  }
+
+  /**
    * Toggle pinned state for a stack
    */
   toggleStackPin(stackId: string): boolean {
-    const stack = this.stacks.find(s => s.id === stackId);
-    if (stack) {
-      stack.pinned = !stack.pinned;
-      return stack.pinned;
+    for (const category of this.categories) {
+      const stack = category.stacks.find(s => s.id === stackId);
+      if (stack) {
+        stack.pinned = !stack.pinned;
+        return stack.pinned;
+      }
     }
     return false;
   }
@@ -591,12 +747,14 @@ export class ProfileCollection {
    * Toggle pinned state for a group
    */
   toggleGroupPin(groupId: string): boolean {
-    for (const stack of this.stacks) {
-      for (const fileSection of stack.files) {
-        const group = fileSection.groups.find(g => g.id === groupId);
-        if (group) {
-          group.pinned = !group.pinned;
-          return group.pinned;
+    for (const category of this.categories) {
+      for (const stack of category.stacks) {
+        for (const fileSection of stack.files) {
+          const group = fileSection.groups.find(g => g.id === groupId);
+          if (group) {
+            group.pinned = !group.pinned;
+            return group.pinned;
+          }
         }
       }
     }
@@ -607,40 +765,36 @@ export class ProfileCollection {
    * Toggle pinned state for a goroutine
    */
   toggleGoroutinePin(goroutineId: string): boolean {
-    for (const stack of this.stacks) {
-      for (const fileSection of stack.files) {
-        for (const group of fileSection.groups) {
-          const goroutine = group.goroutines.find(g => g.id === goroutineId);
-          if (goroutine) {
-            goroutine.pinned = !goroutine.pinned;
-            return goroutine.pinned;
-          }
-        }
-      }
+    const goroutine = this.goroutinesByID.get(goroutineId);
+    if (goroutine) {
+      goroutine.pinned = !goroutine.pinned;
+      return goroutine.pinned;
     }
     return false;
   }
+  
 
   /**
    * Toggle pinned state for a stack and all its children (groups and goroutines)
    */
   toggleStackPinWithChildren(stackId: string): boolean {
-    const stack = this.stacks.find(s => s.id === stackId);
-    if (stack) {
-      const newPinnedState = !stack.pinned;
-      stack.pinned = newPinnedState;
-      
-      // Apply same state to all children
-      for (const fileSection of stack.files) {
-        for (const group of fileSection.groups) {
-          group.pinned = newPinnedState;
-          for (const goroutine of group.goroutines) {
-            goroutine.pinned = newPinnedState;
+    this.categories.forEach(category => {
+      const stack = category?.stacks.find(s => s.id === stackId);
+      if (stack) {
+        const newPinnedState = !stack.pinned;
+        stack.pinned = newPinnedState;
+
+        // Apply same state to all children
+        for (const fileSection of stack.files) {
+          for (const group of fileSection.groups) {
+            group.pinned = newPinnedState;
+            for (const goroutine of group.goroutines) {
+              goroutine.pinned = newPinnedState;
+            }
           }
         }
       }
-      return newPinnedState;
-    }
+    });
     return false;
   }
 
@@ -648,18 +802,21 @@ export class ProfileCollection {
    * Toggle pinned state for a group and all its children (goroutines)
    */
   toggleGroupPinWithChildren(groupId: string): boolean {
-    for (const stack of this.stacks) {
-      for (const fileSection of stack.files) {
-        const group = fileSection.groups.find(g => g.id === groupId);
-        if (group) {
-          const newPinnedState = !group.pinned;
-          group.pinned = newPinnedState;
-          
-          // Apply same state to all children
-          for (const goroutine of group.goroutines) {
-            goroutine.pinned = newPinnedState;
+    for (const cat of this.categories) {
+      for (const stack of cat.stacks) {
+        // Find the group in the stack
+        for (const fileSection of stack.files) {
+          const group = fileSection.groups.find(g => g.id === groupId);
+          if (group) {
+            const newPinnedState = !group.pinned;
+            group.pinned = newPinnedState;
+            
+            // Apply same state to all children
+            for (const goroutine of group.goroutines) {
+              goroutine.pinned = newPinnedState;
+            }
+            return newPinnedState;
           }
-          return newPinnedState;
         }
       }
     }
@@ -667,17 +824,22 @@ export class ProfileCollection {
   }
 
   /**
-   * Unpin all stacks, groups, and goroutines
+   * Unpin all categories, stacks, groups, and goroutines
    */
   unpinAllItems(): void {
-    for (const stack of this.stacks) {
-      stack.pinned = false;
-      for (const fileSection of stack.files) {
-        fileSection.pinned = false;
-        for (const group of fileSection.groups) {
-          group.pinned = false;
-          for (const goroutine of group.goroutines) {
-            goroutine.pinned = false;
+    for (const category of this.categories) {
+      category.pinned = false;
+    }
+    for (const category of this.categories) {
+      for (const stack of category.stacks) {
+        stack.pinned = false;
+        for (const fileSection of stack.files) {
+          fileSection.pinned = false;
+          for (const group of fileSection.groups) {
+            group.pinned = false;
+            for (const goroutine of group.goroutines) {
+              goroutine.pinned = false;
+            }
           }
         }
       }
@@ -688,14 +850,17 @@ export class ProfileCollection {
    * Check if any items are currently pinned
    */
   hasAnyPinnedItems(): boolean {
-    for (const stack of this.stacks) {
-      if (stack.pinned) return true;
-      for (const fileSection of stack.files) {
-        if (fileSection.pinned) return true;
-        for (const group of fileSection.groups) {
-          if (group.pinned) return true;
-          for (const goroutine of group.goroutines) {
-            if (goroutine.pinned) return true;
+    for (const category of this.categories) {
+      if (category.pinned) return true;
+      for (const stack of category.stacks) {
+        if (stack.pinned) return true;
+        for (const fileSection of stack.files) {
+          if (fileSection.pinned) return true;
+          for (const group of fileSection.groups) {
+            if (group.pinned) return true;
+            for (const goroutine of group.goroutines) {
+              if (goroutine.pinned) return true;
+            }
           }
         }
       }
@@ -719,31 +884,18 @@ export class ProfileCollection {
     totalGoroutines: number;
     visibleGoroutines: number;
   } {
-    const total = this.stacks.length;
+    let total = 0;
+    let visible = 0;
     let totalGoroutines = 0;
     let visibleGoroutines = 0;
 
     // Filter stacks that have visible goroutines and count goroutines
-    const visible = this.stacks.filter(stack => {
-      let stackHasVisibleGoroutines = false;
-
-      for (const fileSection of stack.files) {
-        for (const group of fileSection.groups) {
-          // Count all goroutines in this group
-          totalGoroutines += group.goroutines.length;
-
-          if (group.counts.matches > 0) {
-            // Count visible goroutines in this group
-            visibleGoroutines += group.counts.matches;
-
-            if (group.counts.matches > 0) {
-              stackHasVisibleGoroutines = true;
-            }
-          }
-        }
-      }
-      return stackHasVisibleGoroutines;
-    }).length;
+    this.categories.forEach(cat => {
+      totalGoroutines += cat.counts.total;
+      visibleGoroutines += cat.counts.matches;
+      total += cat.stacks.length;
+      visible += cat.stacks.filter(stack => stack.counts.matches > 0).length;
+    });
 
     return { total, visible, totalGoroutines, visibleGoroutines };
   }
@@ -752,10 +904,14 @@ export class ProfileCollection {
    * Clear all data from the collection
    */
   clear(): void {
-    this.stacks = [];
+    this.categories = [];
     this.parsedFiles.clear();
+    this.goroutinesByID.clear();
+    this.stackForTraceId.clear();
     this.currentFilter = '';
     this.nextGroupId = 1;
+    this.nextFileId = 1;
+    this.nextCategoryId = 1;
   }
 
   /**
@@ -764,14 +920,16 @@ export class ProfileCollection {
   getFileStatistics(): Map<string, { visible: number; total: number }> {
     const stats = new Map<string, { visible: number; total: number }>();
 
-    for (const stack of this.stacks) {
-      for (const file of stack.files) {
-        if (!stats.has(file.fileName)) {
-          stats.set(file.fileName, { visible: 0, total: 0 });
+    for (const category of this.categories) {
+      for (const stack of category.stacks) {
+        for (const file of stack.files) {
+          if (!stats.has(file.fileName)) {
+            stats.set(file.fileName, { visible: 0, total: 0 });
+          }
+          const fileStat = stats.get(file.fileName)!;
+          fileStat.total += file.counts.total;
+          fileStat.visible += file.counts.matches;
         }
-        const fileStat = stats.get(file.fileName)!;
-        fileStat.total += file.counts.total;
-        fileStat.visible += file.counts.matches;
       }
     }
 

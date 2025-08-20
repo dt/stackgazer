@@ -1,6 +1,6 @@
 import { ProfileCollection, ProfileCollectionSettings } from '../app/ProfileCollection.js';
 import { FileParser } from '../parser/index.js';
-import { UniqueStack, Group, FilterChanges, AppState, Goroutine, Filter } from '../app/types.js';
+import { UniqueStack, Group, FilterChanges, AppState, Goroutine, Filter, Category } from '../app/types.js';
 import { SettingsManager, AppSettings } from '../app/SettingsManager.js';
 import JSZip from 'jszip';
 
@@ -397,11 +397,11 @@ export class StackTraceApp {
   }
 
   private expandAllStacks(): void {
-    // Find all stack sections and expand them
-    const stackSections = document.querySelectorAll('.stack-section');
-    stackSections.forEach(stackSection => {
-      stackSection.classList.remove('collapsed');
-      const header = stackSection.querySelector('.header');
+    // Find all expandable sections (categories, stacks, file sections, groups) and expand them
+    const expandableSections = document.querySelectorAll('.section.expandable');
+    expandableSections.forEach(section => {
+      section.classList.remove('collapsed');
+      const header = section.querySelector('.header');
       if (header) {
         header.setAttribute('aria-expanded', 'true');
       }
@@ -409,11 +409,11 @@ export class StackTraceApp {
   }
 
   private collapseAllStacks(): void {
-    // Find all stack sections and collapse them
-    const stackSections = document.querySelectorAll('.stack-section');
-    stackSections.forEach(stackSection => {
-      stackSection.classList.add('collapsed');
-      const header = stackSection.querySelector('.header');
+    // Find all expandable sections (categories, stacks, file sections, groups) and collapse them
+    const expandableSections = document.querySelectorAll('.section.expandable');
+    expandableSections.forEach(section => {
+      section.classList.add('collapsed');
+      const header = section.querySelector('.header');
       if (header) {
         header.setAttribute('aria-expanded', 'false');
       }
@@ -421,73 +421,96 @@ export class StackTraceApp {
   }
 
   private updateVisibility(force: boolean = false): void {
-    const stacks = this.profileCollection.getStacks();
+    const categories = this.profileCollection.getCategories();
 
-    // Process each stack with hierarchical change detection
-    for (const stack of stacks) {
-      if (!force && stack.counts.matches === stack.counts.priorMatches) {
+    // Process each category with hierarchical change detection
+    for (const category of categories) {
+      if (!force && category.counts.matches === category.counts.priorMatches) {
         continue;
       }
-      const stackElement = document.getElementById(stack.id) as HTMLElement;
-      if (!stackElement) {
+      const categoryElement = document.getElementById(category.id) as HTMLElement;
+      if (!categoryElement) {
         continue;
       }
 
-      if (stack.counts.matches == 0) {
-        // Hide the whole stack; nothing else to do.
-        stackElement.classList.add('filtered');
+      if (category.counts.matches == 0) {
+        // Hide the whole category; nothing else to do.
+        categoryElement.classList.add('filtered');
       } else {
         // Unhide if needed and set the header.
-        if (stack.counts.priorMatches == 0) {
-          stackElement.classList.remove('filtered');
+        if (category.counts.priorMatches == 0) {
+          categoryElement.classList.remove('filtered');
         }
-        this.updateDisplayedCount(stackElement, stack.counts.total, stack.counts.matches);
+        this.updateDisplayedCount(categoryElement, category.counts.total, category.counts.matches);
 
-        for (const fileSection of stack.files) {
-          if (!force && fileSection.counts.matches == fileSection.counts.priorMatches) {
+        // Process each stack in the category
+        for (const stack of category.stacks) {
+          if (!force && stack.counts.matches === stack.counts.priorMatches) {
             continue;
           }
-          const fileSectionElement = document.getElementById(fileSection.id) as HTMLElement;
-          if (!fileSectionElement) {
+          const stackElement = document.getElementById(stack.id) as HTMLElement;
+          if (!stackElement) {
             continue;
           }
 
-          if (fileSection.counts.matches === 0) {
-            fileSectionElement.classList.add('filtered');
+
+          if (stack.counts.matches == 0) {
+            // Hide the whole stack; nothing else to do.
+            stackElement.classList.add('filtered');
           } else {
             // Unhide if needed and set the header.
-            if (fileSection.counts.priorMatches === 0) {
-              fileSectionElement.classList.remove('filtered');
+            if (stack.counts.priorMatches == 0) {
+              stackElement.classList.remove('filtered');
             }
-            this.updateDisplayedCount(
-              fileSectionElement,
-              fileSection.counts.total,
-              fileSection.counts.matches
-            );
+            this.updateDisplayedCount(stackElement, stack.counts.total, stack.counts.matches);
 
-            for (const group of fileSection.groups) {
-              if (!force && group.counts.matches === group.counts.priorMatches) {
+            for (const fileSection of stack.files) {
+              if (!force && fileSection.counts.matches == fileSection.counts.priorMatches) {
                 continue;
               }
-              const groupElement = document.getElementById(group.id) as HTMLElement;
-              if (!groupElement) {
+              const fileSectionElement = document.getElementById(fileSection.id) as HTMLElement;
+              if (!fileSectionElement) {
                 continue;
               }
-              if (group.counts.matches === 0) {
-                groupElement.classList.add('filtered');
+
+              if (fileSection.counts.matches === 0) {
+                fileSectionElement.classList.add('filtered');
               } else {
                 // Unhide if needed and set the header.
-                if (group.counts.priorMatches === 0) {
-                  groupElement.classList.remove('filtered');
+                if (fileSection.counts.priorMatches === 0) {
+                  fileSectionElement.classList.remove('filtered');
                 }
-                this.updateDisplayedCount(groupElement, group.counts.total, group.counts.matches);
+                this.updateDisplayedCount(
+                  fileSectionElement,
+                  fileSection.counts.total,
+                  fileSection.counts.matches
+                );
 
-                for (const goroutine of group.goroutines) {
-                  const goroutineElement = document.getElementById(
-                    `goroutine-${goroutine.id}`
-                  ) as HTMLElement;
-                  if (goroutineElement) {
-                    goroutineElement.classList.toggle('filtered', !goroutine.matches);
+                for (const group of fileSection.groups) {
+                  if (!force && group.counts.matches === group.counts.priorMatches) {
+                    continue;
+                  }
+                  const groupElement = document.getElementById(group.id) as HTMLElement;
+                  if (!groupElement) {
+                    continue;
+                  }
+                  if (group.counts.matches === 0) {
+                    groupElement.classList.add('filtered');
+                  } else {
+                    // Unhide if needed and set the header.
+                    if (group.counts.priorMatches === 0) {
+                      groupElement.classList.remove('filtered');
+                    }
+                    this.updateDisplayedCount(groupElement, group.counts.total, group.counts.matches);
+
+                    for (const goroutine of group.goroutines) {
+                      const goroutineElement = document.getElementById(
+                        `goroutine-${goroutine.id}`
+                      ) as HTMLElement;
+                      if (goroutineElement) {
+                        goroutineElement.classList.toggle('filtered', !goroutine.matches);
+                      }
+                    }
                   }
                 }
               }
@@ -516,7 +539,7 @@ export class StackTraceApp {
     this.renderFiles();
     this.renderStacks();
     this.updateDropZone();
-    this.setFilter({ filterString: this.filterInputValue });
+    this.profileCollection.setFilter({ filterString: this.filterInputValue });
     this.updateVisibility(true); // Force update all counts after full render
     this.updateStats();
   }
@@ -625,9 +648,9 @@ export class StackTraceApp {
     const dropZone = document.getElementById('dropZone');
     if (!dropZone) return;
 
-    const stacks = this.profileCollection.getStacks();
+    const categories = this.profileCollection.getCategories();
 
-    if (stacks.length === 0) {
+    if (categories.length === 0) {
       this.updateDropZone();
       return;
     }
@@ -638,13 +661,72 @@ export class StackTraceApp {
     stackDisplay.className = 'stack-display';
     stackDisplay.id = 'stackDisplay';
 
-    stacks.forEach(stack => {
-      const stackElement = this.createStackElement(stack);
-      stackDisplay.appendChild(stackElement);
+    // Sort categories by name before rendering
+    const sortedCategories = [...categories].sort((a, b) => a.name.localeCompare(b.name));
+    sortedCategories.forEach(category => {
+      const categoryElement = this.createCategoryElement(category);
+      stackDisplay.appendChild(categoryElement);
     });
 
     dropZone.innerHTML = '';
     dropZone.appendChild(stackDisplay);
+  }
+
+  private createCategoryElement(category: Category): HTMLElement {
+    const categoryElement = document.createElement('div');
+    categoryElement.className = 'section expandable category-section';
+    categoryElement.id = category.id;
+
+    // Category header
+    const header = document.createElement('div');
+    header.className = 'header';
+
+    const title = document.createElement('div');
+    title.className = 'category-title';
+    title.textContent = category.name;
+
+    // Create count element
+    const countElement = document.createElement('div');
+    countElement.className = 'category-count counts';
+
+    header.appendChild(title);
+    header.appendChild(countElement);
+    
+    // Create pin button for category
+    const pinButton = document.createElement('button');
+    pinButton.className = 'pin-button size-large';
+    pinButton.innerHTML = '📌';
+    pinButton.title = 'Pin/unpin this category';
+    pinButton.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const pinned = this.profileCollection.toggleCategoryPin(category.id);
+      categoryElement.classList.toggle('pinned', pinned);
+      pinButton.classList.toggle('pinned', pinned);
+      this.setFilter({ filterString: this.filterInputValue });
+      this.updateVisibility();
+      this.updateStats();
+    });
+    
+    categoryElement.appendChild(pinButton);
+    categoryElement.appendChild(header);
+
+    // Category content - contains stacks
+    const content = document.createElement('div');
+    content.className = 'section-content category-content';
+
+    // Render all stacks in this category, sorted by title
+    const sortedStacks = [...category.stacks].sort((a, b) => a.name.localeCompare(b.name));
+    for (const stack of sortedStacks) {
+      const stackElement = this.createStackElement(stack);
+      content.appendChild(stackElement);
+    }
+
+    categoryElement.appendChild(content);
+
+    // Add expand/collapse functionality to the category
+    this.addExpandCollapseHandler(categoryElement);
+
+    return categoryElement;
   }
 
   private createStackElement(stack: UniqueStack): HTMLElement {
@@ -660,16 +742,18 @@ export class StackTraceApp {
     title.className = 'stack-title';
     title.textContent = stack.name;
 
-    // Calculate visible and total goroutine counts
-    const visibleGoroutines = stack.counts.matches;
-    const totalGoroutines = stack.counts.total;
-
-    // Create count element
+    // Create count element and populate it
     const countElement = document.createElement('div');
     countElement.className = 'stack-count counts';
 
     header.appendChild(title);
     header.appendChild(countElement);
+    
+    // Add header to stackElement first so updateDisplayedCount can find the count element
+    stackElement.appendChild(header);
+    
+    // Set initial count display
+    this.updateDisplayedCount(stackElement, stack.counts.total, stack.counts.matches);
     
     // Create pin button (absolutely positioned on the stack element)
     const pinButton = document.createElement('button');
@@ -697,7 +781,6 @@ export class StackTraceApp {
     });
     
     stackElement.appendChild(pinButton);
-    stackElement.appendChild(header);
 
     // Stack content
     const content = document.createElement('div');
@@ -1042,9 +1125,9 @@ export class StackTraceApp {
     const dropZone = document.getElementById('dropZone');
     if (!dropZone) return;
 
-    const stacks = this.profileCollection.getStacks();
+    const categories = this.profileCollection.getCategories();
 
-    if (stacks.length === 0) {
+    if (categories.length === 0) {
       dropZone.classList.remove('has-content');
       dropZone.innerHTML = `
         <div class="drop-message">
@@ -1090,33 +1173,41 @@ export class StackTraceApp {
    * Refresh pin states for all DOM elements to match the data model
    */
   private refreshPinStates(): void {
-    // Update all stack pin states
-    const stacks = this.profileCollection.getStacks();
-    for (const stack of stacks) {
-      const stackElement = document.getElementById(stack.id);
-      const stackPinButton = stackElement?.querySelector('.pin-button');
-      if (stackElement && stackPinButton) {
-        stackElement.classList.toggle('pinned', stack.pinned);
-        stackPinButton.classList.toggle('pinned', stack.pinned);
+    // Update all category pin states
+    const categories = this.profileCollection.getCategories();
+    for (const category of categories) {
+      const categoryElement = document.getElementById(category.id);
+      const categoryPinButton = categoryElement?.querySelector('.pin-button');
+      if (categoryElement && categoryPinButton) {
+        categoryElement.classList.toggle('pinned', category.pinned);
+        categoryPinButton.classList.toggle('pinned', category.pinned);
       }
+      for (const stack of category.stacks) {
+        const stackElement = document.getElementById(stack.id);
+        const stackPinButton = stackElement?.querySelector('.pin-button');
+        if (stackElement && stackPinButton) {
+          stackElement.classList.toggle('pinned', stack.pinned);
+          stackPinButton.classList.toggle('pinned', stack.pinned);
+        }
 
-      // Update all group pin states
-      for (const fileSection of stack.files) {
-        for (const group of fileSection.groups) {
-          const groupElement = document.getElementById(group.id);
-          const groupPinButton = groupElement?.querySelector('.pin-button');
-          if (groupElement && groupPinButton) {
-            groupElement.classList.toggle('pinned', group.pinned);
-            groupPinButton.classList.toggle('pinned', group.pinned);
-          }
+        // Update all group pin states
+        for (const fileSection of stack.files) {
+          for (const group of fileSection.groups) {
+            const groupElement = document.getElementById(group.id);
+            const groupPinButton = groupElement?.querySelector('.pin-button');
+            if (groupElement && groupPinButton) {
+              groupElement.classList.toggle('pinned', group.pinned);
+              groupPinButton.classList.toggle('pinned', group.pinned);
+            }
 
-          // Update all goroutine pin states
-          for (const goroutine of group.goroutines) {
-            const goroutineElement = document.getElementById(`goroutine-${goroutine.id}`);
-            const goroutinePinButton = goroutineElement?.querySelector('.pin-button');
-            if (goroutineElement && goroutinePinButton) {
-              goroutineElement.classList.toggle('pinned', goroutine.pinned);
-              goroutinePinButton.classList.toggle('pinned', goroutine.pinned);
+            // Update all goroutine pin states
+            for (const goroutine of group.goroutines) {
+              const goroutineElement = document.getElementById(`goroutine-${goroutine.id}`);
+              const goroutinePinButton = goroutineElement?.querySelector('.pin-button');
+              if (goroutineElement && goroutinePinButton) {
+                goroutineElement.classList.toggle('pinned', goroutine.pinned);
+                goroutinePinButton.classList.toggle('pinned', goroutine.pinned);
+              }
             }
           }
         }
@@ -1592,6 +1683,7 @@ export class StackTraceApp {
       titleManipulationRules: this.settingsManager.getTitleManipulationRules(),
       nameExtractionPatterns: appSettings.nameExtractionPatterns,
       zipFilePattern: appSettings.zipFilePattern,
+      categoryIgnoredPrefixes: this.settingsManager.getCategoryIgnoredPrefixes(),
     };
   }
 
@@ -1604,7 +1696,7 @@ export class StackTraceApp {
     this.profileCollection.updateSettings(profileSettings);
 
     // Re-render the current display if we have content
-    const stacks = this.profileCollection.getStacks();
+    const stacks = this.profileCollection.getCategories();
     if (stacks.length > 0) {
       this.render();
     }
@@ -1693,6 +1785,11 @@ export class StackTraceApp {
       deserialize: (value: any) => String(value),
     },
     titleManipulationRules: {
+      type: 'textarea' as const,
+      serialize: (value: string) => value,
+      deserialize: (value: any) => String(value),
+    },
+    categoryIgnoredPrefixes: {
       type: 'textarea' as const,
       serialize: (value: string) => value,
       deserialize: (value: any) => String(value),

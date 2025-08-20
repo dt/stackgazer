@@ -13,6 +13,10 @@ const __dirname = path.dirname(__filename);
 const STANDALONE_HTML_PATH = path.join(__dirname, '..', 'dist', 'index-standalone.html');
 const STANDALONE_HTML_URL = `file://${STANDALONE_HTML_PATH}`;
 
+// Global timeout settings
+const DEFAULT_TIMEOUT = 5000; // 5 seconds instead of 10-15
+const QUICK_TIMEOUT = 2000;   // For fast operations
+
 let browser: Browser;
 let page: Page;
 
@@ -26,6 +30,9 @@ interface UITest {
 async function setup() {
   browser = await chromium.launch();
   page = await browser.newPage();
+  
+  // Set default timeout for all operations
+  page.setDefaultTimeout(DEFAULT_TIMEOUT);
 
   // Collect console errors
   page.on('pageerror', error => {
@@ -33,7 +40,7 @@ async function setup() {
   });
 
   await page.goto(STANDALONE_HTML_URL);
-  await page.waitForSelector('.drop-zone', { timeout: 10000 });
+  await page.waitForSelector('.drop-zone');
 }
 
 async function teardown() {
@@ -66,9 +73,9 @@ async function runTests() {
           await page.click('#demoSingleBtn');
         },
         verify: async page => {
-          await page.waitForSelector('.stack-group', { timeout: 15000 });
-          const stackGroups = await page.$$('.stack-group');
-          if (stackGroups.length === 0) throw new Error('No stack groups found');
+          await page.waitForSelector('.group-section');
+          const stackGroups = await page.$$('.group-section');
+          if (stackGroups.length === 0) throw new Error('No group sections found');
 
           const totalStacks = await page.textContent('#totalStacks');
           if (totalStacks === '0') throw new Error('Total stacks should be > 0');
@@ -79,7 +86,7 @@ async function runTests() {
         name: 'Zip demo file',
         action: async page => {
           await page.reload();
-          await page.waitForSelector('.drop-zone', { timeout: 10000 });
+          await page.waitForSelector('.drop-zone');
 
           const zipBtn = await page.$('#demoZipBtn');
           if (!zipBtn) {
@@ -89,7 +96,7 @@ async function runTests() {
           await page.click('#demoZipBtn');
         },
         verify: async page => {
-          await page.waitForSelector('.file-item', { timeout: 15000 });
+          await page.waitForSelector('.file-item');
           const fileItems = await page.$$('.file-item');
           if (fileItems.length < 2) throw new Error(`Expected ≥2 files, got ${fileItems.length}`);
         },
@@ -110,7 +117,7 @@ async function runTests() {
     await page.reload();
     await page.waitForSelector('.drop-zone', { timeout: 10000 });
     await page.click('#demoSingleBtn');
-    await page.waitForSelector('.stack-group', { timeout: 15000 });
+    await page.waitForSelector('.group-section');
 
     const filterTests = [
       { filter: 'state:runnable', desc: 'State filter' },

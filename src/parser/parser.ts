@@ -16,7 +16,7 @@ async function fingerprint(frames: Frame[]): Promise<string> {
   
   const hashArray = Array.from(new Uint8Array(hashBuffer));
   const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-  const FINGERPRINT_LENGTH = 12; // Use last 12 chars for compact but unique fingerprints
+  const FINGERPRINT_LENGTH = 24; // Use last 12 chars for compact but unique fingerprints
   return hashHex.slice(-FINGERPRINT_LENGTH);
 }
 

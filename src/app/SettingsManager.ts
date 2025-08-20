@@ -14,6 +14,7 @@ export interface AppSettings {
   fileTrimPrefixes: string;
   titleManipulationRules: string;
   nameExtractionPatterns: NameExtractionPattern[];
+  categoryIgnoredPrefixes: string;
 
   // Zip file handling
   zipFilePattern: string;
@@ -48,6 +49,13 @@ export class SettingsManager {
         'foldstdlib:internal/poll.runtime_pollWait->netpoll',
       ].join('\n'),
       nameExtractionPatterns: [],
+      categoryIgnoredPrefixes: [
+        'runtime.',
+        'sync.',
+        'reflect.',
+        'syscall.',
+        'internal/',
+      ].join('\n'),
 
       // Zip file handling
       zipFilePattern: '^(.*\/)?.*\.txt$',
@@ -241,6 +249,20 @@ export class SettingsManager {
    */
   getFileTrimPrefixes(): RegExp[] {
     return this.parseRegexPrefixes(this.settings.fileTrimPrefixes);
+  }
+
+  /**
+   * Get category ignored prefixes as array of strings
+   */
+  getCategoryIgnoredPrefixes(): string[] {
+    if (!this.settings.categoryIgnoredPrefixes || typeof this.settings.categoryIgnoredPrefixes !== 'string') {
+      return [];
+    }
+
+    return this.settings.categoryIgnoredPrefixes
+      .split('\n')
+      .map(prefix => prefix.trim())
+      .filter(prefix => prefix.length > 0);
   }
 
   /**

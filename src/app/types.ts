@@ -52,6 +52,14 @@ export interface Frame {
   file: string;
   line: number;
 }
+export interface Category {
+  id: string;
+  name: string;
+  stacks: UniqueStack[];
+  pinned: boolean;
+  counts: Counts;
+}
+
 export interface UniqueStack {
   id: string;
   name: string;
@@ -91,6 +99,7 @@ export interface AppSettings {
   titleManipulationRules: string[];
   zipFilePattern: string;
   nameExtractionPatterns: NameExtractionPattern[];
+  categoryIgnoredPrefixes: string[];
 }
 
 // Re-export AppState types
