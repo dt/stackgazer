@@ -949,6 +949,32 @@ body {
     border-radius: 12px;
 }
 
+/* Sticky header styles */
+.category-section > .header {
+    position: sticky;
+    top: -20px; /* Account for section margin */
+    z-index: 100;
+}
+
+.stack-section > .header {
+    position: sticky;
+    top: 23px; /* Stack headers stick below category headers, accounting for margin */
+    z-index: 90;
+}
+
+/* Adjust pin button positioning when headers are sticky to avoid overlap with controls bar */
+.category-section > .header .pin-button {
+    --pin-top: 5px; /* Move pin buttons down when header is sticky */
+    --pin-hover-offset: -21px; /* Adjust hover state accordingly */
+    --pin-pinned-offset: -21px; /* Adjust pinned state accordingly */
+}
+
+.stack-section > .header .pin-button {
+    --pin-top: 5px; /* Move pin buttons down when header is sticky */
+    --pin-hover-offset: -21px; /* Adjust hover state accordingly */
+    --pin-pinned-offset: -21px; /* Adjust pinned state accordingly */
+}
+
 .section-content {
     padding: 10px;
     transition: all 0.2s ease;
