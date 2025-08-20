@@ -707,6 +707,16 @@ export class StackTraceApp {
       this.updateStats();
     });
     
+    pinButton.addEventListener('dblclick', (e) => {
+      e.stopPropagation();
+      const pinned = this.profileCollection.toggleCategoryPinWithChildren(category.id);
+      // Update UI for all affected elements
+      this.refreshPinStates();
+      this.setFilter({ filterString: this.filterInputValue });
+      this.updateVisibility();
+      this.updateStats();
+    });
+    
     categoryElement.appendChild(pinButton);
     categoryElement.appendChild(header);
 
