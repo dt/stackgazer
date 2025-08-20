@@ -10,6 +10,16 @@ console.log('Creating standalone bundle...');
 // Read the HTML template first to extract initialization code
 const htmlTemplate = fs.readFileSync(path.join(__dirname, '..', 'dist', 'index.html'), 'utf8');
 
+// Read the CSS file to inline it
+const cssPath = path.join(__dirname, '..', 'dist', 'styles.css');
+let cssContent = '';
+if (fs.existsSync(cssPath)) {
+    cssContent = fs.readFileSync(cssPath, 'utf8');
+} else {
+    console.error('CSS file not found:', cssPath);
+    process.exit(1);
+}
+
 // Extract the original module script content to preserve custom defaults
 const moduleScriptStart = '<script type="module">';
 const moduleScriptEnd = '</script>';
@@ -44,15 +54,29 @@ if (fs.existsSync(bundlePath)) {
     process.exit(1);
 }
 
-// Remove the import map and module script, replace with inline script
+// Replace the CSS link with inline styles and remove import map/module scripts
+const cssLinkRegex = /<link\s+rel=["']stylesheet["']\s+href=["']styles\.css["']>/;
 const importMapScriptStart = '<script type="importmap">';
-const importMapIndex = htmlTemplate.indexOf(importMapScriptStart);
+
+// Find CSS link and replace with inline styles
+let htmlWithInlineCSS = htmlTemplate;
+if (cssLinkRegex.test(htmlTemplate)) {
+    htmlWithInlineCSS = htmlTemplate.replace(cssLinkRegex, `<style>
+${cssContent}
+    </style>`);
+} else {
+    console.error('Could not find CSS link in HTML template');
+    process.exit(1);
+}
+
+// Remove the import map and module script, replace with inline script
+const importMapIndex = htmlWithInlineCSS.indexOf(importMapScriptStart);
 if (importMapIndex === -1) {
     console.error('Could not find import map script in HTML template');
     process.exit(1);
 }
-const beforeScript = htmlTemplate.substring(0, importMapIndex);
-const afterScript = htmlTemplate.substring(endIndex);
+const beforeScript = htmlWithInlineCSS.substring(0, importMapIndex);
+const afterScript = htmlWithInlineCSS.substring(htmlWithInlineCSS.indexOf(moduleScriptEnd, htmlWithInlineCSS.indexOf(moduleScriptStart)) + moduleScriptEnd.length);
 
 const standalonePlaceholder = `    <!-- Bundled application code (includes JSZip) -->
     <script>
