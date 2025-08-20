@@ -214,17 +214,19 @@
             
             // Title manipulation rules - customize stack trace display
             titleManipulationRules: [
+                'skip:sync.runtime_notifyListWait',
                 'skip:sync.runtime_Semacquire',
-                'fold:sync.(*WaitGroup).Wait->waitgroup',
                 'skip:golang.org/x/sync/errgroup.(*Group).Wait',
+                'fold:sync.(*Cond).Wait->condwait',
+                'fold:sync.(*WaitGroup).Wait->waitgroup',
+                'fold:util/ctxgroup.Group.Wait->waitgroup',
+                'fold:util/ctxgroup.GroupWorkers->waitgroup',
+                'fold:util/ctxgroup.GoAndWait->waitgroup',
                 'foldstdlib:net/http->net/http',
                 'foldstdlib:syscall.Syscall->syscall',
                 'foldstdlib:internal/poll.runtime_pollWait->netpoll',
-                'fold:github.com/cockroachdb/cockroach/pkg/util/ctxgroup.Group.Wait->ctxgroup',
-                'fold:github.com/cockroachdb/cockroach/pkg/util/ctxgroup.GroupWorkers->GroupWorkers',
-                'fold:github.com/cockroachdb/cockroach/pkg/util/ctxgroup.GoAndWait->GoAndWait',
-                'skip:github.com/cockroachdb/cockroach/pkg/util/cidr.metricsConn.Read',
-                'trim:github.com/cockroachdb/cockroach/',
+                'skip:util/cidr.metricsConn.Read',
+                'trim:util/',
             ].join('\n'),
             
             // Name extraction patterns - customize for your application
@@ -255,7 +257,7 @@
                 'util/stop',
                 'golang.org/x/sync/errgroup',
                 'util/ctxgroup',
-                'kv/kvclient/rangefeed.(*RangeFeed).run.func3',
+                'kv/kvclient/rangefeed.(*RangeFeed).run.func3', // invoker used to ensure stack is callers'.
             ].join('\n'),
 
             // Zip file handling - customize for your file patterns
