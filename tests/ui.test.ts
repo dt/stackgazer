@@ -115,7 +115,7 @@ async function runTests() {
   await test('Filter workflows', async () => {
     // Start fresh with single demo
     await page.reload();
-    await page.waitForSelector('.drop-zone', { timeout: 10000 });
+    await page.waitForSelector('.drop-zone', { timeout: 3000 });
     await page.click('#demoSingleBtn');
     await page.waitForSelector('.group-section');
 
@@ -241,7 +241,7 @@ async function runTests() {
   await test('Filter-then-load workflow', async () => {
     // Start fresh
     await page.reload();
-    await page.waitForSelector('.drop-zone', { timeout: 10000 });
+    await page.waitForSelector('.drop-zone', { timeout: 3000 });
 
     // Set filter BEFORE loading
     await page.fill('#filterInput', '3080');
@@ -256,7 +256,7 @@ async function runTests() {
 
     await page.click('#demoZipBtn');
     // Wait for files to load
-    await page.waitForSelector('.file-item', { timeout: 10000 });
+    await page.waitForSelector('.file-item', { timeout: 3000 });
 
     // Check results
     const visibleStacks = await page.textContent('#visibleStacks');
@@ -326,7 +326,7 @@ async function runTests() {
   // Test 6: Progressive expand/collapse behavior
   await test('Progressive expand/collapse behavior', async () => {
     // First ensure we have some data loaded (from previous tests)
-    await page.waitForSelector('.category-section', { timeout: 5000 });
+    await page.waitForSelector('.category-section', { timeout: 3000 });
 
     // Test progressive collapse: if any stacks are expanded, collapse all stacks
     // First expand everything to have a known state
@@ -410,7 +410,7 @@ async function runTests() {
 
   await test('File groups remain visible after collapse-all then individual stack expand', async () => {
     // This test reproduces the reported bug where file groups disappear
-    await page.waitForSelector('.category-section', { timeout: 5000 });
+    await page.waitForSelector('.category-section', { timeout: 3000 });
 
     // First expand everything to ensure file groups are visible
     await page.click('#expandAllBtn');
@@ -466,7 +466,7 @@ async function runTests() {
   });
 
   await test('Navigation expands collapsed parent containers', async () => {
-    await page.waitForSelector('.category-section', { timeout: 5000 });
+    await page.waitForSelector('.category-section', { timeout: 3000 });
 
     // First expand everything to ensure we have content
     await page.click('#expandAllBtn');
@@ -509,7 +509,7 @@ async function runTests() {
 
     // Verify the goroutine element exists before collapsing
     const goroutineExists = await page.evaluate(goroutineId => {
-      return document.querySelector(`#goroutine-${goroutineId}`) !== null;
+      return document.querySelector(`#goroutine-${CSS.escape(goroutineId)}`) !== null;
     }, targetGoroutineId);
 
     if (!goroutineExists) {
@@ -556,7 +556,7 @@ async function runTests() {
 
     // Check if parent containers were expanded for the target goroutine
     const targetExpanded = await page.evaluate(goroutineId => {
-      const highlighted = document.querySelector(`#goroutine-${goroutineId}`);
+      const highlighted = document.querySelector(`#goroutine-${CSS.escape(goroutineId)}`);
       if (!highlighted) return false;
 
       // Check if all parent containers are expanded

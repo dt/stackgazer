@@ -1,10 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>StackGazer</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔍</text></svg>">
+    <link rel="icon"
+        href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔍</text></svg>">
     <link rel="stylesheet" href="styles.css">
     <script type="text/javascript">
         // This script sets up default configuration for StackGazer.
@@ -13,8 +15,8 @@
         window.stackGazerDefaults = {
             // Parsing options - customize for your codebase
             functionTrimPrefixes: 'github.com/cockroachdb/cockroach/pkg/',
-            fileTrimPrefixes: 'github.com/cockroachdb/cockroach/',            
-            
+            fileTrimPrefixes: 'github.com/cockroachdb/cockroach/',
+
             categoryIgnoredPrefixes: [
                 'sync.', 'internal/', 'golang.org/x/sync/errgroup', // Stdlib libs that start goroutines.
                 'util/stop', 'util/ctxgroup',                   // CRDB libs that start goroutines.
@@ -60,6 +62,7 @@
     </script>
     <!-- JSZip will be injected by vite plugin for lite builds -->
 </head>
+
 <body>
     <div class="container">
         <div class="sidebar">
@@ -97,7 +100,8 @@
             <div class="settings-container">
                 <a href="https://github.com/dt/stackgazer" target="_blank" class="github-btn" title="View on GitHub">
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                        <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
+                        <path
+                            d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
                     </svg>
                 </a>
                 <button class="theme-toggle-btn" id="themeToggleBtn" title="Toggle light/dark theme">🌙</button>
@@ -109,7 +113,8 @@
         <div class="main-content">
             <div class="view-controls-bar">
                 <div class="left-controls">
-                    <button id="backBtn" class="control-btn" disabled title="Go back to previous goroutine (Alt+← or Backspace)">← Back</button>
+                    <button id="backBtn" class="control-btn" disabled
+                        title="Go back to previous goroutine (Alt+← or Backspace)">← Back</button>
                 </div>
                 <div class="right-controls">
                     <select id="stackDisplayModeSelect" title="Choose how to display stack traces">
@@ -141,43 +146,57 @@
                 <div class="setting-group">
                     <div class="setting-title">
                         <span>Function Trim Prefixes</span>
-                        <button class="setting-help-icon" data-tooltip="Comma-separated list of prefixes to remove from function names. Example: 'github.com/myorg/,internal/' would trim 'github.com/myorg/mypackage.Function' to 'mypackage.Function'">?</button>
+                        <button class="setting-help-icon"
+                            data-tooltip="Comma-separated list of prefixes to remove from function names. Example: 'github.com/myorg/,internal/' would trim 'github.com/myorg/mypackage.Function' to 'mypackage.Function'">?</button>
                     </div>
-                    <input type="text" id="functionTrimPrefixes" class="setting-text-input" placeholder="github.com/company/,internal/">
+                    <input type="text" id="functionTrimPrefixes" class="setting-text-input"
+                        placeholder="github.com/company/,internal/">
                     <div class="setting-description">Remove these prefixes from function names for cleaner display</div>
                 </div>
                 <div class="setting-group">
                     <div class="setting-title">
                         <span>File Trim Prefixes</span>
-                        <button class="setting-help-icon" data-tooltip="Comma-separated list of prefixes to remove from file paths. Example: '/go/src/,/usr/local/' would trim '/go/src/myproject/main.go' to 'myproject/main.go'">?</button>
+                        <button class="setting-help-icon"
+                            data-tooltip="Comma-separated list of prefixes to remove from file paths. Example: '/go/src/,/usr/local/' would trim '/go/src/myproject/main.go' to 'myproject/main.go'">?</button>
                     </div>
-                    <input type="text" id="fileTrimPrefixes" class="setting-text-input" placeholder="github.com/cockroachdb/cockroach/">
+                    <input type="text" id="fileTrimPrefixes" class="setting-text-input"
+                        placeholder="github.com/cockroachdb/cockroach/">
                     <div class="setting-description">Remove these prefixes from file paths for cleaner display</div>
                 </div>
                 <div class="setting-group">
                     <div class="setting-title">
                         <span>Title Manipulation Rules</span>
-                        <button class="setting-help-icon" data-tooltip="Control how stack titles are generated (one rule per line):&#10;• skip:pattern - Skip matching functions&#10;• fold:pattern->prefix - Skip and add prefix&#10;• foldstdlib:pattern->replacement - Skip, add replacement, skip stdlib&#10;• trim:prefix - Remove prefix from function names">?</button>
+                        <button class="setting-help-icon"
+                            data-tooltip="Control how stack titles are generated (one rule per line):&#10;• skip:pattern - Skip matching functions&#10;• fold:pattern->prefix - Skip and add prefix&#10;• foldstdlib:pattern->replacement - Skip, add replacement, skip stdlib&#10;• trim:prefix - Remove prefix from function names">?</button>
                     </div>
-                    <textarea id="titleManipulationRules" class="setting-text-input" placeholder="skip:sync.runtime_Semacquire&#10;fold:sync.(*WaitGroup).Wait->Group&#10;trim:github.com/cockroachdb/cockroach/" rows="5" style="resize: vertical; min-height: 100px;"></textarea>
-                    <div class="setting-description">Rules to customize how stack trace titles are generated (one per line)</div>
+                    <textarea id="titleManipulationRules" class="setting-text-input"
+                        placeholder="skip:sync.runtime_Semacquire&#10;fold:sync.(*WaitGroup).Wait->Group&#10;trim:github.com/cockroachdb/cockroach/"
+                        rows="5" style="resize: vertical; min-height: 100px;"></textarea>
+                    <div class="setting-description">Rules to customize how stack trace titles are generated (one per
+                        line)</div>
                 </div>
                 <div class="setting-group">
                     <div class="setting-title">
                         <span>Category Ignored Prefixes</span>
-                        <button class="setting-help-icon" data-tooltip="Function prefixes to skip when determining categories (one per line):&#10;• runtime. - Skip runtime functions&#10;• sync. - Skip sync functions&#10;• internal/ - Skip internal packages&#10;Categories are determined by the first non-ignored frame's package">?</button>
+                        <button class="setting-help-icon"
+                            data-tooltip="Function prefixes to skip when determining categories (one per line):&#10;• runtime. - Skip runtime functions&#10;• sync. - Skip sync functions&#10;• internal/ - Skip internal packages&#10;Categories are determined by the first non-ignored frame's package">?</button>
                     </div>
-                    <textarea id="categoryIgnoredPrefixes" class="setting-text-input" placeholder="runtime.&#10;sync.&#10;reflect.&#10;syscall.&#10;internal/" rows="5" style="resize: vertical; min-height: 100px;"></textarea>
-                    <div class="setting-description">Skip these function prefixes when categorizing stacks (one per line)</div>
+                    <textarea id="categoryIgnoredPrefixes" class="setting-text-input"
+                        placeholder="runtime.&#10;sync.&#10;reflect.&#10;syscall.&#10;internal/" rows="5"
+                        style="resize: vertical; min-height: 100px;"></textarea>
+                    <div class="setting-description">Skip these function prefixes when categorizing stacks (one per
+                        line)</div>
                 </div>
 
                 <h4>File Handling</h4>
                 <div class="setting-group">
                     <div class="setting-title">
                         <span>Zip File Pattern</span>
-                        <button class="setting-help-icon" data-tooltip="Regex pattern to match files inside zip archives that should be extracted and parsed as stack trace files. Examples: '^(.*\/)?stacks\.txt$', '^logs\/.*\.txt$', '^.*\.log$'">?</button>
+                        <button class="setting-help-icon"
+                            data-tooltip="Regex pattern to match files inside zip archives that should be extracted and parsed as stack trace files. Examples: '^(.*\/)?stacks\.txt$', '^logs\/.*\.txt$', '^.*\.log$'">?</button>
                     </div>
-                    <input type="text" id="zipFilePattern" class="setting-text-input" placeholder="^(.*\/)?stacks\.txt$">
+                    <input type="text" id="zipFilePattern" class="setting-text-input"
+                        placeholder="^(.*\/)?stacks\.txt$">
                     <div class="setting-description">Regex pattern to match stack trace files in zip archives</div>
                 </div>
             </div>
@@ -186,8 +205,137 @@
                 <button id="saveSettingsBtn" class="btn settings-save-btn">Save Settings</button>
             </div>
         </div>
-        
+
     </div>
+
+    <!-- 
+    ========== DOM STRUCTURE EXAMPLE ==========
+    This shows how the templates are assembled into the full hierarchy:
+    
+    .category-section (category-template)
+    ├── .header
+    │   ├── .category-title
+    │   ├── .category-count
+    │   └── .pin-button
+    └── .category-content
+        └── .stack-section (stack-template)
+            ├── .header
+            │   ├── .stack-title  
+            │   ├── .stack-count
+            │   └── .pin-button
+            └── .stack-content
+                ├── .unique-stack-content (stack-trace-template)
+                └── .file-section (file-section-template)
+                    ├── .header
+                    │   ├── .title (.expand-icon + .file-name)
+                    │   └── .counts
+                    └── .section-content
+                        └── .group-section (group-template)
+                            ├── .header
+                            │   ├── .title (.expand-icon + .group-header-label)
+                            │   ├── .group-header-count
+                            │   └── .pin-button
+                            └── .section-content
+                                ├── .goroutine-entry (goroutine-template)
+                                │   ├── .pin-button
+                                │   └── .goroutine-header
+                                │       ├── .goroutine-header-first-line
+                                │       │   ├── .goroutine-header-left
+                                │       │   └── .goroutine-created-by
+                                │       └── .goroutine-header-second-line
+                                └── .show-more-link (show-more-template)
+    ============================================
+    -->
+
+    <!-- Main Content Templates -->
+    <template id="category-template">
+        <div class="section expandable category-section">
+            <div class="header">
+                <div class="category-title"></div>
+                <div class="category-count counts"></div>
+                <button class="pin-button size-large">📌</button>
+            </div>
+            <div class="section-content category-content"></div>
+        </div>
+    </template>
+
+    <template id="stack-template">
+        <div class="section expandable stack-section">
+            <div class="header">
+                <div class="stack-title"></div>
+                <div class="stack-count counts"></div>
+                <button class="pin-button size-large">📌</button>
+            </div>
+            <div class="section-content stack-content"></div>
+        </div>
+    </template>
+
+    <template id="file-section-template">
+        <div class="section expandable file-section">
+            <div class="header">
+                <span class="title">
+                    <span class="expand-icon"></span>
+                    <span class="file-name"></span>
+                </span>
+                <span class="counts"></span>
+            </div>
+            <div class="section-content"></div>
+        </div>
+    </template>
+
+    <template id="group-template">
+        <div class="section expandable group-section">
+            <div class="header">
+                <span class="title">
+                    <span class="expand-icon"></span>
+                    <span class="group-header-label"></span>
+                </span>
+                <span class="group-header-count counts"></span>
+                <button class="pin-button size-large">📌</button>
+            </div>
+            <div class="section-content"></div>
+        </div>
+    </template>
+
+    <template id="goroutine-template">
+        <div class="goroutine-entry">
+            <button class="pin-button size-small">📌</button>
+            <div class="goroutine-header">
+                <div class="goroutine-header-first-line">
+                    <span class="goroutine-header-left"></span>
+                    <span class="goroutine-created-by"></span>
+                </div>
+                <div class="goroutine-header-second-line"></div>
+            </div>
+        </div>
+    </template>
+
+    <template id="stack-trace-template">
+        <div class="unique-stack-content"></div>
+    </template>
+
+    <template id="show-more-template">
+        <div class="show-more-link">
+            <span class="show-more-text">Show <span class="show-more-link-clickable"></span> more goroutines ▼</span>
+        </div>
+    </template>
+
+    <!-- File List Templates -->
+    <template id="file-item-template">
+        <div class="file-item">
+            <span class="file-name-text" contenteditable="false"></span>
+            <div class="file-stats counts"></div>
+            <button class="file-remove-btn">×</button>
+        </div>
+    </template>
+
+    <template id="file-empty-state-template">
+        <div class="empty-state">Drop files here or click <strong>+</strong> to add</div>
+    </template>
+
+    <template id="file-drop-area-template">
+        <div class="file-drop-area">Drop more files here</div>
+    </template>
 
     <script type="module">
         import { StackTraceApp } from './index.js';
@@ -197,4 +345,5 @@
         console.log('Go Stack Trace Viewer loaded');
     </script>
 </body>
+
 </html>
