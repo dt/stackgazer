@@ -27,7 +27,15 @@
  */
 
 import { File as ParserFile, Frame as ParserFrame } from '../parser/types.js';
-import { UniqueStack, Frame, Group, NameExtractionPattern, Filter, Goroutine, Category } from './types.js';
+import {
+  UniqueStack,
+  Frame,
+  Group,
+  NameExtractionPattern,
+  Filter,
+  Goroutine,
+  Category,
+} from './types.js';
 
 /**
  * Determine if a function name represents a Go standard library function
@@ -215,23 +223,23 @@ export class ProfileCollection {
    */
   private generateCategoryName(trace: Frame[]): string {
     if (trace.length === 0) return 'empty';
-    
+
     // Start from the last frame and work backwards to find a non-ignored frame
     for (let i = trace.length - 1; i >= 0; i--) {
       const frame = trace[i];
       const func = frame.func;
-      
+
       // Check if this frame should be ignored
-      const shouldIgnore = this.settings.categoryIgnoredPrefixes.some(prefix => 
+      const shouldIgnore = this.settings.categoryIgnoredPrefixes.some(prefix =>
         func.startsWith(prefix)
       );
-      
+
       if (!shouldIgnore) {
         // Found a non-ignored frame, use it for categorization
         return this.extractCategoryFromFunction(func);
       }
     }
-    
+
     // If all frames are ignored, fall back to the last frame
     const lastFrame = trace[trace.length - 1];
     return this.extractCategoryFromFunction(lastFrame.func);
@@ -247,21 +255,21 @@ export class ProfileCollection {
     if (func === '' || func === '()') {
       return '';
     }
-    
+
     // Handle edge cases that should return empty
     if (func === '/' || func === '.' || func.startsWith('/')) {
       return '';
     }
-    
+
     // Handle double slash case like "a//b" -> "a/"
     if (func.includes('//')) {
       const doubleSlashIndex = func.indexOf('//');
       return func.substring(0, doubleSlashIndex + 1);
     }
-    
+
     const firstDot = func.indexOf('.');
     const firstSlash = func.indexOf('/');
-    
+
     // Special case: if dot comes before slash and there's only one slash, prefer dot rule
     // BUT skip this if the pattern looks like a domain (has multiple dots before first slash)
     if (firstDot !== -1 && firstSlash !== -1 && firstDot < firstSlash) {
@@ -273,22 +281,22 @@ export class ProfileCollection {
         return func.substring(0, firstDot);
       }
     }
-    
+
     // Try to match the pattern (([^/.]*\.[^/]*)*/)?[^/.]+(/[^/.]+)?
     // This captures optional domain-like patterns followed by path segments
     const match = func.match(/^((([^\/.]*\.[^\/]*)*\/)?[^\/.]+(\/[^\/.]+)?)/);
-    
+
     if (match) {
       // Found the pattern, return the captured group
       return match[1];
     }
-    
+
     // Fallback: if no slash but has dot, use prefix up to first dot
     if (firstSlash === -1 && firstDot !== -1) {
       // No slash but has dot, use dot rule
       return func.substring(0, firstDot);
     }
-    
+
     // No pattern match, return whole function
     return func;
   }
@@ -370,7 +378,7 @@ export class ProfileCollection {
           this.categories.push(category);
         }
         category.stacks.push(stack);
-        this.stackForTraceId.set(group.traceId, {category, stack });
+        this.stackForTraceId.set(group.traceId, { category, stack });
       }
 
       // Now create the group with goroutines that reference the stack
@@ -468,7 +476,6 @@ export class ProfileCollection {
     return this.categories;
   }
 
-
   getGoroutineByID(id: string): Goroutine | undefined {
     return this.goroutinesByID.get(id);
   }
@@ -532,7 +539,10 @@ export class ProfileCollection {
         stack.counts.matches = stack.files.reduce((sum, x) => sum + x.counts.matches, 0);
         stack.counts.total = stack.files.reduce((sum, x) => sum + x.counts.total, 0);
         stack.counts.priorMatches = stack.files.reduce((sum, x) => sum + x.counts.priorMatches, 0);
-        stack.counts.filterMatches = stack.files.reduce((sum, x) => sum + x.counts.filterMatches, 0);
+        stack.counts.filterMatches = stack.files.reduce(
+          (sum, x) => sum + x.counts.filterMatches,
+          0
+        );
         return true;
       });
       if (cat.stacks.length === 0) {
@@ -561,7 +571,7 @@ export class ProfileCollection {
    */
   private rebuildStackForTraceIdMap(): void {
     this.stackForTraceId.clear();
-    
+
     for (const category of this.categories) {
       for (const stack of category.stacks) {
         // Extract traceId from stack.id (format is "s<traceId>")
@@ -579,7 +589,7 @@ export class ProfileCollection {
     if (!content) {
       return;
     }
-    
+
     this.removeFile(from);
     this.parsedFiles.set(to, content);
     this.importParsedFile(content, to, nameInIds);
@@ -679,7 +689,8 @@ export class ProfileCollection {
                   goroutine.matches = true;
                 }
               } else {
-                const isPinned =  group.pinned || fileSection.pinned || stack.pinned || category.pinned;
+                const isPinned =
+                  group.pinned || fileSection.pinned || stack.pinned || category.pinned;
 
                 // Check pins and individual goroutines.
                 group.counts.matches = 0;
@@ -691,7 +702,8 @@ export class ProfileCollection {
                     group.counts.filterMatches++;
                     group.counts.matches++;
                   } else if (
-                    isPinned || goroutine.pinned || 
+                    isPinned ||
+                    goroutine.pinned ||
                     (filterObj.forcedGoroutine && goroutine.id === filterObj.forcedGoroutine)
                   ) {
                     // Matches, but not due to filter.
@@ -710,7 +722,7 @@ export class ProfileCollection {
             stack.counts.matches += fileSection.counts.matches;
             stack.counts.filterMatches += fileSection.counts.filterMatches;
           }
-          
+
           // If stack is pinned and has no matches from children, make it visible
           if (stack.pinned && stack.counts.matches === 0) {
             stack.counts.matches = stack.counts.total;
@@ -718,8 +730,11 @@ export class ProfileCollection {
           }
         }
       }
-      category.counts.matches = category.stacks.reduce((sum, x) => sum + x.counts.matches, 0) ;
-      category.counts.filterMatches = category.stacks.reduce((sum, x) => sum + x.counts.filterMatches, 0) ;
+      category.counts.matches = category.stacks.reduce((sum, x) => sum + x.counts.matches, 0);
+      category.counts.filterMatches = category.stacks.reduce(
+        (sum, x) => sum + x.counts.filterMatches,
+        0
+      );
     }
   }
 
@@ -778,18 +793,21 @@ export class ProfileCollection {
    * Toggle pinned state for a goroutine
    */
   toggleGoroutinePin(goroutineId: string): boolean {
-    console.log(`🔍 PIN DEBUG: ProfileCollection.toggleGoroutinePin called with goroutineId: ${goroutineId}`);
+    console.log(
+      `🔍 PIN DEBUG: ProfileCollection.toggleGoroutinePin called with goroutineId: ${goroutineId}`
+    );
     const goroutine = this.goroutinesByID.get(goroutineId);
     if (goroutine) {
       const oldPinned = goroutine.pinned;
       goroutine.pinned = !goroutine.pinned;
-      console.log(`🔍 PIN DEBUG: Goroutine ${goroutineId} pin state changed from ${oldPinned} to ${goroutine.pinned}`);
+      console.log(
+        `🔍 PIN DEBUG: Goroutine ${goroutineId} pin state changed from ${oldPinned} to ${goroutine.pinned}`
+      );
       return goroutine.pinned;
     }
     console.log(`🔍 PIN DEBUG: Goroutine ${goroutineId} not found!`);
     return false;
   }
-  
 
   /**
    * Toggle pinned state for a stack and all its children (groups and goroutines)
@@ -827,7 +845,7 @@ export class ProfileCollection {
           if (group) {
             const newPinnedState = !group.pinned;
             group.pinned = newPinnedState;
-            
+
             // Apply same state to all children
             for (const goroutine of group.goroutines) {
               goroutine.pinned = newPinnedState;
@@ -848,7 +866,7 @@ export class ProfileCollection {
     if (category) {
       const newPinnedState = !category.pinned;
       category.pinned = newPinnedState;
-      
+
       // Apply same state to all children
       for (const stack of category.stacks) {
         stack.pinned = newPinnedState;

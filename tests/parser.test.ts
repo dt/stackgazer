@@ -11,7 +11,11 @@ const parseTests = [
   { name: 'Format1', content: TEST_DATA.format1, expect: { groups: 3, total: 4 } },
   { name: 'Format2', content: TEST_DATA.format2, expect: { groups: 3, total: 4 } },
   { name: 'stacks.txt', content: TEST_DATA.exampleStacks2, expect: { groups: 254, total: 1404 } },
-  { name: 'stacks_with_labels.txt', content: TEST_DATA.exampleWithLabels, expect: { groups: 545, total: 1402 } },
+  {
+    name: 'stacks_with_labels.txt',
+    content: TEST_DATA.exampleWithLabels,
+    expect: { groups: 545, total: 1402 },
+  },
   { name: 'Empty', content: '', expect: { groups: 0, total: 0 } },
   { name: 'Malformed', content: 'invalid', expect: { groups: 0, total: 0 } },
 ];
@@ -35,7 +39,7 @@ async function runParseTests() {
   await test('Creator existence logic', async () => {
     const r = await parser.parseFile(TEST_DATA.format2, 'f2.txt');
     if (!r.success) throw new Error('Format2 parse failed');
-    
+
     const goroutines = r.data.groups.flatMap((g: any) => g.goroutines);
     const creatorTests = [
       { id: '1', expectCreator: '', expectExists: false },
@@ -71,6 +75,5 @@ await test('Zip extraction', async () => {
     throw new Error(`Expected 2 stacks.txt files, got ${result.files.length}`);
   }
 });
-
 
 console.log('🎉 All parser tests completed!');

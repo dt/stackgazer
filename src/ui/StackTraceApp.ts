@@ -1,6 +1,15 @@
 import { ProfileCollection, ProfileCollectionSettings } from '../app/ProfileCollection.js';
 import { FileParser } from '../parser/index.js';
-import { UniqueStack, Group, FilterChanges, AppState, Goroutine, Filter, Category, Counts } from '../app/types.js';
+import {
+  UniqueStack,
+  Group,
+  FilterChanges,
+  AppState,
+  Goroutine,
+  Filter,
+  Category,
+  Counts,
+} from '../app/types.js';
 import { SettingsManager, AppSettings } from '../app/SettingsManager.js';
 import { getJSZip } from '../parser/zip.js';
 
@@ -27,7 +36,7 @@ export class StackTraceApp {
     // Extract theme setting and settings defaults
     const { initialTheme, ...customDefaults } = options || {};
     this.initialTheme = initialTheme;
-    
+
     // Initialize settings manager and app state
     this.settingsManager = new SettingsManager(customDefaults);
     this.appState = new AppState();
@@ -285,7 +294,9 @@ export class StackTraceApp {
       console.log('StackTraceApp: Got array buffer, size:', arrayBuffer.byteLength);
       const JSZipClass = await getJSZip();
       if (!JSZipClass) {
-        throw new Error('JSZip failed to load from CDN. Please check your internet connection and try again.');
+        throw new Error(
+          'JSZip failed to load from CDN. Please check your internet connection and try again.'
+        );
       }
       console.log('StackTraceApp: Got JSZip class:', typeof JSZipClass);
       const zip = new JSZipClass();
@@ -397,7 +408,7 @@ export class StackTraceApp {
   private applyTheme(theme: 'dark' | 'light'): void {
     const body = document.body;
     const themeToggleBtn = document.getElementById('themeToggleBtn');
-    
+
     if (theme === 'light') {
       body.setAttribute('data-theme', 'light');
       if (themeToggleBtn) {
@@ -417,8 +428,10 @@ export class StackTraceApp {
     // Progressive expand: if any categories are collapsed, expand all categories
     // Otherwise, expand all stacks
     const categories = document.querySelectorAll('.category-section');
-    const hasCollapsedCategories = Array.from(categories).some(cat => cat.classList.contains('collapsed'));
-    
+    const hasCollapsedCategories = Array.from(categories).some(cat =>
+      cat.classList.contains('collapsed')
+    );
+
     if (hasCollapsedCategories) {
       // Expand all categories
       categories.forEach(section => {
@@ -445,8 +458,10 @@ export class StackTraceApp {
     // Progressive collapse: if any stacks are expanded, collapse all stacks
     // Otherwise, collapse all categories
     const stacks = document.querySelectorAll('.stack-section');
-    const hasExpandedStacks = Array.from(stacks).some(stack => !stack.classList.contains('collapsed'));
-    
+    const hasExpandedStacks = Array.from(stacks).some(
+      stack => !stack.classList.contains('collapsed')
+    );
+
     if (hasExpandedStacks) {
       // Collapse all stacks only (not file sections or group sections)
       stacks.forEach(section => {
@@ -502,7 +517,6 @@ export class StackTraceApp {
             continue;
           }
 
-
           if (stack.counts.matches == 0) {
             // Hide the whole stack; nothing else to do.
             stackElement.classList.add('filtered');
@@ -529,7 +543,7 @@ export class StackTraceApp {
                 if (fileSection.counts.priorMatches === 0) {
                   fileSectionElement.classList.remove('filtered');
                 }
-                this.updateDisplayedCount(fileSectionElement,fileSection.counts);
+                this.updateDisplayedCount(fileSectionElement, fileSection.counts);
 
                 for (const group of fileSection.groups) {
                   if (!force && group.counts.matches === group.counts.priorMatches) {
@@ -604,7 +618,7 @@ export class StackTraceApp {
       e.preventDefault();
 
       const wasExpanded = !container.classList.contains('collapsed');
-      
+
       // Simply toggle the collapsed class
       container.classList.toggle('collapsed');
 
@@ -619,13 +633,15 @@ export class StackTraceApp {
           // the height of the cat header (or just a tad less to avoid a gap),
           // then restore its scroll margin.
           if (container.classList.contains('stack-section')) {
-            console.log('stack was above the fold: scroll it.')
+            console.log('stack was above the fold: scroll it.');
             const parentCategory = container.closest('.category-section');
-            const parentHeader = parentCategory ? parentCategory.querySelector('.header') as HTMLElement : null;
+            const parentHeader = parentCategory
+              ? (parentCategory.querySelector('.header') as HTMLElement)
+              : null;
             if (parentHeader) {
               const headerHeight = parentHeader.clientHeight;
-              const tmp = header.style.scrollMarginTop ;
-              header.style.scrollMarginTop = `${headerHeight-2}px`;
+              const tmp = header.style.scrollMarginTop;
+              header.style.scrollMarginTop = `${headerHeight - 2}px`;
               header.scrollIntoView({ behavior: 'instant', block: 'start' });
               header.style.scrollMarginTop = tmp;
             }
@@ -762,13 +778,13 @@ export class StackTraceApp {
 
     header.appendChild(title);
     header.appendChild(countElement);
-    
+
     // Create pin button for category
     const pinButton = document.createElement('button');
     pinButton.className = 'pin-button size-large';
     pinButton.innerHTML = '📌';
     pinButton.title = 'Pin/unpin this category';
-    pinButton.addEventListener('click', (e) => {
+    pinButton.addEventListener('click', e => {
       e.stopPropagation();
       const pinned = this.profileCollection.toggleCategoryPin(category.id);
       categoryElement.classList.toggle('pinned', pinned);
@@ -777,8 +793,8 @@ export class StackTraceApp {
       this.updateVisibility();
       this.updateStats();
     });
-    
-    pinButton.addEventListener('dblclick', (e) => {
+
+    pinButton.addEventListener('dblclick', e => {
       e.stopPropagation();
       const pinned = this.profileCollection.toggleCategoryPinWithChildren(category.id);
       // Update UI for all affected elements
@@ -787,7 +803,7 @@ export class StackTraceApp {
       this.updateVisibility();
       this.updateStats();
     });
-    
+
     header.appendChild(pinButton);
     categoryElement.appendChild(header);
 
@@ -828,13 +844,13 @@ export class StackTraceApp {
 
     header.appendChild(title);
     header.appendChild(countElement);
-    
+
     // Create pin button (now child of header)
     const pinButton = document.createElement('button');
     pinButton.className = 'pin-button size-large';
     pinButton.innerHTML = '📌';
     pinButton.title = 'Pin/unpin this stack';
-    pinButton.addEventListener('click', (e) => {
+    pinButton.addEventListener('click', e => {
       e.stopPropagation();
       const pinned = this.profileCollection.toggleStackPin(stack.id);
       stackElement.classList.toggle('pinned', pinned);
@@ -843,8 +859,8 @@ export class StackTraceApp {
       this.updateVisibility();
       this.updateStats();
     });
-    
-    pinButton.addEventListener('dblclick', (e) => {
+
+    pinButton.addEventListener('dblclick', e => {
       e.stopPropagation();
       const pinned = this.profileCollection.toggleStackPinWithChildren(stack.id);
       // Update UI for all affected elements
@@ -853,12 +869,12 @@ export class StackTraceApp {
       this.updateVisibility();
       this.updateStats();
     });
-    
+
     header.appendChild(pinButton);
-    
+
     // Add header to stackElement so updateDisplayedCount can find the count element
     stackElement.appendChild(header);
-    
+
     // Set initial count display
     this.updateDisplayedCount(stackElement, stack.counts);
 
@@ -901,7 +917,6 @@ export class StackTraceApp {
       fileSection.classList.add('single-group');
     }
 
-
     // File header
     const fileHeader = document.createElement('div');
     fileHeader.className = 'header';
@@ -920,7 +935,7 @@ export class StackTraceApp {
 
     const rightContent = document.createElement('span');
     rightContent.className = 'counts';
-    
+
     fileHeader.appendChild(leftContent);
     fileHeader.appendChild(rightContent);
 
@@ -962,7 +977,7 @@ export class StackTraceApp {
 
     const textSpan = document.createElement('span');
     textSpan.className = 'group-header-label';
-    
+
     // Always show filename with group labels for consistency
     if (fileName) {
       const groupLabel = group.labels.length > 0 ? ` [${group.labels.join(', ')}]` : '';
@@ -979,13 +994,13 @@ export class StackTraceApp {
 
     groupHeader.appendChild(leftContent);
     groupHeader.appendChild(countContent);
-    
+
     // Create pin button for group (now child of header)
     const pinButton = document.createElement('button');
     pinButton.className = 'pin-button size-large';
     pinButton.innerHTML = '📌';
     pinButton.title = 'Pin/unpin this group';
-    pinButton.addEventListener('click', (e) => {
+    pinButton.addEventListener('click', e => {
       e.stopPropagation();
       const pinned = this.profileCollection.toggleGroupPin(group.id);
       groupSection.classList.toggle('pinned', pinned);
@@ -994,8 +1009,8 @@ export class StackTraceApp {
       this.updateVisibility();
       this.updateStats();
     });
-    
-    pinButton.addEventListener('dblclick', (e) => {
+
+    pinButton.addEventListener('dblclick', e => {
       e.stopPropagation();
       this.profileCollection.toggleGroupPinWithChildren(group.id);
       // Update UI for all affected elements
@@ -1004,7 +1019,7 @@ export class StackTraceApp {
       this.updateVisibility();
       this.updateStats();
     });
-    
+
     groupHeader.appendChild(pinButton);
     groupSection.appendChild(groupHeader);
 
@@ -1111,7 +1126,7 @@ export class StackTraceApp {
     pinButton.className = 'pin-button size-small';
     pinButton.innerHTML = '📌';
     pinButton.title = 'Pin/unpin this goroutine';
-    pinButton.addEventListener('click', (e) => {
+    pinButton.addEventListener('click', e => {
       e.stopPropagation();
       const pinned = this.profileCollection.toggleGoroutinePin(goroutine.id);
       goroutineElement.classList.toggle('pinned', pinned);
@@ -1254,7 +1269,7 @@ export class StackTraceApp {
       totalGoroutinesElement.textContent = stats.totalGoroutines.toString();
     if (visibleGoroutinesElement)
       visibleGoroutinesElement.textContent = stats.visibleGoroutines.toString();
-    
+
     // Also update file stats and unpin button visibility
     this.updateFileStats();
     this.updateUnpinButtonVisibility();
@@ -1308,7 +1323,7 @@ export class StackTraceApp {
 
   private updateFileStats(): void {
     const fileStatsByName = this.getFileStatistics();
-    
+
     // Update existing file items without full re-render
     const fileItems = document.querySelectorAll('.file-item');
     fileItems.forEach(fileItem => {
@@ -1337,12 +1352,12 @@ export class StackTraceApp {
 
   private unpinAllItems(): void {
     this.profileCollection.unpinAllItems();
-    
+
     // Remove pinned classes from all DOM elements
     document.querySelectorAll('.pinned').forEach(el => {
       el.classList.remove('pinned');
     });
-    
+
     // Reapply current filter and update UI
     this.setFilter({ filterString: this.filterInputValue });
     this.updateVisibility();
@@ -1556,7 +1571,9 @@ export class StackTraceApp {
         console.log('StackTraceApp: Got array buffer from URL, size:', arrayBuffer.byteLength);
         const JSZipClass = await getJSZip();
         if (!JSZipClass) {
-          throw new Error('JSZip failed to load from CDN. Please check your internet connection and try again.');
+          throw new Error(
+            'JSZip failed to load from CDN. Please check your internet connection and try again.'
+          );
         }
         console.log('StackTraceApp: Got JSZip class for URL zip:', typeof JSZipClass);
         const zip = new JSZipClass();
@@ -1697,10 +1714,10 @@ export class StackTraceApp {
         return;
       }
     }
-    
+
     // Expand any collapsed parent containers before scrolling
     this.expandParentContainers(goroutineElement);
-    
+
     this.scrollToAndHighlightGoroutine(goroutineElement, goroutineId, addToHistory);
   }
 
@@ -1718,21 +1735,23 @@ export class StackTraceApp {
   private expandParentContainers(goroutineElement: HTMLElement): void {
     // Walk up the DOM tree and expand any collapsed parent containers
     let currentElement: HTMLElement | null = goroutineElement;
-    
+
     while (currentElement) {
       // Look for parent sections with the expandable class and collapsed class
-      if (currentElement.classList.contains('expandable') && 
-          currentElement.classList.contains('collapsed')) {
+      if (
+        currentElement.classList.contains('expandable') &&
+        currentElement.classList.contains('collapsed')
+      ) {
         // Remove the collapsed class to expand
         currentElement.classList.remove('collapsed');
-        
+
         // Update aria-expanded for accessibility
         const header = currentElement.querySelector('.header');
         if (header) {
           header.setAttribute('aria-expanded', 'true');
         }
       }
-      
+
       // Move to parent element
       currentElement = currentElement.parentElement;
     }
@@ -1758,7 +1777,7 @@ export class StackTraceApp {
     element.scrollIntoView({ behavior: 'instant', block: 'center' });
     // Update back button state
     this.updateBackButtonState();
-    
+
     // Fade out highlight after 3 seconds
     setTimeout(() => {
       element.classList.remove('highlighted');
@@ -1824,7 +1843,9 @@ export class StackTraceApp {
       titleManipulationRules: this.settingsManager.getTitleManipulationRules(),
       nameExtractionPatterns: appSettings.nameExtractionPatterns,
       zipFilePattern: appSettings.zipFilePattern,
-      categoryIgnoredPrefixes: this.parseCategoryIgnoredPrefixes(appSettings.categoryIgnoredPrefixes),
+      categoryIgnoredPrefixes: this.parseCategoryIgnoredPrefixes(
+        appSettings.categoryIgnoredPrefixes
+      ),
     };
   }
 
@@ -1995,9 +2016,9 @@ export class StackTraceApp {
 
     const stackTitle = goroutine.stack.name;
     const waitText = goroutine.waitMinutes > 0 ? `, ${goroutine.waitMinutes} mins` : '';
-    
+
     this.tooltip.textContent = `[${goroutine.state}${waitText}] ${stackTitle}`;
-    
+
     // Position off-screen first to measure it
     this.tooltip.style.left = '-9999px';
     this.tooltip.style.top = '-9999px';
@@ -2008,27 +2029,27 @@ export class StackTraceApp {
     const tooltipRect = this.tooltip.getBoundingClientRect();
     const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
-    
+
     // Calculate position relative to cursor
     let offsetX = -20;
     let offsetY = 10;
-    
+
     // Check if tooltip would go off right edge
     if (event.clientX - 20 + tooltipRect.width > viewportWidth) {
       // Flip to left side of cursor, ending just to the right of cursor
       offsetX = -tooltipRect.width + 15;
-      
+
       // If still goes off left edge, clamp to left margin
       if (event.clientX + offsetX < 0) {
         offsetX = -event.clientX + 10;
       }
     }
-    
+
     // Check if tooltip would go off bottom edge
     if (event.clientY + 10 + tooltipRect.height > viewportHeight) {
       // Flip above cursor
       offsetY = -tooltipRect.height - 10;
-      
+
       // If still goes off top, clamp to top margin
       if (event.clientY + offsetY < 0) {
         offsetY = -event.clientY + 10;
@@ -2046,7 +2067,7 @@ export class StackTraceApp {
   }
 
   private addTooltipToLink(link: HTMLElement, goroutineId: string): void {
-    link.addEventListener('mouseenter', (event) => {
+    link.addEventListener('mouseenter', event => {
       this.showTooltip(goroutineId, event as MouseEvent);
     });
 
@@ -2054,7 +2075,7 @@ export class StackTraceApp {
       this.hideTooltip();
     });
 
-    link.addEventListener('mousemove', (event) => {
+    link.addEventListener('mousemove', event => {
       this.tooltip.style.left = `${(event as MouseEvent).pageX - 20}px`;
       this.tooltip.style.top = `${(event as MouseEvent).pageY + 10}px`;
     });

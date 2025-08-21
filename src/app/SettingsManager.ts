@@ -48,13 +48,9 @@ export class SettingsManager {
         'foldstdlib:internal/poll.runtime_pollWait->netpoll',
       ].join('\n'),
       nameExtractionPatterns: [],
-      categoryIgnoredPrefixes: [
-        'runtime.',
-        'sync.',
-        'reflect.',
-        'syscall.',
-        'internal/',
-      ].join('\n'),
+      categoryIgnoredPrefixes: ['runtime.', 'sync.', 'reflect.', 'syscall.', 'internal/'].join(
+        '\n'
+      ),
 
       // Zip file handling
       zipFilePattern: '^(.*\/)?.*\.txt$',
@@ -92,14 +88,14 @@ export class SettingsManager {
   private saveSettings(): void {
     try {
       const overrides: Partial<AppSettings> = {};
-      
+
       // Only save values that differ from defaults
       for (const key of Object.keys(this.settings) as Array<keyof AppSettings>) {
         if (this.settings[key] !== this.defaultSettings[key]) {
           (overrides as any)[key] = this.settings[key];
         }
       }
-      
+
       localStorage.setItem(SettingsManager.STORAGE_KEY, JSON.stringify(overrides));
     } catch (error) {
       console.warn('Failed to save settings to localStorage:', error);
@@ -254,7 +250,10 @@ export class SettingsManager {
    * Get category ignored prefixes as array of strings
    */
   getCategoryIgnoredPrefixes(): string[] {
-    if (!this.settings.categoryIgnoredPrefixes || typeof this.settings.categoryIgnoredPrefixes !== 'string') {
+    if (
+      !this.settings.categoryIgnoredPrefixes ||
+      typeof this.settings.categoryIgnoredPrefixes !== 'string'
+    ) {
       return [];
     }
 
