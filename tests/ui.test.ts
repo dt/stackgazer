@@ -438,6 +438,116 @@ async function runTests() {
     console.log('  ✅ File groups remain visible after manual stack expansion');
   });
 
+  await test('Navigation expands collapsed parent containers', async () => {
+    await page.waitForSelector('.category-section', { timeout: 5000 });
+    
+    // First expand everything to ensure we have content
+    await page.click('#expandAllBtn');
+    await page.click('#expandAllBtn'); // Second click to expand stacks
+    await page.waitForTimeout(100);
+    
+    // Debug: Check what elements we have
+    const debugInfo = await page.evaluate(() => {
+      return {
+        goroutineEntries: document.querySelectorAll('.goroutine-entry').length,
+        categories: document.querySelectorAll('.category-section').length,
+        stacks: document.querySelectorAll('.stack-section').length,
+        groups: document.querySelectorAll('.group-section').length,
+        firstGoroutineId: document.querySelector('.goroutine-entry')?.id || 'none'
+      };
+    });
+    
+    console.log(`  🔍 Debug: ${debugInfo.goroutineEntries} goroutines, ${debugInfo.categories} categories, ${debugInfo.stacks} stacks, ${debugInfo.groups} groups`);
+    console.log(`  🔍 First goroutine ID: ${debugInfo.firstGoroutineId}`);
+
+    // Get any goroutine ID from the DOM to test navigation
+    const targetGoroutineId = await page.evaluate(() => {
+      const goroutineElement = document.querySelector('.goroutine-entry');
+      if (!goroutineElement) return null;
+      
+      // Extract goroutine ID from the element ID
+      const id = goroutineElement.id;
+      const match = id.match(/goroutine-(.+)/);
+      return match ? match[1] : null;
+    });
+    
+    if (!targetGoroutineId) {
+      console.log('  ⚠️ No goroutines found, skipping navigation test');
+      return;
+    }
+
+    console.log(`  📍 Testing navigation to goroutine ${targetGoroutineId}`);
+    
+    // Verify the goroutine element exists before collapsing
+    const goroutineExists = await page.evaluate((goroutineId) => {
+      return document.querySelector(`#goroutine-${goroutineId}`) !== null;
+    }, targetGoroutineId);
+    
+    if (!goroutineExists) {
+      console.log('  ⚠️ Target goroutine element not found, skipping navigation test');
+      return;
+    }
+
+    // Collapse all containers
+    await page.click('#collapseAllBtn');
+    await page.click('#collapseAllBtn'); // Second click to collapse categories
+    await page.waitForTimeout(100);
+
+    // Verify everything is collapsed
+    const allCollapsed = await page.evaluate(() => {
+      const categories = document.querySelectorAll('.category-section');
+      const stacks = document.querySelectorAll('.stack-section');
+      return (
+        Array.from(categories).every(cat => cat.classList.contains('collapsed')) &&
+        Array.from(stacks).every(stack => stack.classList.contains('collapsed'))
+      );
+    });
+
+    if (!allCollapsed) {
+      throw new Error('Expected all containers to be collapsed before navigation test');
+    }
+
+    // Manually call the navigation method by directly calling it on the app instance
+    await page.evaluate((goroutineId) => {
+      // Access the app instance and call the navigation method directly
+      const app = (window as any).stackTraceApp;
+      if (app && app.navigateToGoroutine) {
+        app.navigateToGoroutine(goroutineId);
+      } else {
+        // Fallback: simulate URL navigation
+        window.location.hash = `#goroutine-${goroutineId}`;
+        const event = new PopStateEvent('popstate', {
+          state: { goroutineId: goroutineId }
+        });
+        window.dispatchEvent(event);
+      }
+    }, targetGoroutineId);
+    
+    await page.waitForTimeout(200); // Wait for navigation and expansion
+
+    // Check if parent containers were expanded for the target goroutine
+    const targetExpanded = await page.evaluate((goroutineId) => {
+      const highlighted = document.querySelector(`#goroutine-${goroutineId}`);
+      if (!highlighted) return false;
+
+      // Check if all parent containers are expanded
+      let current = highlighted.parentElement;
+      while (current) {
+        if (current.classList.contains('expandable') && current.classList.contains('collapsed')) {
+          return false; // Found a collapsed parent
+        }
+        current = current.parentElement;
+      }
+      return true; // All parents are expanded
+    }, targetGoroutineId);
+
+    if (!targetExpanded) {
+      throw new Error('Navigation should expand all parent containers of target goroutine');
+    }
+
+    console.log('  ✅ Navigation expands collapsed parent containers');
+  });
+
   await teardown();
   console.log('\n🎉 All UI interaction tests passed!');
 }
