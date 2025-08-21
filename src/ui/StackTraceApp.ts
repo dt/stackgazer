@@ -31,6 +31,18 @@ export class StackTraceApp {
   private tooltip!: HTMLElement;
   private currentTheme: 'dark' | 'light' = 'dark';
   private initialTheme?: 'dark' | 'light';
+  private templates!: {
+    category: HTMLTemplateElement;
+    stack: HTMLTemplateElement;
+    fileSection: HTMLTemplateElement;
+    group: HTMLTemplateElement;
+    goroutine: HTMLTemplateElement;
+    stackTrace: HTMLTemplateElement;
+    showMore: HTMLTemplateElement;
+    fileItem: HTMLTemplateElement;
+    fileEmptyState: HTMLTemplateElement;
+    fileDropArea: HTMLTemplateElement;
+  };
 
   constructor(options?: StackTraceAppOptions) {
     // Extract theme setting and settings defaults
@@ -59,11 +71,64 @@ export class StackTraceApp {
       this.onSettingsChanged(settings);
     });
 
+    this.initializeTemplates();
     this.initializeUI();
     this.initializeTheme();
     this.loadUIState();
     this.updateUnpinButtonVisibility(); // Initialize button visibility
     this.createTooltip();
+  }
+
+  private initializeTemplates(): void {
+    this.templates = {
+      category: this.getTemplate('category-template'),
+      stack: this.getTemplate('stack-template'),
+      fileSection: this.getTemplate('file-section-template'),
+      group: this.getTemplate('group-template'),
+      goroutine: this.getTemplate('goroutine-template'),
+      stackTrace: this.getTemplate('stack-trace-template'),
+      showMore: this.getTemplate('show-more-template'),
+      fileItem: this.getTemplate('file-item-template'),
+      fileEmptyState: this.getTemplate('file-empty-state-template'),
+      fileDropArea: this.getTemplate('file-drop-area-template'),
+    };
+
+    // Normalize templates once to remove whitespace text nodes
+    Object.values(this.templates).forEach(template => {
+      this.normalizeTemplate(template);
+    });
+  }
+
+  private getTemplate(id: string): HTMLTemplateElement {
+    const template = document.getElementById(id) as HTMLTemplateElement;
+    if (!template) {
+      throw new Error(`Template with id '${id}' not found`);
+    }
+    return template;
+  }
+
+  /**
+   * Removes whitespace-only text nodes from template content to prevent layout issues.
+   * 
+   * When HTML templates are formatted with indentation and newlines for readability,
+   * the whitespace creates text nodes in the DOM. These can cause unexpected spacing
+   * when cloning templates, as CSS may treat them as content. By normalizing templates
+   * once during initialization, we get clean DOM structure without sacrificing
+   * template readability.
+   */
+  private normalizeTemplate(template: HTMLTemplateElement): void {
+    const removeWhitespaceNodes = (node: Node): void => {
+      const childNodes = Array.from(node.childNodes);
+      for (const child of childNodes) {
+        if (child.nodeType === Node.TEXT_NODE && /^\s*$/.test(child.textContent || '')) {
+          child.parentNode?.removeChild(child);
+        } else if (child.nodeType === Node.ELEMENT_NODE) {
+          removeWhitespaceNodes(child);
+        }
+      }
+    };
+    
+    removeWhitespaceNodes(template.content);
   }
 
   private initializeUI(): void {
@@ -665,9 +730,10 @@ export class StackTraceApp {
     fileList.innerHTML = '';
 
     if (fileNames.length === 0) {
-      const emptyState = document.createElement('div');
-      emptyState.className = 'empty-state';
-      emptyState.innerHTML = 'Drop files here or click <strong>+</strong> to add';
+      // Clone empty state template
+      const emptyClone = this.templates.fileEmptyState.content.cloneNode(true) as DocumentFragment;
+      const emptyState = emptyClone.firstElementChild as HTMLElement;
+
       emptyState.style.cursor = 'pointer';
       emptyState.addEventListener('click', () => {
         this.openFileDialog();
@@ -690,45 +756,39 @@ export class StackTraceApp {
     const fileStatsByName = this.getFileStatistics();
 
     fileNames.forEach(fileName => {
-      const fileItem = document.createElement('div');
-      fileItem.className = 'file-item';
+      // Clone file item template
+      const itemClone = this.templates.fileItem.content.cloneNode(true) as DocumentFragment;
+      const fileItem = itemClone.firstElementChild as HTMLElement;
+
       fileItem.dataset.fileName = fileName; // Store fileName for lookups
 
-      // Create separate elements for filename and stats
-      const fileNameSpan = document.createElement('span');
-      fileNameSpan.className = 'file-name-text';
+      // Set file name
+      const fileNameSpan = fileItem.querySelector('.file-name-text') as HTMLElement;
       fileNameSpan.textContent = fileName;
-      fileNameSpan.setAttribute('contenteditable', 'false');
       fileNameSpan.addEventListener('click', e => {
         e.stopPropagation(); // Prevent event bubbling
         this.startFileRename(fileNameSpan, fileName);
       });
 
-      // Add file statistics
+      // Set file statistics
       const stats = fileStatsByName.get(fileName) || { visible: 0, total: 0 };
-      const statsDiv = document.createElement('div');
-      statsDiv.className = 'file-stats counts';
+      const statsDiv = fileItem.querySelector('.file-stats') as HTMLElement;
       statsDiv.textContent = `${stats.visible} / ${stats.total} goroutines`;
 
-      const removeBtn = document.createElement('button');
-      removeBtn.className = 'file-remove-btn';
-      removeBtn.textContent = '×';
+      // Setup remove button
+      const removeBtn = fileItem.querySelector('.file-remove-btn') as HTMLButtonElement;
       removeBtn.addEventListener('click', e => {
         e.stopPropagation(); // Prevent toggle when clicking remove
         this.profileCollection.removeFile(fileName);
         this.render();
       });
 
-      fileItem.appendChild(fileNameSpan);
-      fileItem.appendChild(statsDiv);
-      fileItem.appendChild(removeBtn);
       fileList.appendChild(fileItem);
     });
 
     // Add drop area at the bottom when there are files
-    const dropArea = document.createElement('div');
-    dropArea.className = 'file-drop-area';
-    dropArea.textContent = 'Drop more files here';
+    const dropClone = this.templates.fileDropArea.content.cloneNode(true) as DocumentFragment;
+    const dropArea = dropClone.firstElementChild as HTMLElement;
     fileList.appendChild(dropArea);
   }
 
@@ -760,30 +820,21 @@ export class StackTraceApp {
   }
 
   private createCategoryElement(category: Category): HTMLElement {
-    const categoryElement = document.createElement('div');
-    categoryElement.className = 'section expandable category-section';
+    // Clone template
+    const clone = this.templates.category.content.cloneNode(true) as DocumentFragment;
+    const categoryElement = clone.firstElementChild as HTMLElement;
+
+    // Set category-specific attributes
     categoryElement.id = category.id;
 
-    // Category header
-    const header = document.createElement('div');
-    header.className = 'header';
-
-    const title = document.createElement('div');
-    title.className = 'category-title';
+    // Set content
+    const title = categoryElement.querySelector('.category-title') as HTMLElement;
     title.textContent = category.name;
 
-    // Create count element
-    const countElement = document.createElement('div');
-    countElement.className = 'category-count counts';
-
-    header.appendChild(title);
-    header.appendChild(countElement);
-
-    // Create pin button for category
-    const pinButton = document.createElement('button');
-    pinButton.className = 'pin-button size-large';
-    pinButton.innerHTML = '📌';
+    // Setup pin button event handlers
+    const pinButton = categoryElement.querySelector('.pin-button') as HTMLButtonElement;
     pinButton.title = 'Pin/unpin this category';
+
     pinButton.addEventListener('click', e => {
       e.stopPropagation();
       const pinned = this.profileCollection.toggleCategoryPin(category.id);
@@ -804,20 +855,14 @@ export class StackTraceApp {
       this.updateStats();
     });
 
-    header.appendChild(pinButton);
-    categoryElement.appendChild(header);
-
-    // Category content - contains stacks
-    const content = document.createElement('div');
-    content.className = 'section-content category-content';
+    // Get content area and add stacks
+    const content = categoryElement.querySelector('.category-content') as HTMLElement;
 
     // Render all stacks in this category in existing order (sorted at import time)
     for (const stack of category.stacks) {
       const stackElement = this.createStackElement(stack);
       content.appendChild(stackElement);
     }
-
-    categoryElement.appendChild(content);
 
     // Add expand/collapse functionality to the category
     this.addExpandCollapseHandler(categoryElement);
@@ -826,30 +871,21 @@ export class StackTraceApp {
   }
 
   private createStackElement(stack: UniqueStack): HTMLElement {
-    const stackElement = document.createElement('div');
-    stackElement.className = 'section expandable stack-section';
+    // Clone template
+    const clone = this.templates.stack.content.cloneNode(true) as DocumentFragment;
+    const stackElement = clone.firstElementChild as HTMLElement;
+
+    // Set stack-specific attributes
     stackElement.id = stack.id;
 
-    // Stack header
-    const header = document.createElement('div');
-    header.className = 'header';
-
-    const title = document.createElement('div');
-    title.className = 'stack-title';
+    // Set content
+    const title = stackElement.querySelector('.stack-title') as HTMLElement;
     title.textContent = stack.name;
 
-    // Create count element and populate it
-    const countElement = document.createElement('div');
-    countElement.className = 'stack-count counts';
-
-    header.appendChild(title);
-    header.appendChild(countElement);
-
-    // Create pin button (now child of header)
-    const pinButton = document.createElement('button');
-    pinButton.className = 'pin-button size-large';
-    pinButton.innerHTML = '📌';
+    // Setup pin button event handlers
+    const pinButton = stackElement.querySelector('.pin-button') as HTMLButtonElement;
     pinButton.title = 'Pin/unpin this stack';
+
     pinButton.addEventListener('click', e => {
       e.stopPropagation();
       const pinned = this.profileCollection.toggleStackPin(stack.id);
@@ -870,17 +906,11 @@ export class StackTraceApp {
       this.updateStats();
     });
 
-    header.appendChild(pinButton);
-
-    // Add header to stackElement so updateDisplayedCount can find the count element
-    stackElement.appendChild(header);
-
     // Set initial count display
     this.updateDisplayedCount(stackElement, stack.counts);
 
-    // Stack content
-    const content = document.createElement('div');
-    content.className = 'section-content stack-content';
+    // Get content area and add stack trace + file sections
+    const content = stackElement.querySelector('.stack-content') as HTMLElement;
 
     // Render stack trace
     const traceElement = this.createTraceElement(stack.trace);
@@ -899,8 +929,6 @@ export class StackTraceApp {
       content.appendChild(fileSectionElement);
     }
 
-    stackElement.appendChild(content);
-
     // Add expand/collapse functionality to the stack
     this.addExpandCollapseHandler(stackElement);
 
@@ -908,8 +936,11 @@ export class StackTraceApp {
   }
 
   private createFileSection(fileId: string, fileName: string, groups: Group[]): HTMLElement {
-    const fileSection = document.createElement('div');
-    fileSection.className = 'section expandable file-section';
+    // Clone template
+    const clone = this.templates.fileSection.content.cloneNode(true) as DocumentFragment;
+    const fileSection = clone.firstElementChild as HTMLElement;
+
+    // Set file-specific attributes
     fileSection.id = fileId;
 
     // Add single-group class for conditional file header hiding
@@ -917,39 +948,17 @@ export class StackTraceApp {
       fileSection.classList.add('single-group');
     }
 
-    // File header
-    const fileHeader = document.createElement('div');
-    fileHeader.className = 'header';
+    // Set file name
+    const fileNameElement = fileSection.querySelector('.file-name') as HTMLElement;
+    fileNameElement.textContent = fileName;
 
-    const leftContent = document.createElement('span');
-    leftContent.className = 'title';
-
-    const iconSpan = document.createElement('span');
-    iconSpan.className = 'expand-icon';
-
-    const textSpan = document.createElement('span');
-    textSpan.textContent = fileName;
-
-    leftContent.appendChild(iconSpan);
-    leftContent.appendChild(textSpan);
-
-    const rightContent = document.createElement('span');
-    rightContent.className = 'counts';
-
-    fileHeader.appendChild(leftContent);
-    fileHeader.appendChild(rightContent);
-
-    fileSection.appendChild(fileHeader);
-
-    const fileContent = document.createElement('div');
-    fileContent.className = 'section-content';
+    // Get content area and add groups
+    const fileContent = fileSection.querySelector('.section-content') as HTMLElement;
 
     groups.forEach(group => {
       const groupSection = this.createGroupSection(group.id, group, fileName);
       fileContent.appendChild(groupSection);
     });
-
-    fileSection.appendChild(fileContent);
 
     // Add click handler for file header using reusable function AFTER DOM structure is complete
     this.addExpandCollapseHandler(fileSection);
@@ -958,25 +967,21 @@ export class StackTraceApp {
   }
 
   private createGroupSection(id: string, group: Group, fileName?: string): HTMLElement {
-    const groupSection = document.createElement('div');
-    groupSection.className = 'section expandable group-section';
+    // Clone template
+    const clone = this.templates.group.content.cloneNode(true) as DocumentFragment;
+    const groupSection = clone.firstElementChild as HTMLElement;
+
+    // Set group-specific attributes
     groupSection.id = id;
 
-    const groupHeader = document.createElement('div');
-    groupHeader.className = 'header';
-
-    const leftContent = document.createElement('span');
-    leftContent.className = 'title';
-
-    // Add expand icon for groups with content
-    if (group.goroutines.length > 0) {
-      const iconSpan = document.createElement('span');
-      iconSpan.className = 'expand-icon';
-      leftContent.appendChild(iconSpan);
+    // Handle expand icon for groups with content
+    const expandIcon = groupSection.querySelector('.expand-icon') as HTMLElement;
+    if (group.goroutines.length === 0) {
+      expandIcon.remove();
     }
 
-    const textSpan = document.createElement('span');
-    textSpan.className = 'group-header-label';
+    // Set group label text
+    const textSpan = groupSection.querySelector('.group-header-label') as HTMLElement;
 
     // Always show filename with group labels for consistency
     if (fileName) {
@@ -987,19 +992,11 @@ export class StackTraceApp {
     } else {
       textSpan.textContent = 'Goroutines';
     }
-    leftContent.appendChild(textSpan);
 
-    const countContent = document.createElement('span');
-    countContent.className = 'group-header-count counts';
-
-    groupHeader.appendChild(leftContent);
-    groupHeader.appendChild(countContent);
-
-    // Create pin button for group (now child of header)
-    const pinButton = document.createElement('button');
-    pinButton.className = 'pin-button size-large';
-    pinButton.innerHTML = '📌';
+    // Setup pin button event handlers
+    const pinButton = groupSection.querySelector('.pin-button') as HTMLButtonElement;
     pinButton.title = 'Pin/unpin this group';
+
     pinButton.addEventListener('click', e => {
       e.stopPropagation();
       const pinned = this.profileCollection.toggleGroupPin(group.id);
@@ -1020,16 +1017,13 @@ export class StackTraceApp {
       this.updateStats();
     });
 
-    groupHeader.appendChild(pinButton);
-    groupSection.appendChild(groupHeader);
-
     // Add click handler for expand/collapse if group has content
     if (group.goroutines.length > 0) {
       this.addExpandCollapseHandler(groupSection);
     }
 
-    const groupContent = document.createElement('div');
-    groupContent.className = 'section-content';
+    // Get content area and add goroutines
+    const groupContent = groupSection.querySelector('.section-content') as HTMLElement;
 
     const maxInitialShow = 4;
     const initialGoroutines = group.goroutines.slice(0, maxInitialShow);
@@ -1043,9 +1037,12 @@ export class StackTraceApp {
 
     // Add "show more" section if there are remaining goroutines
     if (remainingGoroutines.length > 0) {
-      const showMoreLink = document.createElement('div');
-      showMoreLink.className = 'show-more-link';
-      showMoreLink.innerHTML = `<span class="show-more-text">Show <span class="show-more-link-clickable">${remainingGoroutines.length} more</span> goroutines ▼</span>`;
+      const showMoreClone = this.templates.showMore.content.cloneNode(true) as DocumentFragment;
+      const showMoreLink = showMoreClone.firstElementChild as HTMLElement;
+
+      const countSpan = showMoreLink.querySelector('.show-more-link-clickable') as HTMLElement;
+      countSpan.textContent = remainingGoroutines.length.toString();
+
       showMoreLink.addEventListener('click', e => {
         e.stopPropagation();
         // Create DOM elements for remaining goroutines (lazy creation)
@@ -1060,13 +1057,14 @@ export class StackTraceApp {
       groupContent.appendChild(showMoreLink);
     }
 
-    groupSection.appendChild(groupContent);
     return groupSection;
   }
 
   private createTraceElement(trace: any[]): HTMLElement {
-    const content = document.createElement('div');
-    content.className = 'unique-stack-content';
+    // Clone template
+    const clone = this.templates.stackTrace.content.cloneNode(true) as DocumentFragment;
+    const content = clone.firstElementChild as HTMLElement;
+
     content.setAttribute('data-display-mode', this.stackDisplayMode);
 
     // Store trace data for later regeneration
@@ -1103,28 +1101,15 @@ export class StackTraceApp {
   }
 
   private createGoroutineElement(goroutine: Goroutine): HTMLElement {
-    const goroutineElement = document.createElement('div');
-    goroutineElement.className = 'goroutine-entry';
+    // Clone template
+    const clone = this.templates.goroutine.content.cloneNode(true) as DocumentFragment;
+    const goroutineElement = clone.firstElementChild as HTMLElement;
+
+    // Set goroutine-specific attributes
     goroutineElement.id = `goroutine-${goroutine.id}`;
 
-    // Create header like old UI
-    const header = document.createElement('div');
-    header.className = 'goroutine-header';
-
-    // First line with main header info (like old UI)
-    const firstLine = document.createElement('div');
-    firstLine.className = 'goroutine-header-first-line';
-
-    // Format like old UI: show wait time if > 0, but no state (since it's in the group)
-    const waitText = goroutine.waitMinutes > 0 ? ` (${goroutine.waitMinutes} minutes)` : '';
-    const headerText = document.createElement('span');
-    headerText.className = 'goroutine-header-left';
-    headerText.textContent = `${goroutine.id}${waitText}:`;
-
-    // Create pin button for goroutine
-    const pinButton = document.createElement('button');
-    pinButton.className = 'pin-button size-small';
-    pinButton.innerHTML = '📌';
+    // Setup pin button
+    const pinButton = goroutineElement.querySelector('.pin-button') as HTMLButtonElement;
     pinButton.title = 'Pin/unpin this goroutine';
     pinButton.addEventListener('click', e => {
       e.stopPropagation();
@@ -1136,11 +1121,13 @@ export class StackTraceApp {
       this.updateStats();
     });
 
-    goroutineElement.appendChild(pinButton);
+    // Set header text
+    const waitText = goroutine.waitMinutes > 0 ? ` (${goroutine.waitMinutes} minutes)` : '';
+    const headerLeft = goroutineElement.querySelector('.goroutine-header-left') as HTMLElement;
+    headerLeft.textContent = `${goroutine.id}${waitText}:`;
 
-    // Add created by link on the right side (like old UI)
-    const createdBySection = document.createElement('span');
-    createdBySection.className = 'goroutine-created-by';
+    // Handle created by section
+    const createdBySection = goroutineElement.querySelector('.goroutine-created-by') as HTMLElement;
 
     if (goroutine.creator && goroutine.creator !== goroutine.id) {
       createdBySection.innerHTML = 'created by ';
@@ -1162,19 +1149,17 @@ export class StackTraceApp {
         missingCreator.textContent = goroutine.creator;
         createdBySection.appendChild(missingCreator);
       }
+    } else {
+      // Remove the created by section if no creator
+      createdBySection.remove();
     }
 
-    firstLine.appendChild(headerText);
-    if (goroutine.creator && goroutine.creator !== goroutine.id) {
-      firstLine.appendChild(createdBySection);
-    }
-    header.appendChild(firstLine);
+    // Handle second line with created goroutines
+    const secondLine = goroutineElement.querySelector(
+      '.goroutine-header-second-line'
+    ) as HTMLElement;
 
-    // Second line with created goroutines (if any)
     if (goroutine.created.length > 0) {
-      const secondLine = document.createElement('div');
-      secondLine.className = 'goroutine-header-second-line';
-
       const createdText = document.createElement('span');
       createdText.className = 'created-goroutines-label';
       createdText.textContent = `created ${goroutine.created.length} goroutine${goroutine.created.length > 1 ? 's' : ''}: `;
@@ -1219,11 +1204,11 @@ export class StackTraceApp {
         secondLine.appendChild(moreText);
         secondLine.appendChild(moreLink);
       }
-
-      header.appendChild(secondLine);
+    } else {
+      // Remove the second line if no created goroutines
+      secondLine.remove();
     }
 
-    goroutineElement.appendChild(header);
     return goroutineElement;
   }
 
