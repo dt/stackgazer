@@ -3,7 +3,7 @@ import { viteSingleFile } from 'vite-plugin-singlefile'
 import { rename, unlink } from 'fs/promises'
 import { join } from 'path'
 import cssnano from 'cssnano'
-import { createHtmlPlugin } from 'vite-plugin-html-minifier'
+import createHtmlPlugin from 'vite-plugin-html-minifier'
 
 function injectJsZipCdn() {
   return {
