@@ -108,7 +108,9 @@ export function assertCounts(
     throw new Error(`${testName}: expected ${expectedStacks} stacks, got ${stacks}`);
   }
   if (collection.getFileNames().length !== expectedFiles) {
-    throw new Error(`${testName}: expected ${expectedFiles} files, got ${collection.getFileNames().length}`);
+    throw new Error(
+      `${testName}: expected ${expectedFiles} files, got ${collection.getFileNames().length}`
+    );
   }
 }
 
