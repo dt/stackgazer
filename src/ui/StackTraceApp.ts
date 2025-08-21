@@ -1697,6 +1697,10 @@ export class StackTraceApp {
         return;
       }
     }
+    
+    // Expand any collapsed parent containers before scrolling
+    this.expandParentContainers(goroutineElement);
+    
     this.scrollToAndHighlightGoroutine(goroutineElement, goroutineId, addToHistory);
   }
 
@@ -1709,6 +1713,29 @@ export class StackTraceApp {
       // Click the link to expand the group
       linkElement.click();
     });
+  }
+
+  private expandParentContainers(goroutineElement: HTMLElement): void {
+    // Walk up the DOM tree and expand any collapsed parent containers
+    let currentElement: HTMLElement | null = goroutineElement;
+    
+    while (currentElement) {
+      // Look for parent sections with the expandable class and collapsed class
+      if (currentElement.classList.contains('expandable') && 
+          currentElement.classList.contains('collapsed')) {
+        // Remove the collapsed class to expand
+        currentElement.classList.remove('collapsed');
+        
+        // Update aria-expanded for accessibility
+        const header = currentElement.querySelector('.header');
+        if (header) {
+          header.setAttribute('aria-expanded', 'true');
+        }
+      }
+      
+      // Move to parent element
+      currentElement = currentElement.parentElement;
+    }
   }
 
   private scrollToAndHighlightGoroutine(
