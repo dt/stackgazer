@@ -140,6 +140,7 @@ body {
     flex-direction: column;
     position: relative;
     z-index: 10001;
+    overflow: visible; /* Allow tooltips to escape modal bounds */
 }
 
 .modal-header {
@@ -180,6 +181,7 @@ body {
     line-height: 1.6;
     flex: 1;
     overflow-y: auto;
+    overflow-x: visible; /* Allow tooltips to escape modal bounds */
 }
 
 .container {
@@ -469,7 +471,7 @@ body {
     cursor: pointer;
     font-family: inherit;
     transition: all 0.2s ease;
-    opacity: 0;
+    opacity: 0.3; /* Dim by default */
     display: flex;
     align-items: center;
     justify-content: center;
@@ -502,7 +504,7 @@ body {
 /* Hover reveal for unpinned pins */
 .section:hover > .header > .pin-button:not(.pinned),
 .goroutine-entry:hover > .pin-button:not(.pinned) {
-    opacity: 0.6;
+    opacity: 0.7; /* Less dim on hover */
 }
 
 /* Expanded click targets */
@@ -521,7 +523,7 @@ body {
     background: var(--bg-quaternary);
     border-color: var(--border-primary);
     color: var(--text-primary);
-    opacity: 1;
+    opacity: 1 !important;
     width: var(--pin-hover-size);
     height: var(--pin-hover-size);
     font-size: var(--pin-hover-font);
@@ -890,6 +892,19 @@ body {
 }
 
 .expandable.collapsed .expand-icon::before {
+    content: '▶';
+}
+
+/* Custom rules expand icons using CSS pseudo-elements */
+.custom-rules-section .custom-rules-title h5::before {
+    content: '▼';
+    margin-right: 6px;
+    font-size: 10px;
+    color: var(--text-muted);
+    transition: transform 0.2s ease;
+}
+
+.custom-rules-section.collapsed .custom-rules-title h5::before {
     content: '▶';
 }
 
@@ -1551,9 +1566,8 @@ body {
 .setting-help-icon[data-tooltip]:hover::after {
     content: attr(data-tooltip);
     position: absolute;
-    left: 50%;
+    left: 0; /* Align to left edge of help icon */
     top: 24px;
-    transform: translateX(-50%);
     background: var(--bg-primary);
     color: var(--text-primary);
     padding: 8px 12px;
@@ -1566,19 +1580,18 @@ body {
     text-align: left;
     box-shadow: 0 4px 12px color-mix(in srgb, var(--bg-overlay) 80%, transparent);
     border: 1px solid var(--border-secondary);
-    z-index: 1001;
+    z-index: 10002; /* Above modal content */
     pointer-events: none;
 }
 
 .setting-help-icon[data-tooltip]:hover::before {
     content: '';
     position: absolute;
-    left: 50%;
+    left: 8px; /* Position arrow above help icon center */
     top: 20px;
-    transform: translateX(-50%);
     border: 4px solid transparent;
     border-bottom-color: var(--border-secondary);
-    z-index: 1001;
+    z-index: 10003; /* Above tooltip */
     pointer-events: none;
 }
 
@@ -2191,4 +2204,200 @@ body {
     gap: 20px;
     display: flex;
     justify-content: center;
+}
+
+/* Custom/Default Rules Sections */
+.custom-rules-section,
+.default-rules-section {
+    margin: 12px 0;
+}
+
+.custom-rules-section h5,
+.default-rules-section h5 {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0 0 6px 0;
+}
+
+.default-rules-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    padding: 2px 0;
+    margin-bottom: 6px;
+}
+
+.default-rules-title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.default-rules-title .expand-icon {
+    font-size: 10px;
+    color: var(--text-muted);
+    transition: transform 0.2s ease;
+}
+
+/* Triangle points right when content is collapsed, down when expanded */
+.default-rules-section:has(.default-rules-content.collapsed) .expand-icon {
+    transform: rotate(-90deg);
+}
+
+/* Fallback for browsers without :has() support - use a class on the section */
+.default-rules-section.collapsed .expand-icon {
+    transform: rotate(-90deg);
+}
+
+.default-rules-header h5 {
+    margin: 0;
+    transition: color 0.2s ease;
+}
+
+.default-rules-header.disabled h5 {
+    color: var(--text-muted);
+}
+
+.default-rules-content {
+    transition: all 0.2s ease;
+}
+
+.default-rules-content.collapsed,
+.custom-rules-content.collapsed {
+    display: none;
+}
+
+.default-rules-textarea {
+    background: var(--bg-tertiary);
+    color: var(--text-muted);
+    border-color: var(--border-secondary);
+}
+
+/* Toggle Switch */
+.toggle-switch {
+    position: relative;
+    width: 34px;
+    height: 18px;
+    display: inline-block;
+}
+
+.toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.toggle-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: var(--border-secondary);
+    transition: 0.2s;
+    border-radius: 18px;
+}
+
+.toggle-slider:before {
+    position: absolute;
+    content: "";
+    height: 14px;
+    width: 14px;
+    left: 2px;
+    bottom: 2px;
+    background-color: white;
+    transition: 0.2s;
+    border-radius: 50%;
+}
+
+input:checked + .toggle-slider {
+    background-color: var(--accent-primary);
+}
+
+input:checked + .toggle-slider:before {
+    transform: translateX(16px);
+}
+
+/* Copy button system - similar to pin button but positioned below */
+.copy-button {
+    --copy-size: 28px;
+    --copy-font: 16px;
+    --copy-top: 50px; /* Further below pin button */
+    --copy-right: -14px;
+    --copy-z: 10;
+    
+    /* Hover state variables */
+    --copy-hover-size: 40px; /* Grow more on hover */
+    --copy-hover-font: 20px;
+    --copy-hover-top: 44px; /* Adjust for larger size */
+    --copy-hover-right: -20px;
+    
+    position: absolute;
+    background: var(--bg-quaternary);
+    border: 1px solid var(--border-secondary);
+    border-radius: 50%;
+    width: var(--copy-size);
+    height: var(--copy-size);
+    font-size: var(--copy-font);
+    color: var(--text-muted);
+    cursor: pointer;
+    opacity: 0.3; /* Dim by default */
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    top: var(--copy-top);
+    right: var(--copy-right);
+    z-index: var(--copy-z);
+}
+
+.copy-button.size-small {
+    --copy-size: 18px;
+    --copy-font: 10px;
+    --copy-top: 40px; /* Moved further down */
+    --copy-right: -25px;
+    --copy-z: 5;
+    
+    --copy-hover-size: 26px; /* Grow more on hover */
+    --copy-hover-font: 14px;
+    --copy-hover-top: 36px;
+    --copy-hover-right: -29px;
+}
+
+/* Hover reveal for copy buttons */
+.section:hover > .header > .copy-button {
+    opacity: 0.7; /* Less dim on hover, matching pin button */
+}
+
+/* Direct copy button hover takes precedence for size changes */
+.copy-button:hover {
+    background: var(--bg-quaternary);
+    border-color: var(--border-primary);
+    color: var(--text-primary);
+    opacity: 1 !important;
+    width: var(--copy-hover-size);
+    height: var(--copy-hover-size);
+    font-size: var(--copy-hover-font);
+    top: var(--copy-hover-top);
+    right: var(--copy-hover-right);
+}
+
+/* Expanded click targets */
+.copy-button::before {
+    content: '';
+    position: absolute;
+    top: -16px;
+    left: -16px;
+    right: -16px;
+    bottom: -16px;
+    border-radius: 50%;
+}
+
+
+.copy-button.size-small:hover {
+    top: var(--copy-hover-top);
+    right: var(--copy-hover-right);
 }

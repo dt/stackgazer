@@ -14,13 +14,27 @@ export interface AppSettings {
   functionTrimPrefixes: string;
   fileTrimPrefixes: string;
   
-  // Text-based rule format
+  // Text-based rule format - legacy (for backward compatibility)
   categorySkipRules: string;
   categoryMatchRules: string;
   nameSkipRules: string;
   nameTrimRules: string;
   nameFoldRules: string;
   nameFindRules: string;
+
+  // New custom/default rule system
+  useDefaultCategorySkipRules: boolean;
+  customCategorySkipRules: string;
+  useDefaultCategoryMatchRules: boolean;
+  customCategoryMatchRules: string;
+  useDefaultNameSkipRules: boolean;
+  customNameSkipRules: string;
+  useDefaultNameTrimRules: boolean;
+  customNameTrimRules: string;
+  useDefaultNameFoldRules: boolean;
+  customNameFoldRules: string;
+  useDefaultNameFindRules: boolean;
+  customNameFindRules: string;
 
   // Name extraction patterns (still used by FileParser)
   nameExtractionPatterns: NameExtractionPattern[];
@@ -45,34 +59,34 @@ export class SettingsManager {
    * Get built-in default settings values
    */
   private getBuiltinDefaults(): AppSettings {
+    const defaultCategorySkipRules = [
+      'sync.',
+      'internal/',
+      'golang.org/x/sync/errgroup',
+      'util/stop',
+      'util/ctxgroup',
+      'jobs.',
+      'kv/kvclient/rangefeed',
+      'kv/kvpb._',
+      'google.golang.org/grpc',
+      'rpc.NewServerEx',
+      'rpc.internalClientAdapter',
+      'rpc.serverStreamInterceptorsChain',
+      'rpc.kvAuth',
+      'sql/flowinfra.(*FlowBase).StartInternal.func',
+      'sql/execinfra.(*ProcessorBaseNoHelper).Run',
+      'sql/execinfra.Run'
+    ].join('\n');
+
     return {
       // Parsing options
       functionTrimPrefixes: '',
       fileTrimPrefixes: '',
       
-      // Text-based rule format
-      categorySkipRules: [
-        'sync.',
-        'internal/',
-        'golang.org/x/sync/errgroup',
-        'util/stop',
-        'util/ctxgroup',
-        'jobs.',
-        'kv/kvclient/rangefeed',
-        'kv/kvpb._',
-        'google.golang.org/grpc',
-        'rpc.NewServerEx',
-        'rpc.internalClientAdapter',
-        'rpc.serverStreamInterceptorsChain',
-        'rpc.kvAuth',
-        'sql/flowinfra.(*FlowBase).StartInternal.func',
-        'sql/execinfra.(*ProcessorBaseNoHelper).Run',
-        'sql/execinfra.Run'
-      ].join('\n'),
+      // Legacy rule format (for backward compatibility)
+      categorySkipRules: defaultCategorySkipRules,
       
-      categoryMatchRules: [
-        's|^((([^\\/.]*\\\\.[^\\/]*)*\\/)?[^\\/.]+(\\/[^\\/.]+)?)|$1|'
-      ].join('\n'),
+      categoryMatchRules: 's|^((([^\\/.]*\\\\.[^\\/]*)*\\/)?[^\\/.]+(\\/[^\\/.]+)?)|$1|',
       
       nameSkipRules: [
         'sync.runtime_notifyListWait',
@@ -105,6 +119,20 @@ export class SettingsManager {
       nameFindRules: [
         's|kv/kvclient/kvcoord.(*DistSender).Send,^(kv/kvclient/kvcoord|kv\\.)|DistSender|'
       ].join('\n'),
+
+      // New custom/default rule system - all enabled by default with empty custom rules
+      useDefaultCategorySkipRules: true,
+      customCategorySkipRules: '',
+      useDefaultCategoryMatchRules: true,
+      customCategoryMatchRules: '',
+      useDefaultNameSkipRules: true,
+      customNameSkipRules: '',
+      useDefaultNameTrimRules: true,
+      customNameTrimRules: '',
+      useDefaultNameFoldRules: true,
+      customNameFoldRules: '',
+      useDefaultNameFindRules: true,
+      customNameFindRules: '',
 
       // Name extraction patterns (still used by FileParser)
       nameExtractionPatterns: [
@@ -320,11 +348,12 @@ export class SettingsManager {
    * Get category skip rules as array of strings
    */
   getCategorySkipRules(): string[] {
-    if (!this.settings.categorySkipRules || typeof this.settings.categorySkipRules !== 'string') {
+    const combined = this.getCombinedCategorySkipRules();
+    if (!combined) {
       return [];
     }
 
-    return this.settings.categorySkipRules
+    return combined
       .split('\n')
       .map(rule => rule.trim())
       .filter(rule => rule.length > 0);
@@ -343,8 +372,9 @@ export class SettingsManager {
     }
     
     // Add match rules
-    if (this.settings.categoryMatchRules) {
-      const matchLines = this.settings.categoryMatchRules
+    const combinedMatchRules = this.getCombinedCategoryMatchRules();
+    if (combinedMatchRules) {
+      const matchLines = combinedMatchRules
         .split('\n')
         .map(line => line.trim())
         .filter(line => line.length > 0);
@@ -447,16 +477,16 @@ export class SettingsManager {
     const rules: TitleRule[] = [];
     
     // Add skip rules
-    rules.push(...this.parseTextRules(this.settings.nameSkipRules, 'skip'));
+    rules.push(...this.parseTextRules(this.getCombinedNameSkipRules(), 'skip'));
     
     // Add trim rules
-    rules.push(...this.parseTextRules(this.settings.nameTrimRules, 'trim'));
+    rules.push(...this.parseTextRules(this.getCombinedNameTrimRules(), 'trim'));
     
     // Add fold rules
-    rules.push(...this.parseTextRules(this.settings.nameFoldRules, 'fold'));
+    rules.push(...this.parseTextRules(this.getCombinedNameFoldRules(), 'fold'));
     
     // Add find rules
-    rules.push(...this.parseTextRules(this.settings.nameFindRules, 'find'));
+    rules.push(...this.parseTextRules(this.getCombinedNameFindRules(), 'find'));
     
     return rules;
   }
@@ -478,5 +508,140 @@ export class SettingsManager {
       // Fallback to default pattern
       return /^(.*\/)?stacks\.txt$/;
     }
+  }
+
+  /**
+   * Get default rule values from current defaults (including custom defaults from HTML)
+   */
+  getDefaultCategorySkipRulesString(): string {
+    return this.defaultSettings.categorySkipRules;
+  }
+
+  getDefaultCategoryMatchRulesString(): string {
+    return this.defaultSettings.categoryMatchRules;
+  }
+
+  getDefaultNameSkipRulesString(): string {
+    return this.defaultSettings.nameSkipRules;
+  }
+
+  getDefaultNameTrimRulesString(): string {
+    return this.defaultSettings.nameTrimRules;
+  }
+
+  getDefaultNameFoldRulesString(): string {
+    return this.defaultSettings.nameFoldRules;
+  }
+
+  getDefaultNameFindRulesString(): string {
+    return this.defaultSettings.nameFindRules;
+  }
+
+  /**
+   * Get merged category skip rules (defaults + custom)
+   */
+  getCombinedCategorySkipRules(): string {
+    let combined = '';
+    
+    if (this.settings.useDefaultCategorySkipRules) {
+      combined += this.getDefaultCategorySkipRulesString();
+    }
+    
+    if (this.settings.customCategorySkipRules.trim()) {
+      if (combined) combined += '\n';
+      combined += this.settings.customCategorySkipRules;
+    }
+    
+    return combined;
+  }
+
+  /**
+   * Get merged category match rules (defaults + custom)
+   */
+  getCombinedCategoryMatchRules(): string {
+    let combined = '';
+    
+    if (this.settings.useDefaultCategoryMatchRules) {
+      combined += this.getDefaultCategoryMatchRulesString();
+    }
+    
+    if (this.settings.customCategoryMatchRules.trim()) {
+      if (combined) combined += '\n';
+      combined += this.settings.customCategoryMatchRules;
+    }
+    
+    return combined;
+  }
+
+  /**
+   * Get merged name skip rules (defaults + custom)
+   */
+  getCombinedNameSkipRules(): string {
+    let combined = '';
+    
+    if (this.settings.useDefaultNameSkipRules) {
+      combined += this.getDefaultNameSkipRulesString();
+    }
+    
+    if (this.settings.customNameSkipRules.trim()) {
+      if (combined) combined += '\n';
+      combined += this.settings.customNameSkipRules;
+    }
+    
+    return combined;
+  }
+
+  /**
+   * Get merged name trim rules (defaults + custom)
+   */
+  getCombinedNameTrimRules(): string {
+    let combined = '';
+    
+    if (this.settings.useDefaultNameTrimRules) {
+      combined += this.getDefaultNameTrimRulesString();
+    }
+    
+    if (this.settings.customNameTrimRules.trim()) {
+      if (combined) combined += '\n';
+      combined += this.settings.customNameTrimRules;
+    }
+    
+    return combined;
+  }
+
+  /**
+   * Get merged name fold rules (defaults + custom)
+   */
+  getCombinedNameFoldRules(): string {
+    let combined = '';
+    
+    if (this.settings.useDefaultNameFoldRules) {
+      combined += this.getDefaultNameFoldRulesString();
+    }
+    
+    if (this.settings.customNameFoldRules.trim()) {
+      if (combined) combined += '\n';
+      combined += this.settings.customNameFoldRules;
+    }
+    
+    return combined;
+  }
+
+  /**
+   * Get merged name find rules (defaults + custom)
+   */
+  getCombinedNameFindRules(): string {
+    let combined = '';
+    
+    if (this.settings.useDefaultNameFindRules) {
+      combined += this.getDefaultNameFindRulesString();
+    }
+    
+    if (this.settings.customNameFindRules.trim()) {
+      if (combined) combined += '\n';
+      combined += this.settings.customNameFindRules;
+    }
+    
+    return combined;
   }
 }
