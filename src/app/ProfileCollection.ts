@@ -55,7 +55,8 @@ function isStdLib(functionName: string): boolean {
 type TitleRule = 
   | { skip: string }
   | { trim: string }
-  | { fold: string; to: string; while?: string };
+  | { fold: string; to: string; while?: string }
+  | { find: string; to: string; while?: string };
 
 type CategoryRule = 
   | { skip: string }
@@ -75,85 +76,344 @@ class StackNamer {
     this.rules = rules;
   }
 
+  /**
+   * Check if a function name matches a pattern (supports both literal prefixes and regex)
+   */
+  private matchesPattern(functionName: string, pattern: string): boolean {
+    // First try exact literal prefix match - this handles cases like 'util/admission.(*WorkQueue).Admit'
+    if (functionName.startsWith(pattern)) {
+      return true;
+    }
+    
+    // If pattern contains regex special characters and literal match failed, try as regex
+    if (pattern.includes('(') || pattern.includes('[') || pattern.includes('*') || pattern.includes('+') || pattern.includes('?')) {
+      try {
+        const regex = new RegExp(pattern);
+        return regex.test(functionName);
+      } catch (e) {
+        // Invalid regex, already tried prefix matching above
+        return false;
+      }
+    }
+    
+    // Pattern doesn't contain special chars and prefix match failed
+    return false;
+  }
+
 
   generateTitle(trace: Frame[]): string {
-    let currentPrefix = '';
-    let continuePattern: string | null = null; // Active fold continue pattern
-
-    for (let i = 0; i < trace.length; i++) {
-      const frame = trace[i];
-      let functionName = frame.func;
+    let stackName = '';
+    let frameOffset = 0;
+    
+    while (frameOffset < trace.length) {
+      const frame = trace[frameOffset];
+      const frameName = frame.func;
+      
+      // For each skip rule, if it matches the frame name: advance frame offset, continue
       let shouldSkip = false;
-
-      // Check skip rules first
       for (const rule of this.rules) {
-        if ('skip' in rule && functionName.startsWith(rule.skip)) {
+        if ('skip' in rule && frameName.startsWith(rule.skip)) {
+          frameOffset++;
           shouldSkip = true;
           break;
+        }
+      }
+      if (shouldSkip) continue;
+      
+      // If a fold rule matches frame name: prepend its replacement to stackName, advance frame offset by one plus however many match the while pattern
+      let foldMatched = false;
+      for (const rule of this.rules) {
+        if ('fold' in rule && this.matchesPattern(frameName, rule.fold)) {
+          // Prepend replacement (only if stackName doesn't already start with it)
+          if (!stackName.startsWith(rule.to)) {
+            stackName = rule.to + (stackName ? ' → ' + stackName : '');
+          }
+          
+          // Advance by 1 plus matching while frames
+          frameOffset++;
+          if (rule.while) {
+            while (frameOffset < trace.length) {
+              const nextFrame = trace[frameOffset];
+              
+              // Check if this frame should be skipped
+              let shouldSkip = false;
+              for (const skipRule of this.rules) {
+                if ('skip' in skipRule && nextFrame.func.startsWith(skipRule.skip)) {
+                  shouldSkip = true;
+                  break;
+                }
+              }
+              
+              if (shouldSkip) {
+                frameOffset++;
+                continue;
+              }
+              
+              let shouldContinue = false;
+              
+              if (rule.while === 'stdlib' && isStdLib(nextFrame.func)) {
+                shouldContinue = true;
+              } else if (rule.while !== 'stdlib') {
+                try {
+                  const regex = new RegExp(rule.while);
+                  shouldContinue = regex.test(nextFrame.func);
+                } catch (e) {
+                  shouldContinue = nextFrame.func.startsWith(rule.while);
+                }
+              }
+              
+              if (shouldContinue) {
+                frameOffset++;
+              } else {
+                break;
+              }
+            }
+          }
+          
+          foldMatched = true;
+          break;
+        }
+      }
+      if (foldMatched) continue;
+      
+      // Set trimmed name to frame's func, then trim it with each matching trim rule
+      let trimmedName = frameName;
+      for (const rule of this.rules) {
+        if ('trim' in rule) {
+          if (rule.trim.startsWith('s/')) {
+            const match = rule.trim.match(/^s\/(.+)\/(.*)\/$/);
+            if (match) {
+              try {
+                const [, pattern, replacement] = match;
+                const regex = new RegExp(pattern);
+                trimmedName = trimmedName.replace(regex, replacement);
+              } catch (e) {
+                // Invalid regex, ignore this rule
+              }
+            }
+          } else if (rule.trim.startsWith('s|')) {
+            const match = rule.trim.match(/^s\|(.*)\|([^|]*)\|$/);
+            if (match) {
+              try {
+                const [, pattern, replacement] = match;
+                const regex = new RegExp(pattern);
+                trimmedName = trimmedName.replace(regex, replacement);
+              } catch (e) {
+                // Invalid regex, ignore this rule
+              }
+            }
+          } else if (trimmedName.startsWith(rule.trim)) {
+            trimmedName = trimmedName.slice(rule.trim.length);
+          }
         }
       }
       
-      if (shouldSkip) {
-        continue; // Skip this frame entirely
+      // Prepend trimmed framename to stackname
+      if (!stackName.startsWith(trimmedName)) {
+        stackName = trimmedName + (stackName ? ' → ' + stackName : '');
       }
-
-      // Check if we're in continue folding mode
-      if (continuePattern) {
-        if (continuePattern === 'stdlib' && isStdLib(functionName)) {
-          continue; // Keep folding stdlib
-        } else if (continuePattern !== 'stdlib' && functionName.startsWith(continuePattern)) {
-          continue; // Keep folding prefix
-        } else {
-          // Exit folding mode
-          continuePattern = null;
+      
+      // For each find rule, check if it finds a match; if many match, use the one with the largest offset
+      let bestFind = null;
+      let bestOffset = -1;
+      
+      for (let searchOffset = frameOffset + 1; searchOffset < trace.length; searchOffset++) {
+        const searchFrame = trace[searchOffset];
+        for (const rule of this.rules) {
+          if ('find' in rule && this.matchesPattern(searchFrame.func, rule.find)) {
+            if (searchOffset > bestOffset) {
+              bestFind = rule;
+              bestOffset = searchOffset;
+            }
+          }
         }
       }
+      
+      if (bestFind) {
+        // Prepend the find rule's replacement to stackname
+        if (!stackName.startsWith(bestFind.to)) {
+          stackName = bestFind.to + (stackName ? ' → ' + stackName : '');
+        }
+        
+        // Advance frame offset by 1 (the match) plus as many following frames match the while pattern
+        frameOffset = bestOffset + 1;
+        if (bestFind.while) {
+          while (frameOffset < trace.length) {
+            const nextFrame = trace[frameOffset];
+            
+            // Check if this frame should be skipped
+            let shouldSkip = false;
+            for (const skipRule of this.rules) {
+              if ('skip' in skipRule && nextFrame.func.startsWith(skipRule.skip)) {
+                shouldSkip = true;
+                break;
+              }
+            }
+            
+            if (shouldSkip) {
+              frameOffset++;
+              continue;
+            }
+            
+            let shouldContinue = false;
+            
+            if (bestFind.while === 'stdlib' && isStdLib(nextFrame.func)) {
+              shouldContinue = true;
+            } else if (bestFind.while !== 'stdlib') {
+              try {
+                const regex = new RegExp(bestFind.while);
+                shouldContinue = regex.test(nextFrame.func);
+              } catch (e) {
+                shouldContinue = nextFrame.func.startsWith(bestFind.while);
+              }
+            }
+            
+            if (shouldContinue) {
+              frameOffset++;
+            } else {
+              break;
+            }
+          }
+        }
+        continue;
+      }
+      
+      // Since no find or fold or skip caused a continue: done
+      return stackName || (trace.length > 0 ? trace[trace.length - 1].func : '');
+    }
+    
+    return stackName || (trace.length > 0 ? trace[trace.length - 1].func : '');
+  }
 
-      // Apply fold rules
+  /**
+   * Scan remaining frames for find rules and return both the result and where to continue
+   */
+  private findInRemainingFrames(frames: Frame[]): { result: string; skipToIndex: number } | null {
+    for (let i = 0; i < frames.length; i++) {
+      const frame = frames[i];
+      const functionName = frame.func;
+      
       for (const rule of this.rules) {
-        if ('fold' in rule && functionName.startsWith(rule.fold)) {
-          // Only add the fold text if it's not already at the end of the current prefix
-          const foldText = rule.to + ' ';
-          if (!currentPrefix.endsWith(foldText)) {
-            currentPrefix += foldText;
+        if ('find' in rule && this.matchesPattern(functionName, rule.find)) {
+          // Found a match, now skip frames according to while pattern
+          let skipToIndex = i + 1;
+          if (rule.while) {
+            while (skipToIndex < frames.length) {
+              const skipFrame = frames[skipToIndex];
+              let shouldContinueSkipping = false;
+              
+              if (rule.while === 'stdlib' && isStdLib(skipFrame.func)) {
+                shouldContinueSkipping = true;
+              } else if (rule.while !== 'stdlib') {
+                try {
+                  const regex = new RegExp(rule.while);
+                  shouldContinueSkipping = regex.test(skipFrame.func);
+                } catch (e) {
+                  shouldContinueSkipping = skipFrame.func.startsWith(rule.while);
+                }
+              }
+              
+              if (shouldContinueSkipping) {
+                skipToIndex++;
+              } else {
+                break;
+              }
+            }
           }
           
-          if (rule.while === 'stdlib') {
-            continuePattern = 'stdlib';
-          } else if (rule.while) {
-            continuePattern = rule.while;
+          return { result: rule.to, skipToIndex };
+        }
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Apply find rules to scan remaining frames and extract additional information
+   * Returns prefix (to prepend), suffix (to append after arrow), and new determined name if naming resumes
+   */
+  private applyFindRules(frames: Frame[], initialSuffix: string): { prefix: string; suffix: string; newName?: string } {
+    let prefix = '';
+    let suffix = initialSuffix;
+    let frameIndex = 0;
+
+    while (frameIndex < frames.length) {
+      const frame = frames[frameIndex];
+      let functionName = frame.func;
+      let foundMatch = false;
+
+      // Check find rules
+      for (const rule of this.rules) {
+        if ('find' in rule && this.matchesPattern(functionName, rule.find)) {
+          // Add the find text to prefix
+          prefix += (prefix ? ' → ' : '') + rule.to;
+          
+          // Skip frames matching the while pattern
+          let skipIndex = frameIndex + 1;
+          if (rule.while) {
+            while (skipIndex < frames.length) {
+              const skipFrame = frames[skipIndex];
+              let shouldContinueSkipping = false;
+              
+              if (rule.while === 'stdlib' && isStdLib(skipFrame.func)) {
+                shouldContinueSkipping = true;
+              } else if (rule.while !== 'stdlib') {
+                try {
+                  const regex = new RegExp(rule.while);
+                  shouldContinueSkipping = regex.test(skipFrame.func);
+                } catch (e) {
+                  // Invalid regex, treat as prefix match for backward compatibility
+                  shouldContinueSkipping = skipFrame.func.startsWith(rule.while);
+                }
+              }
+              
+              if (shouldContinueSkipping) {
+                skipIndex++;
+              } else {
+                break;
+              }
+            }
           }
           
-          shouldSkip = true;
-          break;
+          // Insert find prefix into the existing suffix
+          // The suffix already contains the determined name, just insert our prefix
+          const parts = suffix.split(' → ');
+          if (parts.length > 0) {
+            // Insert find prefix after the first part (determined name)
+            parts.splice(1, 0, rule.to);
+            return { prefix: '', suffix: parts.join(' → ') };
+          } else {
+            return { prefix, suffix };
+          }
         }
       }
 
-      // Apply trim rules to current function
-      for (const rule of this.rules) {
-        if ('trim' in rule && functionName.startsWith(rule.trim)) {
-          functionName = functionName.slice(rule.trim.length);
-        }
-      }
-
-      if (!shouldSkip) {
-        return currentPrefix + functionName;
+      if (!foundMatch) {
+        frameIndex++;
       }
     }
 
-    // If all functions were skipped, return the last one (with any accumulated prefix)
-    if (trace.length > 0) {
-      let lastFunction = trace[trace.length - 1].func;
-      // Apply trim rules to the last function
-      for (const rule of this.rules) {
-        if ('trim' in rule && lastFunction.startsWith(rule.trim)) {
-          lastFunction = lastFunction.slice(rule.trim.length);
-        }
-      }
-      return currentPrefix + lastFunction;
-    }
+    return { prefix, suffix };
+  }
 
-    return 'Unknown';
+  /**
+   * Resume naming process from given frames (used by find rules)
+   */
+  private resumeNamingFromFrames(frames: Frame[], initialSuffix: string): { name: string; suffix: string } {
+    // Apply the same naming logic as generateTitle but starting from these frames
+    const tempNamer = new StackNamer(this.rules);
+    const tempName = tempNamer.generateTitle(frames);
+    
+    // Extract any additional suffix that might have been accumulated
+    const arrowIndex = tempName.indexOf(' → ');
+    if (arrowIndex !== -1) {
+      const name = tempName.substring(0, arrowIndex);
+      const newSuffix = tempName.substring(arrowIndex + 3);
+      const combinedSuffix = initialSuffix ? newSuffix + ' → ' + initialSuffix : newSuffix;
+      return { name, suffix: combinedSuffix };
+    } else {
+      return { name: tempName, suffix: initialSuffix };
+    }
   }
 }
 
@@ -163,8 +423,6 @@ export interface ProfileCollectionSettings {
   titleManipulationRules: TitleRule[];
   nameExtractionPatterns: NameExtractionPattern[];
   zipFilePattern: string;
-  categoryIgnoredPrefixes: string[];
-  categoryExtractionPattern: string;
   categoryRules: CategoryRule[];
 }
 
@@ -206,30 +464,27 @@ export class ProfileCollection {
       const frame = trace[i];
       const func = frame.func;
 
-      // Check if this frame should be skipped using category rules
+      // Phase 1: Check if this frame should be skipped (check ALL skip rules)
       const shouldSkip = this.settings.categoryRules.some(rule => 
         'skip' in rule && func.startsWith(rule.skip)
       );
 
-      // Also check legacy categoryIgnoredPrefixes for backward compatibility
-      const shouldIgnoreLegacy = this.settings.categoryIgnoredPrefixes.some(prefix =>
-        func.startsWith(prefix)
-      );
+      if (shouldSkip) {
+        continue; // Skip this frame, try the next one
+      }
 
-      if (!shouldSkip && !shouldIgnoreLegacy) {
-        // Found a non-skipped frame, check for match rules
-        for (const rule of this.settings.categoryRules) {
-          if ('match' in rule) {
-            const result = this.applyMatchRule(func, rule.match);
-            if (result) {
-              return result;
-            }
+      // Phase 2: Frame is not skipped, check ALL match rules for category
+      for (const rule of this.settings.categoryRules) {
+        if ('match' in rule) {
+          const result = this.applyMatchRule(func, rule.match);
+          if (result) {
+            return result;
           }
         }
-
-        // No match rules applied, fall back to extracting from function name
-        return this.extractCategoryFromFunction(func);
       }
+
+      // Phase 3: No match rules applied, fall back to extracting from function name
+      return this.extractCategoryFromFunction(func);
     }
 
     // If all frames are skipped, fall back to the last frame
@@ -316,9 +571,9 @@ export class ProfileCollection {
       }
     }
 
-    // Try to match the configurable pattern
+    // Use default pattern: ^((([^/.]*\.[^/]*)*\/)?[^/.]+(\/?[^/.]+)?)
     try {
-      const regex = new RegExp(this.settings.categoryExtractionPattern);
+      const regex = new RegExp('^((([^\\/.]*\\\\.[^\\/]*)*\\/)?[^\\/.]+(\\/[^\\/.]+)?)');
       const match = func.match(regex);
 
       if (match && match[1]) {
@@ -326,7 +581,7 @@ export class ProfileCollection {
         return match[1];
       }
     } catch (e) {
-      console.warn('Invalid category extraction pattern:', this.settings.categoryExtractionPattern, e);
+      console.warn('Invalid category extraction pattern:', e);
       // Fall through to fallback logic
     }
 

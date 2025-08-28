@@ -1806,20 +1806,6 @@ export class StackTraceApp {
   }
 
   /**
-   * Parse category ignored prefixes string into array
-   */
-  private parseCategoryIgnoredPrefixes(categoryIgnoredPrefixes: string): string[] {
-    if (!categoryIgnoredPrefixes || typeof categoryIgnoredPrefixes !== 'string') {
-      return [];
-    }
-
-    return categoryIgnoredPrefixes
-      .split('\n')
-      .map(prefix => prefix.trim())
-      .filter(prefix => prefix.length > 0);
-  }
-
-  /**
    * Convert AppSettings to ProfileCollectionSettings format
    */
   private convertToProfileCollectionSettings(appSettings: AppSettings): ProfileCollectionSettings {
@@ -1827,13 +1813,9 @@ export class StackTraceApp {
       functionPrefixesToTrim: this.settingsManager.getFunctionTrimPrefixes(),
       filePrefixesToTrim: this.settingsManager.getFileTrimPrefixes(),
       titleManipulationRules: this.settingsManager.getTitleManipulationRules(),
-      nameExtractionPatterns: appSettings.nameExtractionPatterns,
+      nameExtractionPatterns: appSettings.nameExtractionPatterns || [],
       zipFilePattern: appSettings.zipFilePattern,
-      categoryIgnoredPrefixes: this.parseCategoryIgnoredPrefixes(
-        appSettings.categoryIgnoredPrefixes
-      ),
-      categoryExtractionPattern: appSettings.categoryExtractionPattern,
-      categoryRules: appSettings.categoryRules || [],
+      categoryRules: this.settingsManager.getCategoryRules(),
     };
   }
 
@@ -1938,18 +1920,33 @@ export class StackTraceApp {
       serialize: (value: string) => value,
       deserialize: (value: any) => String(value),
     },
-    titleManipulationRules: {
-      type: 'custom' as const,
-      serialize: (value: TitleRule[]) => value,
-      deserialize: (value: any) => value || [],
+    categorySkipRules: {
+      type: 'textarea' as const,
+      serialize: (value: string) => value,
+      deserialize: (value: any) => String(value),
     },
-    categoryRules: {
-      type: 'custom' as const,
-      serialize: (value: CategoryRule[]) => value,
-      deserialize: (value: any) => value,
+    categoryMatchRules: {
+      type: 'textarea' as const,
+      serialize: (value: string) => value,
+      deserialize: (value: any) => String(value),
     },
-    categoryExtractionPattern: {
-      type: 'text' as const,
+    nameSkipRules: {
+      type: 'textarea' as const,
+      serialize: (value: string) => value,
+      deserialize: (value: any) => String(value),
+    },
+    nameTrimRules: {
+      type: 'textarea' as const,
+      serialize: (value: string) => value,
+      deserialize: (value: any) => String(value),
+    },
+    nameFoldRules: {
+      type: 'textarea' as const,
+      serialize: (value: string) => value,
+      deserialize: (value: any) => String(value),
+    },
+    nameFindRules: {
+      type: 'textarea' as const,
       serialize: (value: string) => value,
       deserialize: (value: any) => String(value),
     },
@@ -1960,17 +1957,6 @@ export class StackTraceApp {
 
     // Load all setting values into modal inputs using config map
     Object.entries(this.settingsConfig).forEach(([key, config]) => {
-      if (key === 'titleManipulationRules') {
-        // Custom handling for rule editor
-        this.loadRulesIntoEditor(settings.titleManipulationRules);
-        return;
-      }
-      if (key === 'categoryRules') {
-        // Custom handling for category rule editor
-        this.loadCategoryRulesIntoEditor(settings.categoryRules || []);
-        return;
-      }
-
       const element = document.getElementById(key) as HTMLInputElement | HTMLTextAreaElement;
       if (element && key in settings) {
         const value = (settings as any)[key];
@@ -1987,23 +1973,9 @@ export class StackTraceApp {
     const updates: Partial<AppSettings> = {};
 
     Object.entries(this.settingsConfig).forEach(([key, config]) => {
-      if (key === 'titleManipulationRules') {
-        // Custom handling for rule editor
-        updates.titleManipulationRules = this.getRulesFromEditor();
-        return;
-      }
-      if (key === 'categoryRules') {
-        // Custom handling for category rule editor
-        updates.categoryRules = this.getCategoryRulesFromEditor();
-        return;
-      }
-
       const element = document.getElementById(key) as HTMLInputElement | HTMLTextAreaElement;
       if (element) {
-        let value: any;
-
-        value = config.serialize(config.deserialize(element.value));
-
+        const value = config.serialize(config.deserialize(element.value));
         if (value !== undefined) {
           (updates as any)[key] = value;
         }
@@ -2165,6 +2137,23 @@ export class StackTraceApp {
           }
           rules.push(rule);
         }
+      } else if (ruleItem.classList.contains('find-rule')) {
+        // For find rules, get pattern, replacement, and optional while condition from separate inputs
+        const patternInput = ruleItem.querySelector('.rule-pattern-input') as HTMLInputElement;
+        const replacementInput = ruleItem.querySelector('.rule-replacement-input') as HTMLInputElement;
+        const whileInput = ruleItem.querySelector('.rule-while-input') as HTMLInputElement;
+        
+        if (patternInput && patternInput.value.trim()) {
+          const pattern = patternInput.value.trim();
+          const replacement = replacementInput ? replacementInput.value.trim() : '';
+          const whileCondition = whileInput ? whileInput.value.trim() : '';
+          
+          const rule: any = { find: pattern, to: replacement };
+          if (whileCondition) {
+            rule.while = whileCondition;
+          }
+          rules.push(rule);
+        }
       }
     });
 
@@ -2174,7 +2163,7 @@ export class StackTraceApp {
   /**
    * Add a rule to the editor
    */
-  private addRuleToEditor(rule?: TitleRule, ruleType?: 'skip' | 'trim' | 'fold'): void {
+  private addRuleToEditor(rule?: TitleRule, ruleType?: 'skip' | 'trim' | 'fold' | 'find'): void {
     const rulesList = document.getElementById('rulesList');
     if (!rulesList) return;
 
@@ -2188,6 +2177,8 @@ export class StackTraceApp {
         templateId = 'trim-rule-template';
       } else if ('fold' in rule) {
         templateId = 'fold-rule-template';
+      } else if ('find' in rule) {
+        templateId = 'find-rule-template';
       } else {
         return; // Invalid rule
       }
@@ -2216,6 +2207,13 @@ export class StackTraceApp {
         const replacementInput = ruleElement.querySelector('.rule-replacement-input') as HTMLInputElement;
         const whileInput = ruleElement.querySelector('.rule-while-input') as HTMLInputElement;
         if (patternInput) patternInput.value = rule.fold;
+        if (replacementInput) replacementInput.value = rule.to || '';
+        if (whileInput && rule.while) whileInput.value = rule.while;
+      } else if ('find' in rule) {
+        const patternInput = ruleElement.querySelector('.rule-pattern-input') as HTMLInputElement;
+        const replacementInput = ruleElement.querySelector('.rule-replacement-input') as HTMLInputElement;
+        const whileInput = ruleElement.querySelector('.rule-while-input') as HTMLInputElement;
+        if (patternInput) patternInput.value = rule.find;
         if (replacementInput) replacementInput.value = rule.to || '';
         if (whileInput && rule.while) whileInput.value = rule.while;
       }
@@ -2256,17 +2254,20 @@ export class StackTraceApp {
     const addSkipBtn = document.getElementById('addSkipBtn');
     const addTrimBtn = document.getElementById('addTrimBtn');
     const addFoldBtn = document.getElementById('addFoldBtn');
+    const addFindBtn = document.getElementById('addFindBtn');
     
-    if (!addSkipBtn || !addTrimBtn || !addFoldBtn) return;
+    if (!addSkipBtn || !addTrimBtn || !addFoldBtn || !addFindBtn) return;
 
     // Remove existing listeners to prevent duplicates
     addSkipBtn.replaceWith(addSkipBtn.cloneNode(true));
     addTrimBtn.replaceWith(addTrimBtn.cloneNode(true));
     addFoldBtn.replaceWith(addFoldBtn.cloneNode(true));
+    addFindBtn.replaceWith(addFindBtn.cloneNode(true));
     
     const newAddSkipBtn = document.getElementById('addSkipBtn');
     const newAddTrimBtn = document.getElementById('addTrimBtn');
     const newAddFoldBtn = document.getElementById('addFoldBtn');
+    const newAddFindBtn = document.getElementById('addFindBtn');
 
     newAddSkipBtn?.addEventListener('click', () => {
       this.addRuleToEditor(undefined, 'skip');
@@ -2278,6 +2279,10 @@ export class StackTraceApp {
     
     newAddFoldBtn?.addEventListener('click', () => {
       this.addRuleToEditor(undefined, 'fold');
+    });
+    
+    newAddFindBtn?.addEventListener('click', () => {
+      this.addRuleToEditor(undefined, 'find');
     });
   }
 
