@@ -465,7 +465,9 @@ export class ProfileCollection {
       const func = frame.func;
 
       // Phase 1: Check if this frame should be skipped (check ALL skip rules)
-      const shouldSkip = this.settings.categoryRules.some(rule => 
+      // IMPORTANT: The top frame (first frame at index trace.length - 1) cannot be skipped for categorization
+      const isTopFrame = (i === trace.length - 1);
+      const shouldSkip = !isTopFrame && this.settings.categoryRules.some(rule => 
         'skip' in rule && func.startsWith(rule.skip)
       );
 
