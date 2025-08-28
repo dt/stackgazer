@@ -2,6 +2,8 @@
  * Manages application settings with localStorage persistence
  */
 
+import type { TitleRule } from './ProfileCollection.js';
+
 export interface NameExtractionPattern {
   regex: string;
   replacement: string;
@@ -11,9 +13,10 @@ export interface AppSettings {
   // Parsing options
   functionTrimPrefixes: string;
   fileTrimPrefixes: string;
-  titleManipulationRules: string;
+  titleManipulationRules: TitleRule[];
   nameExtractionPatterns: NameExtractionPattern[];
   categoryIgnoredPrefixes: string;
+  categoryExtractionPattern: string;
 
   // Zip file handling
   zipFilePattern: string;
@@ -40,17 +43,18 @@ export class SettingsManager {
       functionTrimPrefixes: '',
       fileTrimPrefixes: '',
       titleManipulationRules: [
-        'skip:sync.runtime_Semacquire',
-        'fold:sync.(*WaitGroup).Wait->waitgroup',
-        'skip:golang.org/x/sync/errgroup.(*Group).Wait',
-        'foldstdlib:net/http->net/http',
-        'foldstdlib:syscall.Syscall->syscall',
-        'foldstdlib:internal/poll.runtime_pollWait->netpoll',
-      ].join('\n'),
+        { skip: 'sync.runtime_Semacquire' },
+        { fold: 'sync.(*WaitGroup).Wait', to: 'waitgroup' },
+        { skip: 'golang.org/x/sync/errgroup.(*Group).Wait' },
+        { fold: 'net/http', to: 'net/http', while: 'stdlib' },
+        { fold: 'syscall.Syscall', to: 'syscall', while: 'stdlib' },
+        { fold: 'internal/poll.runtime_pollWait', to: 'netpoll', while: 'stdlib' },
+      ],
       nameExtractionPatterns: [],
       categoryIgnoredPrefixes: ['runtime.', 'sync.', 'reflect.', 'syscall.', 'internal/'].join(
         '\n'
       ),
+      categoryExtractionPattern: '^((([^\/.]*\\.[^\/]*)*\/)?[^\/.]+(\/[^\/.]+)?)',
 
       // Zip file handling
       zipFilePattern: '^(.*\/)?.*\.txt$',
@@ -290,35 +294,16 @@ export class SettingsManager {
   }
 
   /**
-   * Get parsed title manipulation rules
+   * Get title manipulation rules as array of TitleRule objects
    */
-  getTitleManipulationRules(): string[] {
-    if (
-      !this.settings.titleManipulationRules ||
-      typeof this.settings.titleManipulationRules !== 'string'
-    ) {
-      return [];
-    }
-
-    // Title rules can be separated by newlines (from UI) or commas (from storage)
-    // Try newlines first, then fall back to commas for backward compatibility
-    const byNewlines = this.settings.titleManipulationRules
-      .split('\n')
-      .map(rule => rule.trim())
-      .filter(rule => rule.length > 0);
-
-    if (byNewlines.length > 0) {
-      return byNewlines;
-    }
-
-    // Fall back to comma-separated for backward compatibility
-    return this.parsePrefixes(this.settings.titleManipulationRules);
+  getTitleManipulationRules(): TitleRule[] {
+    return this.settings.titleManipulationRules || [];
   }
 
   /**
-   * Set title manipulation rules from newline-separated format
+   * Set title manipulation rules from array of TitleRule objects
    */
-  setTitleManipulationRules(rules: string): void {
+  setTitleManipulationRules(rules: TitleRule[]): void {
     this.updateSetting('titleManipulationRules', rules);
   }
 

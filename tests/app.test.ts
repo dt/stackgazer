@@ -105,12 +105,24 @@ async function runTests() {
         initialSettings: {
           ...DEFAULT_SETTINGS,
           titleManipulationRules: [
-            'skip:runtime.',
-            'fold:sync.(*WaitGroup).Wait->waitgroup',
-            'trim:main.',
+            { skip: 'runtime.' },
+            { fold: 'sync.(*WaitGroup).Wait', to: 'waitgroup' },
+            { trim: 'main.' },
           ],
         },
         expectStackName: 'waitgroup worker',
+      },
+      {
+        name: 'Foldprefix rule with GRPC example',
+        content: TEST_DATA.withFoldPrefix,
+        initialSettings: {
+          ...DEFAULT_SETTINGS,
+          titleManipulationRules: [
+            { fold: 'google.golang.org/grpc/internal/transport.(*Stream).waitOnHeader', to: 'rpcwait', while: 'google.golang.org/grpc' },
+            { skip: 'rpc.NewContext.ClientInterceptor.func8' },
+          ],
+        },
+        expectStackName: 'rpcwait server/serverpb.(*statusClient).Stacks',
       },
     ];
 
@@ -177,7 +189,7 @@ async function runTests() {
 
     // Title rules update test
     const originalName = mergedStack.name;
-    collection.updateTitleRules(['trim:main.']);
+    collection.updateTitleRules([{ trim: 'main.' }]);
     const newName = collection.getCategories()[0].stacks[0].name;
     if (originalName === newName) throw new Error('Title should change after updating rules');
     if (!originalName.startsWith('main.') || newName.startsWith('main.'))
@@ -554,6 +566,40 @@ ${t.func}()
       } catch (error) {
         throw error;
       }
+    }
+  });
+
+
+  await test('CategoryRule skip: jobs frames should be skipped for backup category', async () => {
+    const testSettings = {
+      ...DEFAULT_SETTINGS,
+      categoryRules: [
+        { skip: 'jobs.' }
+      ],
+    };
+
+    const collection = new ProfileCollection(testSettings);
+
+    const testData = `goroutine 1 [running]:
+backup.(*backupResumer).Resume()
+\tpkg/backup/backup_job.go:723 +0x10
+jobs.(*Registry).stepThroughStateMachine.func2()
+\tpkg/jobs/registry.go:1607 +0x10
+jobs.(*Registry).stepThroughStateMachine()
+\tpkg/jobs/registry.go:1608 +0x10
+jobs.(*Registry).runJob()
+\tpkg/jobs/adopt.go:414 +0x10
+jobs.(*StartableJob).Start.func2()
+\tpkg/jobs/jobs.go:808 +0x10`;
+
+    await addFile(collection, testData, 'test.txt');
+
+    const categories = collection.getCategories();
+    if (categories.length === 0) throw new Error('Should have categories');
+
+    const category = categories[0];
+    if (category.name !== 'backup') {
+      throw new Error(`Expected category 'backup', got '${category.name}'`);
     }
   });
 
