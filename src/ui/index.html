@@ -191,25 +191,87 @@
                     <div class="setting-description-prose">
                         <p><strong>Categorization</strong> is used to group stacks based on where they originated. Categories help organize related stacks together for easier analysis.</p>
                     </div>
-                    <div class="setting-group">
-                        <div class="setting-title">
-                            <span>Skip Rules</span>
-                            <button class="setting-help-icon"
-                                data-tooltip="One pattern per line. Frames matching these patterns will be ignored when determining category.">?</button>
-                        </div>
-                        <textarea id="categorySkipRules" class="setting-textarea" rows="4" 
-                            placeholder="sync.&#10;internal/&#10;google.golang.org/grpc"></textarea>
-                        <div class="setting-description">Skip these patterns when categorizing stacks</div>
+                    
+                    <div class="setting-title">
+                        <span>Skip Rules</span>
+                        <button class="setting-help-icon"
+                            data-tooltip="One pattern per line. Frames matching these patterns will be ignored when determining category.">?</button>
                     </div>
-                    <div class="setting-group">
-                        <div class="setting-title">
-                            <span>Match Rules</span>
-                            <button class="setting-help-icon"
-                                data-tooltip="One pattern per line. Format: s|pattern|replacement| where replacement can use $1, $2, etc. for capture groups.">?</button>
+                    
+                    <div class="setting-description">Skip these patterns when categorizing stacks.</div>
+                    
+                    <!-- Default Rules Section -->
+                    <div class="default-rules-section collapsed">
+                        <div class="default-rules-header">
+                            <div class="default-rules-title">
+                                <div class="default-rules-title">
+                                <span class="expand-icon">▼</span>
+                                <h5>Default Rules</h5>
+                            </div>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="useDefaultCategorySkipRules" checked>
+                                <span class="toggle-slider"></span>
+                            </label>
                         </div>
-                        <textarea id="categoryMatchRules" class="setting-textarea" rows="4" 
-                            placeholder="s|^((([^\/.]*\\.[^\/]*)*\/)?[^\/.]+(\/[^\/.]+)?)|$1|"></textarea>
-                        <div class="setting-description">Extract category names using these patterns</div>
+                        <div class="default-rules-content collapsed">
+                            <textarea id="defaultCategorySkipRules" class="setting-textarea default-rules-textarea" rows="4" 
+                                readonly placeholder="Default rules will appear here..."></textarea>
+                        </div>
+                    </div>
+                    
+                    <!-- Custom Rules Section -->
+                    <div class="custom-rules-section collapsed">
+                        <div class="custom-rules-header">
+                            <div class="custom-rules-title">
+                                <h5>Custom Rules (0)</h5>
+                            </div>
+                        </div>
+                        <div class="custom-rules-content collapsed">
+                            <textarea id="customCategorySkipRules" class="setting-textarea" rows="2" 
+                                placeholder="Add your own skip rules here..."></textarea>
+                        </div>
+                    </div>
+                    
+                    <div class="setting-title">
+                        <span>Match Rules</span>
+                        <button class="setting-help-icon"
+                            data-tooltip="One pattern per line. Format: s|pattern|replacement| where replacement can use $1, $2, etc. for capture groups.">?</button>
+                    </div>
+                    
+                    <div class="setting-description">Extract category names using these patterns.</div>
+                    
+                    <!-- Default Rules Section -->
+                    <div class="default-rules-section collapsed">
+                        <div class="default-rules-header">
+                            <div class="default-rules-title">
+                                <div class="default-rules-title">
+                                <span class="expand-icon">▼</span>
+                                <h5>Default Rules</h5>
+                            </div>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="useDefaultCategoryMatchRules" checked>
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                        <div class="default-rules-content collapsed">
+                            <textarea id="defaultCategoryMatchRules" class="setting-textarea default-rules-textarea" rows="2" 
+                                readonly placeholder="Default rules will appear here..."></textarea>
+                        </div>
+                    </div>
+                    
+                    <!-- Custom Rules Section -->
+                    <div class="custom-rules-section collapsed">
+                        <div class="custom-rules-header">
+                            <div class="custom-rules-title">
+                                <h5>Custom Rules (0)</h5>
+                            </div>
+                        </div>
+                        <div class="custom-rules-content collapsed">
+                            <textarea id="customCategoryMatchRules" class="setting-textarea" rows="2" 
+                                placeholder="Add your own match rules here..."></textarea>
+                        </div>
                     </div>
                 </div>
                 <div class="setting-group">
@@ -221,49 +283,168 @@
                     <div class="setting-description-prose">
                         <p><strong>Naming</strong> determines the name given to each stack within a category. A name describes what a stack was doing, or where it was blocked, at time of profiling. Multiple, distinct stacks can have the same name if they were in the same place as of profiling.</p>
                     </div>
-                    <div class="setting-group">
-                        <div class="setting-title">
-                            <span>Skip Rules</span>
-                            <button class="setting-help-icon"
-                                data-tooltip="One pattern per line. Frames matching these patterns will be ignored when building stack names.">?</button>
-                        </div>
-                        <textarea id="nameSkipRules" class="setting-textarea" rows="3" 
-                            placeholder="runtime.&#10;sync."></textarea>
-                        <div class="setting-description">Skip these patterns when naming stacks</div>
+                    
+                    <div class="setting-title">
+                        <span>Skip Rules</span>
+                        <button class="setting-help-icon"
+                            data-tooltip="One pattern per line. Frames matching these patterns will be ignored when building stack names.">?</button>
                     </div>
-                    <div class="setting-group">
-                        <div class="setting-title">
-                            <span>Trim Rules</span>
-                            <button class="setting-help-icon"
-                                data-tooltip="One pattern per line. Format: 'prefix' to remove prefix, or 's|pattern|replacement|' for regex replacement.">?</button>
+                    
+                    <div class="setting-description">Skip these patterns when naming stacks.</div>
+                    
+                    <!-- Default Rules Section -->
+                    <div class="default-rules-section collapsed">
+                        <div class="default-rules-header">
+                            <div class="default-rules-title">
+                                <span class="expand-icon">▼</span>
+                                <h5>Default Rules</h5>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="useDefaultNameSkipRules" checked>
+                                <span class="toggle-slider"></span>
+                            </label>
                         </div>
-                        <textarea id="nameTrimRules" class="setting-textarea" rows="3" 
-                            placeholder="util/&#10;s|\.func\d+(\.\d+)?$||"></textarea>
-                        <div class="setting-description">Trim prefixes or apply regex replacements</div>
+                        <div class="default-rules-content collapsed">
+                            <textarea id="defaultNameSkipRules" class="setting-textarea default-rules-textarea" rows="3" 
+                                readonly placeholder="Default rules will appear here..."></textarea>
+                        </div>
                     </div>
-                    <div class="setting-group">
-                        <div class="setting-title">
-                            <span>Fold Rules</span>
-                            <button class="setting-help-icon"
-                                data-tooltip="One rule per line. Format: s|pattern,while-pattern|replacement| where 'while-pattern' specifies what frames to consume after the match.">?</button>
+                    
+                    <!-- Custom Rules Section -->
+                    <div class="custom-rules-section collapsed">
+                        <div class="custom-rules-header">
+                            <div class="custom-rules-title">
+                                <h5>Custom Rules (0)</h5>
+                            </div>
                         </div>
-                        <textarea id="nameFoldRules" class="setting-textarea" rows="4" 
-                            placeholder="s|sync.(*WaitGroup).Wait,|waitgroup|&#10;s|util/admission.*,^(util/admission|kv/kvserver/kvadmission)|AC|"></textarea>
-                        <div class="setting-description">Fold frame sequences into concise names</div>
+                        <div class="custom-rules-content collapsed">
+                            <textarea id="customNameSkipRules" class="setting-textarea" rows="2" 
+                                placeholder="Add your own skip rules here..."></textarea>
+                        </div>
                     </div>
-                    <div class="setting-group">
-                        <div class="setting-title">
-                            <span>Find Rules</span>
-                            <button class="setting-help-icon"
-                                data-tooltip="One rule per line. Format: s|pattern,while-pattern|replacement| to scan remaining frames and pull up matching information.">?</button>
+                    
+                    <div class="setting-title">
+                        <span>Trim Rules</span>
+                        <button class="setting-help-icon"
+                            data-tooltip="One pattern per line. Format: 'prefix' to remove prefix, or 's|pattern|replacement|' for regex replacement.">?</button>
+                    </div>
+                    
+                    <div class="setting-description">Trim prefixes or apply regex replacements.</div>
+                    
+                    <!-- Default Rules Section -->
+                    <div class="default-rules-section collapsed">
+                        <div class="default-rules-header">
+                            <div class="default-rules-title">
+                                <span class="expand-icon">▼</span>
+                                <h5>Default Rules</h5>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="useDefaultNameTrimRules" checked>
+                                <span class="toggle-slider"></span>
+                            </label>
                         </div>
-                        <textarea id="nameFindRules" class="setting-textarea" rows="3" 
-                            placeholder="s|kv/kvclient/kvcoord,^(kv/kvclient/kvcoord|kv\.)|DistSender|"></textarea>
-                        <div class="setting-description">Find patterns in remaining frames and prepend to stack name</div>
+                        <div class="default-rules-content collapsed">
+                            <textarea id="defaultNameTrimRules" class="setting-textarea default-rules-textarea" rows="3" 
+                                readonly placeholder="Default rules will appear here..."></textarea>
+                        </div>
+                    </div>
+                    
+                    <!-- Custom Rules Section -->
+                    <div class="custom-rules-section collapsed">
+                        <div class="custom-rules-header">
+                            <div class="custom-rules-title">
+                                <h5>Custom Rules (0)</h5>
+                            </div>
+                        </div>
+                        <div class="custom-rules-content collapsed">
+                            <textarea id="customNameTrimRules" class="setting-textarea" rows="2" 
+                                placeholder="Add your own trim rules here..."></textarea>
+                        </div>
+                    </div>
+                    
+                    <div class="setting-title">
+                        <span>Fold Rules</span>
+                        <button class="setting-help-icon"
+                            data-tooltip="One rule per line. Format: s|pattern,while-pattern|replacement| where 'while-pattern' specifies what frames to consume after the match.">?</button>
+                    </div>
+                    
+                    <div class="setting-description">Fold frame sequences into concise names.</div>
+                    
+                    <!-- Default Rules Section -->
+                    <div class="default-rules-section collapsed">
+                        <div class="default-rules-header">
+                            <div class="default-rules-title">
+                                <span class="expand-icon">▼</span>
+                                <h5>Default Rules</h5>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="useDefaultNameFoldRules" checked>
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                        <div class="default-rules-content collapsed">
+                            <textarea id="defaultNameFoldRules" class="setting-textarea default-rules-textarea" rows="4" 
+                                readonly placeholder="Default rules will appear here..."></textarea>
+                        </div>
+                    </div>
+                    
+                    <!-- Custom Rules Section -->
+                    <div class="custom-rules-section collapsed">
+                        <div class="custom-rules-header">
+                            <div class="custom-rules-title">
+                                <h5>Custom Rules (0)</h5>
+                            </div>
+                        </div>
+                        <div class="custom-rules-content collapsed">
+                            <textarea id="customNameFoldRules" class="setting-textarea" rows="2" 
+                                placeholder="Add your own fold rules here..."></textarea>
+                        </div>
+                    </div>
+                    
+                    <div class="setting-title">
+                        <span>Find Rules</span>
+                        <button class="setting-help-icon"
+                            data-tooltip="One rule per line. Format: s|pattern,while-pattern|replacement| to scan remaining frames and pull up matching information.">?</button>
+                    </div>
+                    
+                    <div class="setting-description">Find patterns in remaining frames and prepend to stack name.</div>
+                    
+                    <!-- Default Rules Section -->
+                    <div class="default-rules-section collapsed">
+                        <div class="default-rules-header">
+                            <div class="default-rules-title">
+                                <span class="expand-icon">▼</span>
+                                <h5>Default Rules</h5>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="useDefaultNameFindRules" checked>
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                        <div class="default-rules-content collapsed">
+                            <textarea id="defaultNameFindRules" class="setting-textarea default-rules-textarea" rows="3" 
+                                readonly placeholder="Default rules will appear here..."></textarea>
+                        </div>
+                    </div>
+                    
+                    <!-- Custom Rules Section -->
+                    <div class="custom-rules-section collapsed">
+                        <div class="custom-rules-header">
+                            <div class="custom-rules-title">
+                                <h5>Custom Rules (0)</h5>
+                            </div>
+                        </div>
+                        <div class="custom-rules-content collapsed">
+                            <textarea id="customNameFindRules" class="setting-textarea" rows="2" 
+                                placeholder="Add your own find rules here..."></textarea>
+                        </div>
                     </div>
                 </div>
 
                 <h4>Parsing Options</h4>
+                <div class="setting-description-prose">
+                    <p><strong>Note:</strong> Parsing trim prefixes are applied first during file parsing. The trimmed function and file names are then used as input for all categorization and naming rules above.</p>
+                </div>
                 <div class="setting-group">
                     <div class="setting-title">
                         <span>Function Trim Prefixes</span>
@@ -272,7 +453,7 @@
                     </div>
                     <input type="text" id="functionTrimPrefixes" class="setting-text-input"
                         placeholder="github.com/company/,internal/">
-                    <div class="setting-description">Remove these prefixes from function names for cleaner display</div>
+                    <div class="setting-description">Remove these prefixes from function names for cleaner display.</div>
                 </div>
                 <div class="setting-group">
                     <div class="setting-title">
@@ -282,7 +463,7 @@
                     </div>
                     <input type="text" id="fileTrimPrefixes" class="setting-text-input"
                         placeholder="github.com/cockroachdb/cockroach/">
-                    <div class="setting-description">Remove these prefixes from file paths for cleaner display</div>
+                    <div class="setting-description">Remove these prefixes from file paths for cleaner display.</div>
                 </div>
                 <div class="setting-group">
                     <div class="setting-title">
@@ -292,7 +473,7 @@
                     </div>
                     <input type="text" id="zipFilePattern" class="setting-text-input"
                         placeholder="^(.*\/)?stacks\.txt$">
-                    <div class="setting-description">Pattern to identify stack trace files in zip archives</div>
+                    <div class="setting-description">Pattern to identify stack trace files in zip archives.</div>
                 </div>
 
             </div>
@@ -361,6 +542,7 @@
                 <div class="stack-title"></div>
                 <div class="stack-count counts"></div>
                 <button class="pin-button size-large">📌</button>
+                <button class="copy-button size-large">📋</button>
             </div>
             <div class="section-content stack-content"></div>
         </div>

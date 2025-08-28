@@ -907,6 +907,15 @@ export class StackTraceApp {
       this.updateStats();
     });
 
+    // Setup copy button event handlers
+    const copyButton = stackElement.querySelector('.copy-button') as HTMLButtonElement;
+    copyButton.title = 'Copy stack name and trace to clipboard';
+
+    copyButton.addEventListener('click', e => {
+      e.stopPropagation();
+      this.copyStackToClipboard(stack);
+    });
+
     // Set initial count display
     this.updateDisplayedCount(stackElement, stack.counts);
 
@@ -1920,6 +1929,7 @@ export class StackTraceApp {
       serialize: (value: string) => value,
       deserialize: (value: any) => String(value),
     },
+    // Legacy rule fields (for backward compatibility)
     categorySkipRules: {
       type: 'textarea' as const,
       serialize: (value: string) => value,
@@ -1950,6 +1960,67 @@ export class StackTraceApp {
       serialize: (value: string) => value,
       deserialize: (value: any) => String(value),
     },
+    // New custom/default rule fields
+    useDefaultCategorySkipRules: {
+      type: 'checkbox' as const,
+      serialize: (value: boolean) => value,
+      deserialize: (value: any) => Boolean(value),
+    },
+    customCategorySkipRules: {
+      type: 'textarea' as const,
+      serialize: (value: string) => value,
+      deserialize: (value: any) => String(value),
+    },
+    useDefaultCategoryMatchRules: {
+      type: 'checkbox' as const,
+      serialize: (value: boolean) => value,
+      deserialize: (value: any) => Boolean(value),
+    },
+    customCategoryMatchRules: {
+      type: 'textarea' as const,
+      serialize: (value: string) => value,
+      deserialize: (value: any) => String(value),
+    },
+    useDefaultNameSkipRules: {
+      type: 'checkbox' as const,
+      serialize: (value: boolean) => value,
+      deserialize: (value: any) => Boolean(value),
+    },
+    customNameSkipRules: {
+      type: 'textarea' as const,
+      serialize: (value: string) => value,
+      deserialize: (value: any) => String(value),
+    },
+    useDefaultNameTrimRules: {
+      type: 'checkbox' as const,
+      serialize: (value: boolean) => value,
+      deserialize: (value: any) => Boolean(value),
+    },
+    customNameTrimRules: {
+      type: 'textarea' as const,
+      serialize: (value: string) => value,
+      deserialize: (value: any) => String(value),
+    },
+    useDefaultNameFoldRules: {
+      type: 'checkbox' as const,
+      serialize: (value: boolean) => value,
+      deserialize: (value: any) => Boolean(value),
+    },
+    customNameFoldRules: {
+      type: 'textarea' as const,
+      serialize: (value: string) => value,
+      deserialize: (value: any) => String(value),
+    },
+    useDefaultNameFindRules: {
+      type: 'checkbox' as const,
+      serialize: (value: boolean) => value,
+      deserialize: (value: any) => Boolean(value),
+    },
+    customNameFindRules: {
+      type: 'textarea' as const,
+      serialize: (value: string) => value,
+      deserialize: (value: any) => String(value),
+    },
   } as const;
 
   private loadSettingsIntoModal(): void {
@@ -1960,12 +2031,25 @@ export class StackTraceApp {
       const element = document.getElementById(key) as HTMLInputElement | HTMLTextAreaElement;
       if (element && key in settings) {
         const value = (settings as any)[key];
-        element.value = String(config.deserialize(value));
+        if (config.type === 'checkbox') {
+          (element as HTMLInputElement).checked = Boolean(config.deserialize(value));
+        } else {
+          element.value = String(config.deserialize(value));
+        }
       }
     });
 
+    // Populate default rule textareas with read-only default values
+    this.populateDefaultRuleTextareas();
+
+    // Setup toggle event handlers
+    this.setupDefaultRuleToggles();
+
     // Setup collapsible sections
     this.setupCollapsibleSections();
+
+    // Update rule counts after populating
+    this.updateAllRuleCounts();
   }
 
   private saveSettingsFromModal(): void {
@@ -1975,7 +2059,12 @@ export class StackTraceApp {
     Object.entries(this.settingsConfig).forEach(([key, config]) => {
       const element = document.getElementById(key) as HTMLInputElement | HTMLTextAreaElement;
       if (element) {
-        const value = config.serialize(config.deserialize(element.value));
+        let value: any;
+        if (config.type === 'checkbox') {
+          value = config.serialize((element as HTMLInputElement).checked);
+        } else {
+          value = config.serialize(config.deserialize(element.value));
+        }
         if (value !== undefined) {
           (updates as any)[key] = value;
         }
@@ -2485,5 +2574,392 @@ export class StackTraceApp {
         textSpan.textContent = `Rules (${count})`;
       }
     }
+  }
+
+  /**
+   * Populate default rule textareas with read-only default values
+   */
+  private populateDefaultRuleTextareas(): void {
+    // Category skip rules
+    const defaultCategorySkipRules = document.getElementById('defaultCategorySkipRules') as HTMLTextAreaElement;
+    if (defaultCategorySkipRules) {
+      defaultCategorySkipRules.value = this.settingsManager.getDefaultCategorySkipRulesString();
+    }
+
+    // Category match rules  
+    const defaultCategoryMatchRules = document.getElementById('defaultCategoryMatchRules') as HTMLTextAreaElement;
+    if (defaultCategoryMatchRules) {
+      defaultCategoryMatchRules.value = this.settingsManager.getDefaultCategoryMatchRulesString();
+    }
+
+    // Name skip rules
+    const defaultNameSkipRules = document.getElementById('defaultNameSkipRules') as HTMLTextAreaElement;
+    if (defaultNameSkipRules) {
+      defaultNameSkipRules.value = this.settingsManager.getDefaultNameSkipRulesString();
+    }
+
+    // Name trim rules
+    const defaultNameTrimRules = document.getElementById('defaultNameTrimRules') as HTMLTextAreaElement;
+    if (defaultNameTrimRules) {
+      defaultNameTrimRules.value = this.settingsManager.getDefaultNameTrimRulesString();
+    }
+
+    // Name fold rules
+    const defaultNameFoldRules = document.getElementById('defaultNameFoldRules') as HTMLTextAreaElement;
+    if (defaultNameFoldRules) {
+      defaultNameFoldRules.value = this.settingsManager.getDefaultNameFoldRulesString();
+    }
+
+    // Name find rules
+    const defaultNameFindRules = document.getElementById('defaultNameFindRules') as HTMLTextAreaElement;
+    if (defaultNameFindRules) {
+      defaultNameFindRules.value = this.settingsManager.getDefaultNameFindRulesString();
+    }
+  }
+
+  /**
+   * Setup toggle event handlers for default rule sections
+   */
+  private setupDefaultRuleToggles(): void {
+    // Helper function to setup toggle for a rule type
+    const setupToggle = (ruleType: string) => {
+      const toggle = document.getElementById(`useDefault${ruleType}Rules`) as HTMLInputElement;
+      
+      if (toggle) {
+        // Find the closest default-rules-section to this toggle
+        const section = toggle.closest('.default-rules-section');
+        if (section) {
+          const header = section.querySelector('.default-rules-header') as HTMLElement;
+          const content = section.querySelector('.default-rules-content') as HTMLElement;
+
+          if (header && content) {
+            // Update initial state
+            this.updateDefaultRuleToggleState(toggle, header, content);
+
+            // Add click handler to header for collapsing
+            header.addEventListener('click', (e) => {
+              // Don't toggle if clicking on toggle switch or if rules are disabled
+              if (e.target !== toggle && !toggle.contains(e.target as Node) && toggle.checked) {
+                content.classList.toggle('collapsed');
+                // Update section class for CSS fallback
+                section.classList.toggle('collapsed', content.classList.contains('collapsed'));
+              }
+            });
+
+            // Add change handler to toggle
+            toggle.addEventListener('change', () => {
+              this.updateDefaultRuleToggleState(toggle, header, content);
+            });
+          }
+        }
+      }
+    };
+
+    // Setup toggles for each rule type
+    setupToggle('CategorySkip');
+    setupToggle('CategoryMatch');
+    setupToggle('NameSkip');
+    setupToggle('NameTrim');
+    setupToggle('NameFold');
+    setupToggle('NameFind');
+
+    // Setup custom rules expand/collapse handlers and update counts
+    this.setupCustomRulesHandlers();
+    this.updateAllRuleCounts();
+  }
+
+  /**
+   * Update the visual state of a default rule toggle
+   */
+  private updateDefaultRuleToggleState(toggle: HTMLInputElement, header: HTMLElement, content: HTMLElement): void {
+    const section = toggle.closest('.default-rules-section');
+    
+    if (toggle.checked) {
+      header.classList.remove('disabled');
+      content.style.opacity = '1';
+    } else {
+      header.classList.add('disabled');
+      content.style.opacity = '0.5';
+      // Always collapse when disabled
+      content.classList.add('collapsed');
+      if (section) {
+        section.classList.add('collapsed');
+      }
+    }
+  }
+
+  /**
+   * Setup expand/collapse handlers for custom rules sections
+   */
+  private setupCustomRulesHandlers(): void {
+    const customRulesSections = document.querySelectorAll('.custom-rules-section');
+    
+    customRulesSections.forEach(section => {
+      const header = section.querySelector('.custom-rules-header') as HTMLElement;
+      const content = section.querySelector('.custom-rules-content') as HTMLElement;
+      
+      if (header && content) {
+        header.addEventListener('click', () => {
+          const isCollapsed = content.classList.contains('collapsed');
+          
+          if (isCollapsed) {
+            content.classList.remove('collapsed');
+            section.classList.remove('collapsed');
+          } else {
+            content.classList.add('collapsed');
+            section.classList.add('collapsed');
+          }
+        });
+
+        // Add input event listener to textarea to update rule counts
+        const textarea = content.querySelector('textarea') as HTMLTextAreaElement;
+        if (textarea) {
+          textarea.addEventListener('input', () => {
+            this.updateRuleCount(section, textarea);
+          });
+        }
+      }
+    });
+  }
+
+  /**
+   * Update rule count for a specific custom rules section
+   */
+  private updateRuleCount(section: Element, textarea: HTMLTextAreaElement): void {
+    const titleElement = section.querySelector('.custom-rules-title h5') as HTMLElement;
+    if (titleElement) {
+      const ruleText = textarea.value.trim();
+      const ruleCount = ruleText ? ruleText.split('\n').filter(line => line.trim()).length : 0;
+      
+      // Extract the base title (everything before the count)
+      const baseTitle = titleElement.textContent?.replace(/\s*\(\d+\)$/, '') || 'Custom Rules';
+      titleElement.textContent = `${baseTitle} (${ruleCount})`;
+    }
+  }
+
+  /**
+   * Copy stack name and trace to clipboard
+   */
+  private async copyStackToClipboard(stack: UniqueStack): Promise<void> {
+    try {
+      // Add markdown title with # prefix
+      const stackTitle = `# ${stack.name}`;
+      
+      // Group goroutines by state and wait time
+      let goroutineInfo = '';
+      const goroutineGroups = this.groupGoroutinesByStateAndWait(stack);
+      
+      if (goroutineGroups.size > 0) {
+        const goroutineLines: string[] = [];
+        
+        // Sort groups by state then by wait time (ascending)
+        const sortedEntries = Array.from(goroutineGroups.entries()).sort(([keyA, goroutinesA], [keyB, goroutinesB]) => {
+          const stateA = goroutinesA[0].state;
+          const stateB = goroutinesB[0].state;
+          const waitA = goroutinesA[0].waitMinutes;
+          const waitB = goroutinesB[0].waitMinutes;
+          
+          // First sort by state
+          if (stateA !== stateB) {
+            return stateA.localeCompare(stateB);
+          }
+          
+          // Then sort by wait time (ascending)
+          return waitA - waitB;
+        });
+        
+        for (const [stateWait, goroutines] of sortedEntries) {
+          const ids = goroutines.map(g => g.id).join(',');
+          goroutineLines.push(`goroutine ${ids} [${stateWait}]:`);
+        }
+        goroutineInfo = goroutineLines.join('\n');
+      }
+      
+      // Format the stack trace
+      const stackTrace = this.formatStackTraceForCopy(stack.trace);
+      
+      // Combine all parts
+      const parts = [stackTitle];
+      if (goroutineInfo) {
+        parts.push(goroutineInfo);
+      }
+      parts.push(stackTrace);
+      
+      const combinedText = parts.join('\n\n');
+      
+      // Copy to clipboard
+      await navigator.clipboard.writeText(combinedText);
+      
+      // Show brief visual feedback
+      this.showCopyFeedback();
+    } catch (error) {
+      console.error('Failed to copy to clipboard:', error);
+      // Fallback for older browsers or when clipboard API fails
+      this.fallbackCopyToClipboard(stack);
+    }
+  }
+
+  /**
+   * Group goroutines by state and wait time
+   */
+  private groupGoroutinesByStateAndWait(stack: UniqueStack): Map<string, Goroutine[]> {
+    const groups = new Map<string, Goroutine[]>();
+    
+    for (const fileSection of stack.files) {
+      for (const group of fileSection.groups) {
+        for (const goroutine of group.goroutines) {
+          const waitText = goroutine.waitMinutes > 0 ? `, ${goroutine.waitMinutes} minutes` : '';
+          const key = `${goroutine.state}${waitText}`;
+          
+          if (!groups.has(key)) {
+            groups.set(key, []);
+          }
+          groups.get(key)!.push(goroutine);
+        }
+      }
+    }
+    
+    return groups;
+  }
+
+  /**
+   * Format stack trace for copying to clipboard
+   */
+  private formatStackTraceForCopy(trace: any[]): string {
+    return trace.map(frame => `${frame.func}\n\t${frame.file}:${frame.line}`).join('\n');
+  }
+
+  /**
+   * Show brief visual feedback for copy operation
+   */
+  private showCopyFeedback(): void {
+    // Create a temporary feedback element
+    const feedback = document.createElement('div');
+    feedback.textContent = '📋 Copied to clipboard!';
+    feedback.style.cssText = `
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: var(--accent-success);
+      color: white;
+      padding: 8px 16px;
+      border-radius: 4px;
+      font-size: 12px;
+      z-index: 10000;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    `;
+    
+    document.body.appendChild(feedback);
+    
+    // Trigger animation
+    requestAnimationFrame(() => {
+      feedback.style.opacity = '1';
+    });
+    
+    // Remove after 2 seconds
+    setTimeout(() => {
+      feedback.style.opacity = '0';
+      setTimeout(() => feedback.remove(), 300);
+    }, 2000);
+  }
+
+  /**
+   * Fallback copy method for older browsers
+   */
+  private fallbackCopyToClipboard(stack: UniqueStack): void {
+    // Add markdown title with # prefix
+    const stackTitle = `# ${stack.name}`;
+    
+    // Group goroutines by state and wait time
+    let goroutineInfo = '';
+    const goroutineGroups = this.groupGoroutinesByStateAndWait(stack);
+    
+    if (goroutineGroups.size > 0) {
+      const goroutineLines: string[] = [];
+      
+      // Sort groups by state then by wait time (ascending)
+      const sortedEntries = Array.from(goroutineGroups.entries()).sort(([keyA, goroutinesA], [keyB, goroutinesB]) => {
+        const stateA = goroutinesA[0].state;
+        const stateB = goroutinesB[0].state;
+        const waitA = goroutinesA[0].waitMinutes;
+        const waitB = goroutinesB[0].waitMinutes;
+        
+        // First sort by state
+        if (stateA !== stateB) {
+          return stateA.localeCompare(stateB);
+        }
+        
+        // Then sort by wait time (ascending)
+        return waitA - waitB;
+      });
+      
+      for (const [stateWait, goroutines] of sortedEntries) {
+        const ids = goroutines.map(g => g.id).join(',');
+        goroutineLines.push(`goroutine ${ids} [${stateWait}]:`);
+      }
+      goroutineInfo = goroutineLines.join('\n');
+    }
+    
+    // Format the stack trace
+    const stackTrace = this.formatStackTraceForCopy(stack.trace);
+    
+    // Combine all parts
+    const parts = [stackTitle];
+    if (goroutineInfo) {
+      parts.push(goroutineInfo);
+    }
+    parts.push(stackTrace);
+    
+    const combinedText = parts.join('\n\n');
+    
+    // Create a temporary textarea
+    const textarea = document.createElement('textarea');
+    textarea.value = combinedText;
+    textarea.style.position = 'fixed';
+    textarea.style.left = '-9999px';
+    document.body.appendChild(textarea);
+    
+    try {
+      textarea.select();
+      document.execCommand('copy');
+      this.showCopyFeedback();
+    } catch (error) {
+      console.error('Fallback copy failed:', error);
+      alert('Copy failed. Please select and copy the text manually.');
+    } finally {
+      document.body.removeChild(textarea);
+    }
+  }
+
+  /**
+   * Update all rule counts for custom and default sections
+   */
+  private updateAllRuleCounts(): void {
+    // Update custom rules counts
+    const customRulesSections = document.querySelectorAll('.custom-rules-section');
+    customRulesSections.forEach(section => {
+      const textarea = section.querySelector('textarea') as HTMLTextAreaElement;
+      if (textarea) {
+        this.updateRuleCount(section, textarea);
+      }
+    });
+
+    // Update default rules counts (based on displayed content)
+    const defaultRulesSections = document.querySelectorAll('.default-rules-section');
+    defaultRulesSections.forEach(section => {
+      const textarea = section.querySelector('.default-rules-textarea') as HTMLTextAreaElement;
+      const titleElement = section.querySelector('.default-rules-title h5') as HTMLElement;
+      
+      if (textarea && titleElement) {
+        const ruleText = textarea.value.trim();
+        const ruleCount = ruleText ? ruleText.split('\n').filter(line => line.trim()).length : 0;
+        
+        // Extract the base title (everything before the count)
+        const baseTitle = titleElement.textContent?.replace(/\s*\(\d+\)$/, '') || 'Default Rules';
+        titleElement.textContent = `${baseTitle} (${ruleCount})`;
+      }
+    });
   }
 }
