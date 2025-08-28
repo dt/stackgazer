@@ -13,6 +13,72 @@ import {
   test,
 } from './shared-test-data.js';
 
+const CRDB_STACK_CONTENT = `goroutine 1 [running]:
+util/admission.(*WorkQueue).Admit()
+	util/admission/work_queue.go:100 +0x10
+util/admission.(*ElasticCPUWorkQueue).Admit()
+	util/admission/elastic_cpu_work_queue.go:50 +0x20
+kv/kvserver/kvadmission.(*controllerImpl).AdmitKVWork()
+	kv/kvserver/kvadmission/kvadmission.go:200 +0x30
+server.(*Node).batchInternal()
+	server/node.go:1000 +0x40
+server.(*Node).Batch()
+	server/node.go:950 +0x50
+rpc.makeInternalClientAdapter.func1()
+	rpc/internal_client.go:100 +0x60
+rpc.NewServerEx.ServerInterceptor.func12()
+	rpc/server.go:200 +0x70
+rpc.makeInternalClientAdapter.chainUnaryServerInterceptors.bindUnaryServerInterceptorToHandler.func5()
+	rpc/interceptor.go:150 +0x80
+rpc.NewServerEx.func3()
+	rpc/server.go:300 +0x90
+rpc.makeInternalClientAdapter.chainUnaryServerInterceptors.bindUnaryServerInterceptorToHandler.func5()
+	rpc/interceptor.go:150 +0xa0
+rpc.gatewayRequestRecoveryInterceptor()
+	rpc/gateway.go:50 +0xb0
+rpc.makeInternalClientAdapter.chainUnaryServerInterceptors.bindUnaryServerInterceptorToHandler.func5()
+	rpc/interceptor.go:150 +0xc0
+server.newGRPCServer.NewRequestMetricsInterceptor.func4()
+	server/grpc.go:100 +0xd0
+rpc.makeInternalClientAdapter.chainUnaryServerInterceptors.bindUnaryServerInterceptorToHandler.func5()
+	rpc/interceptor.go:150 +0xe0
+rpc.NewServerEx.func1.1()
+	rpc/server.go:400 +0xf0
+util/stop.(*Stopper).RunTaskWithErr()
+	util/stop/stopper.go:200 +0x100
+rpc.NewServerEx.func1()
+	rpc/server.go:380 +0x110
+rpc.makeInternalClientAdapter.chainUnaryServerInterceptors.bindUnaryServerInterceptorToHandler.func5()
+	rpc/interceptor.go:150 +0x120
+rpc.makeInternalClientAdapter.func2()
+	rpc/internal_client.go:200 +0x130
+rpc.NewContext.ClientInterceptor.func8()
+	rpc/context.go:100 +0x140
+rpc.makeInternalClientAdapter.getChainUnaryInvoker.func4()
+	rpc/invoker.go:50 +0x150
+rpc.makeInternalClientAdapter.func3()
+	rpc/internal_client.go:300 +0x160
+rpc.internalClientAdapter.Batch()
+	rpc/adapter.go:100 +0x170
+kv/kvclient/kvcoord.(*grpcTransport).sendBatch()
+	kv/kvclient/kvcoord/transport.go:200 +0x180
+kv/kvclient/kvcoord.(*grpcTransport).SendNext()
+	kv/kvclient/kvcoord/transport.go:250 +0x190
+kv/kvclient/kvcoord.(*DistSender).sendToReplicas()
+	kv/kvclient/kvcoord/dist_sender.go:300 +0x1a0
+kv/kvclient/kvcoord.(*DistSender).sendPartialBatch()
+	kv/kvclient/kvcoord/dist_sender.go:400 +0x1b0
+kv/kvclient/kvcoord.(*DistSender).divideAndSendBatchToRanges()
+	kv/kvclient/kvcoord/dist_sender.go:500 +0x1c0
+kv/kvclient/kvcoord.(*DistSender).Send()
+	kv/kvclient/kvcoord/dist_sender.go:600 +0x1d0
+kv.(*CrossRangeTxnWrapperSender).Send()
+	kv/txn_wrapper.go:100 +0x1e0
+kv.SendWrappedWithAdmission()
+	kv/admission.go:50 +0x1f0
+backup.runBackupProcessor.func2.2()
+	backup/processor.go:500 +0x200`;
+
 async function runTests() {
   console.log('🧪 Data Model and Filtering Tests');
 
@@ -86,6 +152,49 @@ async function runTests() {
     assertFirstGoroutineIdPrefixed(collection, false, 'After removing second file');
   });
 
+  await test('ProfileCollection: Text-based trim rules test', async () => {
+    // Test trim rules with both simple prefix and s|pattern|replacement| format
+    const { SettingsManager } = await import('../src/app/SettingsManager.ts');
+    
+    // Mock localStorage for SettingsManager
+    (global as any).localStorage = {
+      getItem: () => null,
+      setItem: () => {},
+      removeItem: () => {},
+    };
+    
+    // Test both simple prefix trim and regex trim
+    const settingsManager = new SettingsManager({
+      nameTrimRules: [
+        'util/',  // Simple prefix trim
+        's|^rpc\\.makeInternalClientAdapter\\..*$|rpc|',  // Regex trim
+      ].join('\n'),
+    });
+    
+    const collection = new ProfileCollection({
+      ...DEFAULT_SETTINGS,
+      titleManipulationRules: settingsManager.getTitleManipulationRules(),
+    });
+    
+    // Test content with both types of functions
+    const testContent = `goroutine 1 [running]:
+util/admission.(*WorkQueue).Admit()
+	util/admission/work_queue.go:100 +0x10
+rpc.makeInternalClientAdapter.func1()
+	rpc/internal_client.go:100 +0x20`;
+    
+    await addFile(collection, testContent, 'test.txt');
+    const stack = collection.getCategories()[0].stacks[0];
+    
+    // Should be "rpc → AC"
+    // - util/ prefix should be trimmed from util/admission.(*WorkQueue).Admit, then folded to AC by default rule
+    // - rpc.makeInternalClientAdapter.func1() should be trimmed to rpc
+    const expectedName = 'rpc → AC';
+    if (stack.name !== expectedName) {
+      throw new Error(`Expected '${expectedName}', got: '${stack.name}'`);
+    }
+  });
+
   await test('ProfileCollection: Settings and processing', async () => {
     const settingsTests = [
       {
@@ -110,7 +219,7 @@ async function runTests() {
             { trim: 'main.' },
           ],
         },
-        expectStackName: 'waitgroup worker',
+        expectStackName: 'worker → waitgroup',
       },
       {
         name: 'Foldprefix rule with GRPC example',
@@ -118,16 +227,102 @@ async function runTests() {
         initialSettings: {
           ...DEFAULT_SETTINGS,
           titleManipulationRules: [
-            { fold: 'google.golang.org/grpc/internal/transport.(*Stream).waitOnHeader', to: 'rpcwait', while: 'google.golang.org/grpc' },
+            { fold: 'google.golang.org/grpc/internal/transport.(*Stream).waitOnHeader', to: 'rpcwait', while: 'google\\.golang\\.org/grpc' },
             { skip: 'rpc.NewContext.ClientInterceptor.func8' },
           ],
         },
-        expectStackName: 'rpcwait server/serverpb.(*statusClient).Stacks',
+        expectStackName: 'server/serverpb.(*statusClient).Stacks → rpcwait',
+      },
+      {
+        name: 'CockroachDB stack folding rules (text format)',
+        content: CRDB_STACK_CONTENT,
+        useTextRules: {
+          nameFoldRules: [
+            // Step 1: AC - match admission control, continue while in admission/kvadmission
+            's|util/admission.(*WorkQueue).Admit,^(util/admission|kv/kvserver/kvadmission)|AC|',
+            // Step 2: batch - match server batch, continue while in server batch functions
+            's|server.(*Node).batchInternal,^server\\.\\(\\*Node\\)\\.(batch|Batch)|batch|',
+            // Step 3: rpc - match rpc functions, continue while in rpc, server interceptors, or util/stop
+            's|rpc.,^(rpc\\.|server\\..*Interceptor|util/stop)|rpc|',
+            // Step 4: DistSender - match any kv/kvclient/kvcoord function, continue in kv layer
+            's|kv/kvclient/kvcoord,^(kv/kvclient/kvcoord|kv\\.)|DistSender|',
+          ].join('\n'),
+        },
+        expectStackName: 'backup.runBackupProcessor.func2.2 → DistSender → rpc → batch → AC',
+      },
+      {
+        name: 'Enhanced trim with regex replacement',
+        content: `goroutine 1 [running]:
+rpc.makeInternalClientAdapter.func1()
+	rpc/internal_client.go:100 +0x10
+main.worker()
+	main.go:10 +0x20`,
+        initialSettings: {
+          ...DEFAULT_SETTINGS,
+          titleManipulationRules: [
+            { trim: 's/^rpc\\.makeInternalClientAdapter\\..*$/rpc/' },
+          ],
+        },
+        expectStackName: 'rpc',
+      },
+      {
+        name: 'Find rule pulls up information from below',
+        content: `goroutine 1 [running]:
+main.worker()
+	main.go:10 +0x10
+database.connection.getConnection()
+	database/connection.go:50 +0x20
+tcp.socket.read()
+	tcp/socket.go:100 +0x30`,
+        initialSettings: {
+          ...DEFAULT_SETTINGS,
+          titleManipulationRules: [
+            { find: 'database.connection.getConnection', to: 'db-conn', while: '^tcp\\.' },
+          ],
+        },
+        expectStackName: 'main.worker → db-conn',
+      },
+      {
+        name: 'Find rules demonstrate pulling up information from below',
+        content: CRDB_STACK_CONTENT,
+        initialSettings: {
+          ...DEFAULT_SETTINGS,
+          titleManipulationRules: [
+            // Find rule for DistSender should find it and continue building full chain
+            { find: 'kv/kvclient/kvcoord', to: 'DistSender', while: '^(kv/kvclient/kvcoord|kv\\.)' },
+            // Additional fold rules needed to build the rest of the chain
+            { fold: 'util/admission.(*WorkQueue).Admit', to: 'AC', while: '^(util/admission|kv/kvserver/kvadmission)' },
+            { fold: 'server.(*Node).batchInternal', to: 'batch', while: '^server\\.\\(\\*Node\\)\\.(batch|Batch)' },
+            { fold: 'rpc.', to: 'rpc', while: '^(rpc\\.|server\\..*Interceptor|util/stop)' },
+          ],
+        },
+        expectStackName: 'backup.runBackupProcessor.func2.2 → DistSender → rpc → batch → AC',
       },
     ];
 
     for (const t of settingsTests) {
-      const collection = new ProfileCollection(t.initialSettings || DEFAULT_SETTINGS);
+      let collection: ProfileCollection;
+      
+      // Handle text-based rules if specified
+      if (t.useTextRules) {
+        const { SettingsManager } = await import('../src/app/SettingsManager.ts');
+        
+        // Mock localStorage for SettingsManager
+        (global as any).localStorage = {
+          getItem: () => null,
+          setItem: () => {},
+          removeItem: () => {},
+        };
+        
+        const settingsManager = new SettingsManager(t.useTextRules);
+        collection = new ProfileCollection({
+          ...DEFAULT_SETTINGS,
+          titleManipulationRules: settingsManager.getTitleManipulationRules(),
+        });
+      } else {
+        collection = new ProfileCollection(t.initialSettings || DEFAULT_SETTINGS);
+      }
+      
       await addFile(collection, t.content, 'test.txt');
 
       if (t.newSettings) {

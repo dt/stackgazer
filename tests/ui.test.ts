@@ -590,10 +590,14 @@ async function runTests() {
     const modalVisible = await page.isVisible('#settingsModal');
     if (!modalVisible) throw new Error('Settings modal should be visible');
 
+    // Expand the rules editor first
+    await page.click('.rules-editor-header[data-target="rulesList"]');
+    await page.waitForTimeout(100);
+
     // Check if rule editor elements exist
-    const addRuleBtn = await page.$('#addRuleBtn');
+    const addFoldBtn = await page.$('#addFoldBtn');
     const rulesList = await page.$('#rulesList');
-    if (!addRuleBtn || !rulesList) {
+    if (!addFoldBtn || !rulesList) {
       throw new Error('Rule editor elements not found');
     }
 
@@ -602,7 +606,7 @@ async function runTests() {
     console.log(`  Initial rules: ${initialRules.length}`);
 
     // Add a new rule
-    await page.click('#addRuleBtn');
+    await page.click('#addFoldBtn');
     await page.waitForTimeout(100);
 
     // Verify rule was added
@@ -611,38 +615,28 @@ async function runTests() {
       throw new Error(`Expected ${initialRules.length + 1} rules, got ${rulesAfterAdd.length}`);
     }
 
-    // Configure the new rule as a fold rule
+    // Configure the new fold rule (which should already be a fold rule since we clicked addFoldBtn)
     const newRule = rulesAfterAdd[rulesAfterAdd.length - 1];
-    const typeSelect = await newRule.$('.rule-type-select');
-    const patternInput = await newRule.$('.rule-pattern');
-    const toInput = await newRule.$('.rule-to');
-    const whileSelect = await newRule.$('.rule-while');
-    const whileCustomInput = await newRule.$('.rule-while-custom');
+    const patternInput = await newRule.$('.rule-pattern-input');
+    const replacementInput = await newRule.$('.rule-replacement-input');
+    const whileInput = await newRule.$('.rule-while-input');
     
-    if (!typeSelect || !patternInput || !toInput || !whileSelect || !whileCustomInput) {
+    if (!patternInput || !replacementInput || !whileInput) {
       throw new Error('Rule form elements not found');
     }
 
-    await typeSelect.selectOption('fold');
     await patternInput.fill('test.pattern');
-    await toInput.fill('test-replacement');
+    await replacementInput.fill('test-replacement');
+    await whileInput.fill('test.while');
     
-    // Verify fold-specific fields become visible
-    const toFieldVisible = await toInput.isVisible();
-    const whileFieldVisible = await whileSelect.isVisible();
+    // Verify fold rule fields are visible and filled
+    const patternValue = await patternInput.inputValue();
+    const replacementValue = await replacementInput.inputValue();
+    const whileValue = await whileInput.inputValue();
     
-    if (!toFieldVisible || !whileFieldVisible) {
-      throw new Error('Fold rule fields should be visible when type is fold');
+    if (patternValue !== 'test.pattern' || replacementValue !== 'test-replacement' || whileValue !== 'test.while') {
+      throw new Error('Fold rule fields should be properly filled');
     }
-
-    // Test while field with custom option
-    await whileSelect.selectOption('custom');
-    const customFieldVisible = await whileCustomInput.isVisible();
-    if (!customFieldVisible) {
-      throw new Error('Custom while field should be visible when "custom" is selected');
-    }
-
-    await whileCustomInput.fill('custom.prefix');
 
     // Remove the rule we just added
     const removeBtn = await newRule.$('.remove-rule-btn');

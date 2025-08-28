@@ -13,10 +13,17 @@ export interface AppSettings {
   // Parsing options
   functionTrimPrefixes: string;
   fileTrimPrefixes: string;
-  titleManipulationRules: TitleRule[];
+  
+  // Text-based rule format
+  categorySkipRules: string;
+  categoryMatchRules: string;
+  nameSkipRules: string;
+  nameTrimRules: string;
+  nameFoldRules: string;
+  nameFindRules: string;
+
+  // Name extraction patterns (still used by FileParser)
   nameExtractionPatterns: NameExtractionPattern[];
-  categoryIgnoredPrefixes: string;
-  categoryExtractionPattern: string;
 
   // Zip file handling
   zipFilePattern: string;
@@ -42,22 +49,81 @@ export class SettingsManager {
       // Parsing options
       functionTrimPrefixes: '',
       fileTrimPrefixes: '',
-      titleManipulationRules: [
-        { skip: 'sync.runtime_Semacquire' },
-        { fold: 'sync.(*WaitGroup).Wait', to: 'waitgroup' },
-        { skip: 'golang.org/x/sync/errgroup.(*Group).Wait' },
-        { fold: 'net/http', to: 'net/http', while: 'stdlib' },
-        { fold: 'syscall.Syscall', to: 'syscall', while: 'stdlib' },
-        { fold: 'internal/poll.runtime_pollWait', to: 'netpoll', while: 'stdlib' },
+      
+      // Text-based rule format
+      categorySkipRules: [
+        'sync.',
+        'internal/',
+        'golang.org/x/sync/errgroup',
+        'util/stop',
+        'util/ctxgroup',
+        'jobs.',
+        'kv/kvclient/rangefeed',
+        'kv/kvpb._',
+        'google.golang.org/grpc',
+        'rpc.NewServerEx',
+        'rpc.internalClientAdapter',
+        'rpc.serverStreamInterceptorsChain',
+        'rpc.kvAuth',
+        'sql/flowinfra.(*FlowBase).StartInternal.func',
+        'sql/execinfra.(*ProcessorBaseNoHelper).Run',
+        'sql/execinfra.Run'
+      ].join('\n'),
+      
+      categoryMatchRules: [
+        's|^((([^\\/.]*\\\\.[^\\/]*)*\\/)?[^\\/.]+(\\/[^\\/.]+)?)|$1|'
+      ].join('\n'),
+      
+      nameSkipRules: [
+        'sync.runtime_notifyListWait',
+        'sync.runtime_Semacquire', 
+        'golang.org/x/sync/errgroup.(*Group).Wait',
+        'rpc.NewContext.ClientInterceptor.func8',
+        'util/cidr.metricsConn.Read',
+        'server.(*Node).batchInternal'
+      ].join('\n'),
+      
+      nameTrimRules: [
+        's|\\.func\\d+(\\.\\d+)?$||',
+        'util/',
+        's|^server\\.\\(\\*Node\\)\\.Batch$|batch|'
+      ].join('\n'),
+      
+      nameFoldRules: [
+        's|sync.(*Cond).Wait,|condwait|',
+        's|sync.(*WaitGroup).Wait,|waitgroup|',
+        's|util/ctxgroup.Group.Wait,|waitgroup|',
+        's|util/ctxgroup.GroupWorkers,|waitgroup|',
+        's|util/ctxgroup.GoAndWait,|waitgroup|',
+        's|net/http,stdlib|net/http|',
+        's|syscall.Syscall,stdlib|syscall|',
+        's|internal/poll.runtime_pollWait,stdlib|netpoll|',
+        's|google.golang.org/grpc/internal/transport.(*Stream).waitOnHeader,google.golang.org/grpc|grpc|',
+        's|util/admission.(*WorkQueue).Admit,^(util/admission|kv/kvserver/kvadmission)|AC|'
+      ].join('\n'),
+      
+      nameFindRules: [
+        's|kv/kvclient/kvcoord.(*DistSender).Send,^(kv/kvclient/kvcoord|kv\\.)|DistSender|'
+      ].join('\n'),
+
+      // Name extraction patterns (still used by FileParser)
+      nameExtractionPatterns: [
+        {
+          regex: 'pgwire\\.\\(\\*Server\\)\\.serveImpl.*?\\{0x1,\\s*0x2,\\s*\\{0x([0-9a-fA-F]+),',
+          replacement: 'hex:n$1',
+        },
+        {
+          regex: 'pgwire\\.\\(\\*Server\\)\\.serveImpl.*?\\{0x0,\\s*0x4,\\s*\\{0x([0-9a-fA-F]+),',
+          replacement: 'hex:n$1',
+        },
+        {
+          regex: '# labels:.*?"n":"([0-9]+)"',
+          replacement: 'n$1',
+        },
       ],
-      nameExtractionPatterns: [],
-      categoryIgnoredPrefixes: ['runtime.', 'sync.', 'reflect.', 'syscall.', 'internal/'].join(
-        '\n'
-      ),
-      categoryExtractionPattern: '^((([^\/.]*\\.[^\/]*)*\/)?[^\/.]+(\/[^\/.]+)?)',
 
       // Zip file handling
-      zipFilePattern: '^(.*\/)?.*\.txt$',
+      zipFilePattern: '^(.*\/)?stacks\.txt$',
     };
   }
 
@@ -251,20 +317,53 @@ export class SettingsManager {
   }
 
   /**
-   * Get category ignored prefixes as array of strings
+   * Get category skip rules as array of strings
    */
-  getCategoryIgnoredPrefixes(): string[] {
-    if (
-      !this.settings.categoryIgnoredPrefixes ||
-      typeof this.settings.categoryIgnoredPrefixes !== 'string'
-    ) {
+  getCategorySkipRules(): string[] {
+    if (!this.settings.categorySkipRules || typeof this.settings.categorySkipRules !== 'string') {
       return [];
     }
 
-    return this.settings.categoryIgnoredPrefixes
+    return this.settings.categorySkipRules
       .split('\n')
-      .map(prefix => prefix.trim())
-      .filter(prefix => prefix.length > 0);
+      .map(rule => rule.trim())
+      .filter(rule => rule.length > 0);
+  }
+
+  /**
+   * Parse text-based category rules into CategoryRule objects
+   */
+  getCategoryRules(): CategoryRule[] {
+    const rules: CategoryRule[] = [];
+    
+    // Add skip rules
+    const skipRules = this.getCategorySkipRules();
+    for (const rule of skipRules) {
+      rules.push({ skip: rule });
+    }
+    
+    // Add match rules
+    if (this.settings.categoryMatchRules) {
+      const matchLines = this.settings.categoryMatchRules
+        .split('\n')
+        .map(line => line.trim())
+        .filter(line => line.length > 0);
+      
+      for (const line of matchLines) {
+        if (line.startsWith('s|')) {
+          // Parse s|pattern|replacement| format and convert to match rule
+          const match = line.match(/^s\|([^|]+)\|([^|]*)\|$/);
+          if (match) {
+            const [, pattern] = match;
+            rules.push({ match: pattern });
+          }
+        } else {
+          rules.push({ match: line });
+        }
+      }
+    }
+    
+    return rules;
   }
 
   /**
@@ -294,17 +393,72 @@ export class SettingsManager {
   }
 
   /**
-   * Get title manipulation rules as array of TitleRule objects
+   * Parse text-based rule lines into TitleRule objects
    */
-  getTitleManipulationRules(): TitleRule[] {
-    return this.settings.titleManipulationRules || [];
+  parseTextRules(ruleText: string, ruleType: 'skip' | 'trim' | 'fold' | 'find'): TitleRule[] {
+    if (!ruleText || typeof ruleText !== 'string') {
+      return [];
+    }
+
+    const lines = ruleText
+      .split('\n')
+      .map(line => line.trim())
+      .filter(line => line.length > 0);
+
+    const rules: TitleRule[] = [];
+
+    for (const line of lines) {
+      if (line.startsWith('s|')) {
+        // Parse s|pattern,while|replacement| format - handle pipe chars in pattern/while
+        const match = line.match(/^s\|(.*)\|([^|]*)\|$/);
+        if (match) {
+          const [, patternPart, replacement] = match;
+          const parts = patternPart.split(',');
+          const pattern = parts[0];
+          const whilePattern = parts[1] || undefined;
+
+          if (ruleType === 'fold') {
+            rules.push({ fold: pattern, to: replacement, while: whilePattern });
+          } else if (ruleType === 'find') {
+            rules.push({ find: pattern, to: replacement, while: whilePattern });
+          } else if (ruleType === 'trim') {
+            // For trim rules in s|pattern|replacement| format, we need to handle them differently
+            // Store the full line for processing later in the trim logic
+            rules.push({ trim: line });
+          }
+        }
+      } else {
+        // Simple prefix format
+        if (ruleType === 'skip') {
+          rules.push({ skip: line });
+        } else if (ruleType === 'trim') {
+          rules.push({ trim: line });
+        }
+      }
+    }
+
+    return rules;
   }
 
   /**
-   * Set title manipulation rules from array of TitleRule objects
+   * Get all title manipulation rules combined from text-based settings
    */
-  setTitleManipulationRules(rules: TitleRule[]): void {
-    this.updateSetting('titleManipulationRules', rules);
+  getTitleManipulationRules(): TitleRule[] {
+    const rules: TitleRule[] = [];
+    
+    // Add skip rules
+    rules.push(...this.parseTextRules(this.settings.nameSkipRules, 'skip'));
+    
+    // Add trim rules
+    rules.push(...this.parseTextRules(this.settings.nameTrimRules, 'trim'));
+    
+    // Add fold rules
+    rules.push(...this.parseTextRules(this.settings.nameFoldRules, 'fold'));
+    
+    // Add find rules
+    rules.push(...this.parseTextRules(this.settings.nameFindRules, 'find'));
+    
+    return rules;
   }
 
   /**

@@ -1660,6 +1660,30 @@ body {
     font-style: italic;
 }
 
+.setting-textarea {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-secondary);
+    border-radius: 4px;
+    color: var(--text-primary);
+    padding: 8px 10px;
+    font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
+    font-size: 11px;
+    width: 100%;
+    margin-top: 4px;
+    resize: vertical;
+    min-height: 60px;
+}
+
+.setting-textarea:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+}
+
+.setting-textarea::placeholder {
+    color: var(--text-muted);
+    font-style: italic;
+}
+
 /* Rule Editor Styles */
 .rules-editor {
     border: 1px solid var(--border-secondary);
@@ -1822,7 +1846,7 @@ body {
     font-size: 10px;
     font-weight: 500;
     pointer-events: none;
-    z-index: 1;
+    z-index: 0;
     background: var(--bg-tertiary);
     border-right: 1px solid var(--border-secondary);
     padding: 0;
@@ -1922,6 +1946,18 @@ body {
 }
 
 .fold-rule .rule-controls {
+    flex-wrap: nowrap;
+    width: 100%;
+}
+
+.find-rule-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0px;
+}
+
+.find-rule .rule-controls {
     flex-wrap: nowrap;
     width: 100%;
 }
