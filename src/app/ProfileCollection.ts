@@ -457,20 +457,18 @@ export class ProfileCollection {
    * its first capture group (or a capture chosen by #num suffix) is used; otherwise the whole frame is used.
    */
   private generateCategoryName(trace: Frame[]): string {
-    if (trace.length === 0) return 'empty';
+    if (trace.length === 0) return '<frameless stack>';
 
-    // Start from the last frame and work backwards to find a non-skipped frame
+    // Start from the last frame (bottom of stack) and work backwards to find a non-skipped frame
     for (let i = trace.length - 1; i >= 0; i--) {
       const frame = trace[i];
       const func = frame.func;
 
       // Phase 1: Check if this frame should be skipped (check ALL skip rules)
-      // IMPORTANT: The top frame (first frame at index trace.length - 1) cannot be skipped for categorization
-      const isTopFrame = (i === trace.length - 1);
-      const shouldSkip = !isTopFrame && this.settings.categoryRules.some(rule => 
+      const shouldSkip = this.settings.categoryRules.some(rule => 
         'skip' in rule && func.startsWith(rule.skip)
       );
-
+      
       if (shouldSkip) {
         continue; // Skip this frame, try the next one
       }
@@ -489,9 +487,9 @@ export class ProfileCollection {
       return this.extractCategoryFromFunction(func);
     }
 
-    // If all frames are skipped, fall back to the last frame
-    const lastFrame = trace[trace.length - 1];
-    return this.extractCategoryFromFunction(lastFrame.func);
+    // If all frames are skipped, fall back to frame 0 (top of stack)
+    const topFrame = trace[0];
+    return this.extractCategoryFromFunction(topFrame.func);
   }
 
   /**

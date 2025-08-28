@@ -152,6 +152,7 @@ async function runTests() {
     assertFirstGoroutineIdPrefixed(collection, false, 'After removing second file');
   });
 
+
   await test('ProfileCollection: Text-based trim rules test', async () => {
     // Test trim rules with both simple prefix and s|pattern|replacement| format
     const { SettingsManager } = await import('../src/app/SettingsManager.ts');

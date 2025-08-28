@@ -26,7 +26,7 @@
                 // Skip general purpose CRDB helper utilities for launching goroutines.
                 'util/stop', 'util/ctxgroup',    
                 // Skip CRDB infrastructure that launches goroutines for other features to get to the feature instead.
-                'jobs.', 'kv/kvclient/rangefeed', 'kv/kvpb._', 
+                'jobs.', 'kv/kvclient/rangefeed.(*RangeFeed).run', 'kv/kvpb._', 
                 // Skip CRDB base server layers to get to the actual server being booted.
                 'rpc.NewServerEx',  'rpc.internalClientAdapter', 'rpc.makeInternalClientAdapter', 'rpc.serverStreamInterceptorsChain', 'rpc.kvAuth', // CRDB RPC utilities
                 // Skip common dist helpers related to launching procs.
