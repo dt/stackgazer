@@ -85,7 +85,9 @@ export class FileParser {
 
   private detectFormat2(content: string): boolean {
     // Format 2 has individual goroutine entries with "goroutine N ["
-    return /^goroutine \d+ \[/.test(content.trim());
+    // Check if content starts with goroutine line OR contains goroutine lines (for test logs)
+    const trimmed = content.trim();
+    return /^goroutine \d+ \[/.test(trimmed) || /\ngoroutine \d+ \[/.test(content);
   }
 
   private async parseFormat2(content: string, fileName: string): Promise<Result> {
@@ -104,6 +106,7 @@ export class FileParser {
         extractedName = this.extractNameFromLine(line);
       }
 
+      // Skip non-goroutine lines (handles test log preamble)
       if (!line.startsWith('goroutine ')) {
         i++;
         continue;
