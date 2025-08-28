@@ -15,7 +15,27 @@
         window.stackGazerDefaults = {
             // Parsing options - customize for your codebase
             functionTrimPrefixes: 'github.com/cockroachdb/cockroach/pkg/',
-            fileTrimPrefixes: 'github.com/cockroachdb/cockroach/',
+            fileTrimPrefixes: 'bazel-out/k8-opt/bin/pkg/.*_go_proto_/,github.com/cockroachdb/cockroach/',
+
+            // Category rules - customize stack categorization
+            categoryRules: [
+                { skip: 'sync.' },
+                { skip: 'internal/' },
+                { skip: 'golang.org/x/sync/errgroup' },
+                { skip: 'util/stop' },
+                { skip: 'util/ctxgroup' },
+                { skip: 'jobs.' },
+                { skip: 'kv/kvclient/rangefeed' },
+                { skip: 'kv/kvpb._' },
+                { skip: 'google.golang.org/grpc' },
+                { skip: 'rpc.NewServerEx' },
+                { skip: 'rpc.internalClientAdapter' },
+                { skip: 'rpc.serverStreamInterceptorsChain' },
+                { skip: 'sql/flowinfra.(*FlowBase).StartInternal.func' },
+                { skip: 'sql/execinfra.(*ProcessorBaseNoHelper).Run' },
+                { skip: 'sql/execinfra.Run' },
+                { match: '^((([^\/.]*\\.[^\/]*)*\/)?[^\/.]+(\/[^\/.]+)?)#1 -- extract prefix to second slash' },
+            ],
 
             categoryIgnoredPrefixes: [
                 'sync.', 'internal/', 'golang.org/x/sync/errgroup', // Stdlib libs that start goroutines.
@@ -25,20 +45,22 @@
 
             // Title manipulation rules - customize stack trace display
             titleManipulationRules: [
-                'skip:sync.runtime_notifyListWait',
-                'skip:sync.runtime_Semacquire',
-                'skip:golang.org/x/sync/errgroup.(*Group).Wait',
-                'fold:sync.(*Cond).Wait->condwait',
-                'fold:sync.(*WaitGroup).Wait->waitgroup',
-                'fold:util/ctxgroup.Group.Wait->waitgroup',
-                'fold:util/ctxgroup.GroupWorkers->waitgroup',
-                'fold:util/ctxgroup.GoAndWait->waitgroup',
-                'foldstdlib:net/http->net/http',
-                'foldstdlib:syscall.Syscall->syscall',
-                'foldstdlib:internal/poll.runtime_pollWait->netpoll',
-                'skip:util/cidr.metricsConn.Read',
-                'trim:util/',
-            ].join('\n'),
+                { skip: 'sync.runtime_notifyListWait' },
+                { skip: 'sync.runtime_Semacquire' },
+                { skip: 'golang.org/x/sync/errgroup.(*Group).Wait' },
+                { fold: 'sync.(*Cond).Wait', to: 'condwait' },
+                { fold: 'sync.(*WaitGroup).Wait', to: 'waitgroup' },
+                { fold: 'util/ctxgroup.Group.Wait', to: 'waitgroup' },
+                { fold: 'util/ctxgroup.GroupWorkers', to: 'waitgroup' },
+                { fold: 'util/ctxgroup.GoAndWait', to: 'waitgroup' },
+                { fold: 'net/http', to: 'net/http', while: 'stdlib' },
+                { fold: 'syscall.Syscall', to: 'syscall', while: 'stdlib' },
+                { fold: 'internal/poll.runtime_pollWait', to: 'netpoll', while: 'stdlib' },
+                { fold: 'google.golang.org/grpc/internal/transport.(*Stream).waitOnHeader', to: 'grpc', while: 'google.golang.org/grpc' },
+                { skip: 'rpc.NewContext.ClientInterceptor.func8'},
+                { skip: 'util/cidr.metricsConn.Read' },
+                { trim: 'util/' },
+            ],
 
             // Zip file handling - customize for your file patterns
             zipFilePattern: '^(.*\/)?stacks\.txt$',
@@ -142,6 +164,55 @@
                 <button class="modal-close" id="settingsModalCloseBtn">&times;</button>
             </div>
             <div class="modal-body">
+                <h4>Categorization + Naming</h4>
+                <div class="setting-group">
+                    <div class="setting-title">
+                        <span>Category Rules</span>
+                        <button class="setting-help-icon"
+                            data-tooltip="Rules to control how stacks are categorized:&#10;&#10;• skip: Skip functions matching this pattern when determining category&#10;• match: match and capture a subset of the frame (supports #N for capture groups and -- comments)&#10;&#10;The first non-skipped frame determines the category. If a match rule matches the category frame: its first capture group (or the capture chosen by optional `#N` suffix) is used. If no match matches the whole frame is the category.">?</button>
+                    </div>
+                    <div class="setting-description-prose">
+                        <p><strong>Categorization</strong> is used to group stacks based on where they originated. Categories help organize related stacks together for easier analysis.</p>
+                    </div>
+                    <div class="rules-editor collapsed" id="categoryRulesEditor">
+                        <div class="rules-editor-header collapsible-header" data-target="categoryRulesList">
+                            <span class="expand-icon">▼</span>
+                            <span>Rules</span>
+                        </div>
+                        <div class="rules-list" id="categoryRulesList">
+                            <!-- Category rules will be dynamically added here -->
+                        </div>
+                        <div class="footer-buttons">
+                            <button type="button" class="add-rule-btn" id="addCategorySkipBtn" title="Add Skip Rule: Ignore functions matching a pattern when categorizing">+ Skip</button>
+                            <button type="button" class="add-rule-btn" id="addCategoryMatchBtn" title="Add Match Rule: Assign category when pattern matches">+ Match</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="setting-group">
+                    <div class="setting-title">
+                        <span>Stack Name Rules</span>
+                        <button class="setting-help-icon"
+                            data-tooltip="Stack names describe a stack by where it was at the time of profiling, i.e what it was doing or where it was waiting. These rules can help choose names more meaningful or useful at a glance than just e.g. 'semacquire' by skipping common low-level frames or combining frames into a concise description.&#10;&#10;• skip: Skip matching functions&#10;• trim: Remove prefix from function names&#10;• fold: Replace pattern with specified text prepended to name derived from following frame&#10;  → Can specify replacement text&#10;  → Can specify 'while:' condition for continued folding">?</button>
+                    </div>
+                    <div class="setting-description-prose">
+                        <p><strong>Naming</strong> determines the name given to each stack within a category. A name describes what a stack was doingm or where it was blocked, at time of profiling. Multiple, distinct stacks can have the same name if they were in the same place as of profiling.</p>
+                    </div>
+                    <div class="rules-editor collapsed" id="rulesEditor">
+                        <div class="rules-editor-header collapsible-header collapsed" data-target="rulesList">
+                            <span class="expand-icon">▼</span>
+                            <span>Rules</span>
+                        </div>
+                        <div class="rules-list" id="rulesList">
+                            <!-- Rules will be dynamically added here -->
+                        </div>
+                        <div class="footer-buttons">
+                            <button type="button" class="add-rule-btn" id="addSkipBtn" title="Add Skip Rule: Ignore functions matching a pattern">+ Skip</button>
+                            <button type="button" class="add-rule-btn" id="addTrimBtn" title="Add Trim Rule: Remove prefixes from function names">+ Trim</button>
+                            <button type="button" class="add-rule-btn" id="addFoldBtn" title="Add Fold Rule: Replace pattern with specified text prepended to name derived from following frame">+ Fold</button>
+                        </div>
+                    </div>
+                </div>
+
                 <h4>Parsing Options</h4>
                 <div class="setting-group">
                     <div class="setting-title">
@@ -165,40 +236,15 @@
                 </div>
                 <div class="setting-group">
                     <div class="setting-title">
-                        <span>Title Manipulation Rules</span>
-                        <button class="setting-help-icon"
-                            data-tooltip="Control how stack titles are generated (one rule per line):&#10;• skip:pattern - Skip matching functions&#10;• fold:pattern->prefix - Skip and add prefix&#10;• foldstdlib:pattern->replacement - Skip, add replacement, skip stdlib&#10;• trim:prefix - Remove prefix from function names">?</button>
-                    </div>
-                    <textarea id="titleManipulationRules" class="setting-text-input"
-                        placeholder="skip:sync.runtime_Semacquire&#10;fold:sync.(*WaitGroup).Wait->Group&#10;trim:github.com/cockroachdb/cockroach/"
-                        rows="5" style="resize: vertical; min-height: 100px;"></textarea>
-                    <div class="setting-description">Rules to customize how stack trace titles are generated (one per
-                        line)</div>
-                </div>
-                <div class="setting-group">
-                    <div class="setting-title">
-                        <span>Category Ignored Prefixes</span>
-                        <button class="setting-help-icon"
-                            data-tooltip="Function prefixes to skip when determining categories (one per line):&#10;• runtime. - Skip runtime functions&#10;• sync. - Skip sync functions&#10;• internal/ - Skip internal packages&#10;Categories are determined by the first non-ignored frame's package">?</button>
-                    </div>
-                    <textarea id="categoryIgnoredPrefixes" class="setting-text-input"
-                        placeholder="runtime.&#10;sync.&#10;reflect.&#10;syscall.&#10;internal/" rows="5"
-                        style="resize: vertical; min-height: 100px;"></textarea>
-                    <div class="setting-description">Skip these function prefixes when categorizing stacks (one per
-                        line)</div>
-                </div>
-
-                <h4>File Handling</h4>
-                <div class="setting-group">
-                    <div class="setting-title">
                         <span>Zip File Pattern</span>
                         <button class="setting-help-icon"
                             data-tooltip="Regex pattern to match files inside zip archives that should be extracted and parsed as stack trace files. Examples: '^(.*\/)?stacks\.txt$', '^logs\/.*\.txt$', '^.*\.log$'">?</button>
                     </div>
                     <input type="text" id="zipFilePattern" class="setting-text-input"
                         placeholder="^(.*\/)?stacks\.txt$">
-                    <div class="setting-description">Regex pattern to match stack trace files in zip archives</div>
+                    <div class="setting-description">Pattern to identify stack trace files in zip archives</div>
                 </div>
+
             </div>
             <div class="settings-actions">
                 <button id="resetSettingsBtn" class="btn btn-danger settings-reset-btn">Reset to Defaults</button>
@@ -335,6 +381,93 @@
 
     <template id="file-drop-area-template">
         <div class="file-drop-area">Drop more files here</div>
+    </template>
+
+    <!-- Rule Editor Templates -->
+    <template id="skip-rule-template">
+        <div class="rule-item skip-rule">
+            <div class="rule-controls">
+                <div class="rule-input-container">
+                    <span class="rule-type-prefix">skip:</span>
+                    <input type="text" class="rule-input" placeholder="pattern to skip">
+                </div>
+                <button type="button" class="remove-rule-btn">×</button>
+            </div>
+        </div>
+    </template>
+
+    <template id="trim-rule-template">
+        <div class="rule-item trim-rule">
+            <div class="rule-controls">
+                <div class="rule-input-container">
+                    <span class="rule-type-prefix">trim:</span>
+                    <input type="text" class="rule-input" placeholder="prefix to trim">
+                </div>
+                <button type="button" class="remove-rule-btn">×</button>
+            </div>
+        </div>
+    </template>
+
+    <template id="fold-rule-template">
+        <div class="rule-item fold-rule">
+            <div class="fold-rule-content">
+                <div class="rule-controls">
+                    <div class="rule-input-container">
+                        <span class="rule-type-prefix">fold:</span>
+                        <input type="text" class="rule-input rule-pattern-input" placeholder="pattern to fold" title="Enter the pattern to match and fold">
+                    </div>
+                </div>
+                <div class="rule-replacement-line">
+                    <div class="rule-input-container">
+                        <span class="rule-type-prefix">→</span>
+                        <input type="text" class="rule-input rule-replacement-input" placeholder="replacement text" title="Text to show instead of the folded pattern">
+                    </div>
+                    <div class="rule-input-container rule-while-container">
+                        <span class="rule-type-prefix">while:</span>
+                        <input type="text" class="rule-input rule-while-input" placeholder="" title="Optionally continue skipping additional frames matching this pattern">
+                    </div>
+                </div>
+            </div>
+            <button type="button" class="remove-rule-btn">×</button>
+        </div>
+    </template>
+
+    <!-- Category Rule Templates -->
+    <template id="category-skip-rule-template">
+        <div class="rule-item skip-rule">
+            <div class="rule-controls">
+                <div class="rule-input-container">
+                    <span class="rule-type-prefix">skip:</span>
+                    <input type="text" class="rule-input" placeholder="pattern to skip when categorizing">
+                </div>
+                <button type="button" class="remove-rule-btn">×</button>
+            </div>
+        </div>
+    </template>
+
+    <template id="category-match-rule-template">
+        <div class="rule-item match-rule">
+            <div class="rule-controls">
+                <div class="rule-input-container">
+                    <span class="rule-type-prefix">match:</span>
+                    <input type="text" class="rule-input" placeholder="pattern#group -- comment (e.g., pattern#1 -- extract first part)">
+                </div>
+                <button type="button" class="remove-rule-btn">×</button>
+            </div>
+        </div>
+    </template>
+
+
+    <template id="category-unknown-rule-template">
+        <div class="rule-item unknown-rule">
+            <div class="rule-controls">
+                <div class="rule-input-container">
+                    <span class="rule-type-prefix">unknown:</span>
+                    <textarea class="rule-json-input" placeholder="JSON representation of rule" rows="2"></textarea>
+                </div>
+                <button type="button" class="remove-rule-btn">×</button>
+            </div>
+        </div>
     </template>
 
     <script type="module">

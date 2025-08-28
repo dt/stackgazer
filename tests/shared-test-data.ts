@@ -67,6 +67,28 @@ sync.(*WaitGroup).Wait()
 main.worker()
 	main.go:10 +0x30`,
 
+  withFoldPrefix: `goroutine 1 [running]:
+google.golang.org/grpc/internal/transport.(*Stream).waitOnHeader()
+	external/org_golang_google_grpc/internal/transport/transport.go:331 +0x10
+google.golang.org/grpc/internal/transport.(*Stream).RecvCompress()
+	external/org_golang_google_grpc/internal/transport/transport.go:346 +0x20
+google.golang.org/grpc.(*csAttempt).recvMsg()
+	external/org_golang_google_grpc/stream.go:1066 +0x30
+google.golang.org/grpc.(*clientStream).RecvMsg.func1()
+	external/org_golang_google_grpc/stream.go:917 +0x40
+google.golang.org/grpc.(*clientStream).withRetry()
+	external/org_golang_google_grpc/stream.go:768 +0x50
+google.golang.org/grpc.(*clientStream).RecvMsg()
+	external/org_golang_google_grpc/stream.go:916 +0x60
+google.golang.org/grpc.invoke()
+	external/org_golang_google_grpc/call.go:78 +0x70
+rpc.NewContext.ClientInterceptor.func8()
+	pkg/util/tracing/grpcinterceptor/grpc_interceptor.go:185 +0x80
+google.golang.org/grpc.(*ClientConn).Invoke()
+	external/org_golang_google_grpc/call.go:40 +0x90
+server/serverpb.(*statusClient).Stacks()
+	github.com/cockroachdb/cockroach/pkg/server/serverpb/status.pb.go:8603 +0xa0`,
+
   exampleStacks2: readFileSync(join(examplesDir, 'stacks.txt'), 'utf8'),
   exampleWithLabels: readFileSync(join(examplesDir, 'stacks_with_labels.txt'), 'utf8'),
 };
@@ -75,10 +97,12 @@ main.worker()
 export const DEFAULT_SETTINGS = {
   functionPrefixesToTrim: [] as RegExp[],
   filePrefixesToTrim: [] as RegExp[],
-  titleManipulationRules: [],
+  titleManipulationRules: [] as import('../src/app/ProfileCollection.js').TitleRule[],
   nameExtractionPatterns: [],
   zipFilePattern: '^(.*\/)?stacks\.txt$',
   categoryIgnoredPrefixes: [],
+  categoryExtractionPattern: '^((([^\/.]*\\.[^\/]*)*\/)?[^\/.]+(\/[^\/.]+)?)',
+  categoryRules: [] as import('../src/app/ProfileCollection.js').CategoryRule[],
 };
 
 // Parser instance

@@ -577,6 +577,100 @@ async function runTests() {
     console.log('  ✅ Navigation expands collapsed parent containers');
   });
 
+  // Test 7: Rule editor functionality
+  await test('Rule editor interface', async () => {
+    await page.reload();
+    await page.waitForSelector('.drop-zone', { timeout: 3000 });
+
+    // Open settings modal
+    await page.click('#settingsBtn');
+    await page.waitForSelector('#settingsModal', { timeout: 2000 });
+
+    // Verify modal is visible
+    const modalVisible = await page.isVisible('#settingsModal');
+    if (!modalVisible) throw new Error('Settings modal should be visible');
+
+    // Check if rule editor elements exist
+    const addRuleBtn = await page.$('#addRuleBtn');
+    const rulesList = await page.$('#rulesList');
+    if (!addRuleBtn || !rulesList) {
+      throw new Error('Rule editor elements not found');
+    }
+
+    // Count initial rules
+    const initialRules = await page.$$('.rule-item');
+    console.log(`  Initial rules: ${initialRules.length}`);
+
+    // Add a new rule
+    await page.click('#addRuleBtn');
+    await page.waitForTimeout(100);
+
+    // Verify rule was added
+    const rulesAfterAdd = await page.$$('.rule-item');
+    if (rulesAfterAdd.length !== initialRules.length + 1) {
+      throw new Error(`Expected ${initialRules.length + 1} rules, got ${rulesAfterAdd.length}`);
+    }
+
+    // Configure the new rule as a fold rule
+    const newRule = rulesAfterAdd[rulesAfterAdd.length - 1];
+    const typeSelect = await newRule.$('.rule-type-select');
+    const patternInput = await newRule.$('.rule-pattern');
+    const toInput = await newRule.$('.rule-to');
+    const whileSelect = await newRule.$('.rule-while');
+    const whileCustomInput = await newRule.$('.rule-while-custom');
+    
+    if (!typeSelect || !patternInput || !toInput || !whileSelect || !whileCustomInput) {
+      throw new Error('Rule form elements not found');
+    }
+
+    await typeSelect.selectOption('fold');
+    await patternInput.fill('test.pattern');
+    await toInput.fill('test-replacement');
+    
+    // Verify fold-specific fields become visible
+    const toFieldVisible = await toInput.isVisible();
+    const whileFieldVisible = await whileSelect.isVisible();
+    
+    if (!toFieldVisible || !whileFieldVisible) {
+      throw new Error('Fold rule fields should be visible when type is fold');
+    }
+
+    // Test while field with custom option
+    await whileSelect.selectOption('custom');
+    const customFieldVisible = await whileCustomInput.isVisible();
+    if (!customFieldVisible) {
+      throw new Error('Custom while field should be visible when "custom" is selected');
+    }
+
+    await whileCustomInput.fill('custom.prefix');
+
+    // Remove the rule we just added
+    const removeBtn = await newRule.$('.remove-rule-btn');
+    if (removeBtn) {
+      await removeBtn.click();
+      await page.waitForTimeout(100);
+    }
+
+    // Verify rule was removed
+    const rulesAfterRemove = await page.$$('.rule-item');
+    if (rulesAfterRemove.length !== initialRules.length) {
+      throw new Error(`Expected ${initialRules.length} rules after removal, got ${rulesAfterRemove.length}`);
+    }
+
+    // Test save and cancel
+    await page.click('#settingsModalCloseBtn');
+    await page.waitForTimeout(100);
+
+    const modalHidden = await page.isVisible('#settingsModal');
+    if (modalHidden) {
+      throw new Error('Settings modal should be hidden after close');
+    }
+
+    console.log('  ✅ Rule editor add/remove works');
+    console.log('  ✅ Rule type switching shows/hides fields correctly');
+    console.log('  ✅ Modal open/close works');
+  });
+
   await teardown();
   console.log('\n🎉 All UI interaction tests passed!');
 }

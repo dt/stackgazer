@@ -52,12 +52,14 @@ function isStdLib(functionName: string): boolean {
   return !beforeSlash.includes('.');
 }
 
-interface TitleRule {
-  type: 'skip' | 'fold' | 'foldstdlib' | 'trim';
-  pattern?: string;
-  prefix?: string;
-  replacement?: string;
-}
+type TitleRule = 
+  | { skip: string }
+  | { trim: string }
+  | { fold: string; to: string; while?: string };
+
+type CategoryRule = 
+  | { skip: string }
+  | { match: string };
 
 /**
  * Parses title manipulation rules and applies them to generate stack names
@@ -65,99 +67,72 @@ interface TitleRule {
 class StackNamer {
   private rules: TitleRule[] = [];
 
-  constructor(rules: string[] = []) {
+  constructor(rules: TitleRule[] = []) {
     this.setRules(rules);
   }
 
-  setRules(ruleStrings: string[]): void {
-    this.rules = [];
-    for (const ruleString of ruleStrings) {
-      const rule = this.parseRule(ruleString);
-      if (rule) {
-        this.rules.push(rule);
-      }
-    }
+  setRules(rules: TitleRule[]): void {
+    this.rules = rules;
   }
 
-  private parseRule(ruleString: string): TitleRule | null {
-    const trimmed = ruleString.trim();
-
-    if (trimmed.startsWith('skip:')) {
-      const pattern = trimmed.slice(5);
-      return { type: 'skip', pattern };
-    }
-
-    if (trimmed.startsWith('fold:')) {
-      const afterColon = trimmed.slice(5);
-      const arrowIndex = afterColon.indexOf('->');
-      if (arrowIndex !== -1) {
-        const pattern = afterColon.slice(0, arrowIndex);
-        const prefix = afterColon.slice(arrowIndex + 2);
-        return { type: 'fold', pattern, prefix };
-      }
-    }
-
-    if (trimmed.startsWith('foldstdlib:')) {
-      const afterColon = trimmed.slice(11);
-      const arrowIndex = afterColon.indexOf('->');
-      if (arrowIndex !== -1) {
-        const pattern = afterColon.slice(0, arrowIndex);
-        const replacement = afterColon.slice(arrowIndex + 2);
-        return { type: 'foldstdlib', pattern, replacement };
-      }
-    }
-
-    if (trimmed.startsWith('trim:')) {
-      const prefix = trimmed.slice(5);
-      return { type: 'trim', prefix };
-    }
-
-    return null;
-  }
 
   generateTitle(trace: Frame[]): string {
     let currentPrefix = '';
-    let skipStdlib = false;
+    let continuePattern: string | null = null; // Active fold continue pattern
 
     for (let i = 0; i < trace.length; i++) {
       const frame = trace[i];
       let functionName = frame.func;
       let shouldSkip = false;
 
-      // Check if we should skip stdlib functions
-      if (skipStdlib && isStdLib(functionName)) {
-        continue;
+      // Check skip rules first
+      for (const rule of this.rules) {
+        if ('skip' in rule && functionName.startsWith(rule.skip)) {
+          shouldSkip = true;
+          break;
+        }
+      }
+      
+      if (shouldSkip) {
+        continue; // Skip this frame entirely
       }
 
-      // Apply rules in order
+      // Check if we're in continue folding mode
+      if (continuePattern) {
+        if (continuePattern === 'stdlib' && isStdLib(functionName)) {
+          continue; // Keep folding stdlib
+        } else if (continuePattern !== 'stdlib' && functionName.startsWith(continuePattern)) {
+          continue; // Keep folding prefix
+        } else {
+          // Exit folding mode
+          continuePattern = null;
+        }
+      }
+
+      // Apply fold rules
       for (const rule of this.rules) {
-        if (rule.type === 'skip' && rule.pattern && functionName.startsWith(rule.pattern)) {
-          shouldSkip = true;
-          break;
-        }
-
-        if (rule.type === 'fold' && rule.pattern && functionName.startsWith(rule.pattern)) {
-          if (rule.prefix) {
-            const append = rule.prefix + ' ';
-            if (!currentPrefix.endsWith(append)) {
-              currentPrefix += append;
-            }
+        if ('fold' in rule && functionName.startsWith(rule.fold)) {
+          // Only add the fold text if it's not already at the end of the current prefix
+          const foldText = rule.to + ' ';
+          if (!currentPrefix.endsWith(foldText)) {
+            currentPrefix += foldText;
           }
-          shouldSkip = true;
-          break;
-        }
-
-        if (rule.type === 'foldstdlib' && rule.pattern && functionName.startsWith(rule.pattern)) {
-          if (rule.replacement) {
-            currentPrefix += rule.replacement + ' ';
+          
+          if (rule.while === 'stdlib') {
+            continuePattern = 'stdlib';
+          } else if (rule.while) {
+            continuePattern = rule.while;
           }
-          skipStdlib = true; // Enable stdlib skipping for subsequent calls
+          
           shouldSkip = true;
           break;
         }
+      }
 
-        if (rule.type === 'trim' && rule.prefix && functionName.startsWith(rule.prefix)) {
-          functionName = functionName.slice(rule.prefix.length);
+      // Apply trim rules to current function
+      for (const rule of this.rules) {
+        if ('trim' in rule && functionName.startsWith(rule.trim)) {
+          functionName = functionName.slice(rule.trim.length);
         }
       }
 
@@ -171,8 +146,8 @@ class StackNamer {
       let lastFunction = trace[trace.length - 1].func;
       // Apply trim rules to the last function
       for (const rule of this.rules) {
-        if (rule.type === 'trim' && rule.prefix && lastFunction.startsWith(rule.prefix)) {
-          lastFunction = lastFunction.slice(rule.prefix.length);
+        if ('trim' in rule && lastFunction.startsWith(rule.trim)) {
+          lastFunction = lastFunction.slice(rule.trim.length);
         }
       }
       return currentPrefix + lastFunction;
@@ -185,10 +160,12 @@ class StackNamer {
 export interface ProfileCollectionSettings {
   functionPrefixesToTrim: RegExp[];
   filePrefixesToTrim: RegExp[];
-  titleManipulationRules: string[];
+  titleManipulationRules: TitleRule[];
   nameExtractionPatterns: NameExtractionPattern[];
   zipFilePattern: string;
   categoryIgnoredPrefixes: string[];
+  categoryExtractionPattern: string;
+  categoryRules: CategoryRule[];
 }
 
 export class ProfileCollection {
@@ -217,32 +194,89 @@ export class ProfileCollection {
   }
 
   /**
-   * Generate a category name from the trace using pattern: prefix up to second slash OR first dot
-   * Uses prefix up to second slash OR first dot, whichever comes first
-   * Skips frames that match any of the categoryIgnoredPrefixes
+   * Generate a category name from the trace using category rules
+   * The first non-skipped frame determines the category; if a match rule matches this frame 
+   * its first capture group (or a capture chosen by #num suffix) is used; otherwise the whole frame is used.
    */
   private generateCategoryName(trace: Frame[]): string {
     if (trace.length === 0) return 'empty';
 
-    // Start from the last frame and work backwards to find a non-ignored frame
+    // Start from the last frame and work backwards to find a non-skipped frame
     for (let i = trace.length - 1; i >= 0; i--) {
       const frame = trace[i];
       const func = frame.func;
 
-      // Check if this frame should be ignored
-      const shouldIgnore = this.settings.categoryIgnoredPrefixes.some(prefix =>
+      // Check if this frame should be skipped using category rules
+      const shouldSkip = this.settings.categoryRules.some(rule => 
+        'skip' in rule && func.startsWith(rule.skip)
+      );
+
+      // Also check legacy categoryIgnoredPrefixes for backward compatibility
+      const shouldIgnoreLegacy = this.settings.categoryIgnoredPrefixes.some(prefix =>
         func.startsWith(prefix)
       );
 
-      if (!shouldIgnore) {
-        // Found a non-ignored frame, use it for categorization
+      if (!shouldSkip && !shouldIgnoreLegacy) {
+        // Found a non-skipped frame, check for match rules
+        for (const rule of this.settings.categoryRules) {
+          if ('match' in rule) {
+            const result = this.applyMatchRule(func, rule.match);
+            if (result) {
+              return result;
+            }
+          }
+        }
+
+        // No match rules applied, fall back to extracting from function name
         return this.extractCategoryFromFunction(func);
       }
     }
 
-    // If all frames are ignored, fall back to the last frame
+    // If all frames are skipped, fall back to the last frame
     const lastFrame = trace[trace.length - 1];
     return this.extractCategoryFromFunction(lastFrame.func);
+  }
+
+  /**
+   * Apply a match rule with #num syntax for capture group selection and -- comment support
+   */
+  private applyMatchRule(func: string, matchPattern: string): string | null {
+    // First, strip any comment suffix (-- comment)
+    const commentIndex = matchPattern.indexOf(' --');
+    const cleanPattern = commentIndex !== -1 
+      ? matchPattern.substring(0, commentIndex).trim()
+      : matchPattern;
+
+    // Parse pattern#num syntax
+    const hashIndex = cleanPattern.lastIndexOf('#');
+    let pattern: string;
+    let captureGroup: number;
+
+    if (hashIndex !== -1) {
+      pattern = cleanPattern.substring(0, hashIndex);
+      const groupStr = cleanPattern.substring(hashIndex + 1);
+      captureGroup = parseInt(groupStr, 10);
+      if (isNaN(captureGroup)) {
+        captureGroup = 0; // Default to whole match if invalid number
+      }
+    } else {
+      pattern = cleanPattern;
+      captureGroup = 0; // Default to whole match
+    }
+
+    try {
+      const regex = new RegExp(pattern);
+      const match = func.match(regex);
+      
+      if (match) {
+        // Return the specified capture group or whole match
+        return match[captureGroup] || match[0] || '';
+      }
+    } catch (e) {
+      console.warn('Invalid match rule pattern:', pattern, e);
+    }
+
+    return null;
   }
 
   /**
@@ -282,13 +316,18 @@ export class ProfileCollection {
       }
     }
 
-    // Try to match the pattern (([^/.]*\.[^/]*)*/)?[^/.]+(/[^/.]+)?
-    // This captures optional domain-like patterns followed by path segments
-    const match = func.match(/^((([^\/.]*\.[^\/]*)*\/)?[^\/.]+(\/[^\/.]+)?)/);
+    // Try to match the configurable pattern
+    try {
+      const regex = new RegExp(this.settings.categoryExtractionPattern);
+      const match = func.match(regex);
 
-    if (match) {
-      // Found the pattern, return the captured group
-      return match[1];
+      if (match && match[1]) {
+        // Found the pattern, return the captured group
+        return match[1];
+      }
+    } catch (e) {
+      console.warn('Invalid category extraction pattern:', this.settings.categoryExtractionPattern, e);
+      // Fall through to fallback logic
     }
 
     // Fallback: if no slash but has dot, use prefix up to first dot
@@ -307,19 +346,19 @@ export class ProfileCollection {
   private processFrame(parserFrame: ParserFrame): Frame {
     const f: Frame = { ...parserFrame };
 
+    // Apply function trim prefixes cumulatively
     for (const regex of this.settings.functionPrefixesToTrim) {
       const match = f.func.match(regex);
       if (match) {
         f.func = f.func.substring(match[0].length);
-        break; // Only apply first matching pattern
       }
     }
 
+    // Apply file trim prefixes cumulatively
     for (const regex of this.settings.filePrefixesToTrim) {
       const match = f.file.match(regex);
       if (match) {
         f.file = f.file.substring(match[0].length);
-        break; // Only apply first matching pattern
       }
     }
     return f;
@@ -598,7 +637,7 @@ export class ProfileCollection {
   /**
    * Update title manipulation rules
    */
-  updateTitleRules(titleRules: string[]): void {
+  updateTitleRules(titleRules: TitleRule[]): void {
     this.settings.titleManipulationRules = titleRules;
     this.stackNamer.setRules(titleRules);
 
@@ -997,3 +1036,5 @@ export class ProfileCollection {
     return stats;
   }
 }
+
+export type { TitleRule, CategoryRule };

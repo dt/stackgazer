@@ -1,4 +1,5 @@
 import { ProfileCollection, ProfileCollectionSettings } from '../app/ProfileCollection.js';
+import type { TitleRule, CategoryRule } from '../app/ProfileCollection.js';
 import { FileParser } from '../parser/index.js';
 import {
   UniqueStack,
@@ -734,7 +735,7 @@ export class StackTraceApp {
       const emptyClone = this.templates.fileEmptyState.content.cloneNode(true) as DocumentFragment;
       const emptyState = emptyClone.firstElementChild as HTMLElement;
 
-      emptyState.style.cursor = 'pointer';
+      emptyState.classList.add('cursor-pointer');
       emptyState.addEventListener('click', () => {
         this.openFileDialog();
       });
@@ -1195,7 +1196,7 @@ export class StackTraceApp {
         const moreLink = document.createElement('span');
         moreLink.textContent = `${goroutine.created.length - maxShow} more`;
         moreLink.className = 'created-goroutines-more creator-link';
-        moreLink.style.cursor = 'pointer';
+        moreLink.classList.add('cursor-pointer');
         moreLink.addEventListener('click', e => {
           e.preventDefault();
           e.stopPropagation();
@@ -1225,7 +1226,7 @@ export class StackTraceApp {
           <div>📁 Drop Go stack trace files here to get started</div>
           <div class="demo-add-files">or click + to select files</div>
           <div class="demo-add-files">🔒 all analysis is in-browser - nothing is uploaded</div>
-          <div style="margin-top: 25px; padding-top: 5px; border-top: 1px solid #444;">
+          <div class="demo-section-divider">
             <div class="demo-try-demo">⚡️ Or try a quick demo with some example CockroachDB stack dumps:</div>
             <div class="demo-buttons">
               <a id="demoSingleBtn" href="#" class="demo-link">📄 single file →</a>
@@ -1331,7 +1332,7 @@ export class StackTraceApp {
     const unpinAllBtn = document.getElementById('unpinAllBtn');
     if (unpinAllBtn) {
       const hasPinnedItems = this.profileCollection.hasAnyPinnedItems();
-      unpinAllBtn.style.display = hasPinnedItems ? 'inline-block' : 'none';
+      unpinAllBtn.classList.toggle('hidden', !hasPinnedItems);
     }
   }
 
@@ -1831,6 +1832,8 @@ export class StackTraceApp {
       categoryIgnoredPrefixes: this.parseCategoryIgnoredPrefixes(
         appSettings.categoryIgnoredPrefixes
       ),
+      categoryExtractionPattern: appSettings.categoryExtractionPattern,
+      categoryRules: appSettings.categoryRules || [],
     };
   }
 
@@ -1869,7 +1872,8 @@ export class StackTraceApp {
       settingsModalCloseBtn.addEventListener('click', () => {
         // Cancel changes - reload original settings
         this.loadSettingsIntoModal();
-        settingsModal.style.display = 'none';
+        settingsModal.classList.add('modal-hidden');
+        settingsModal.classList.remove('modal-visible');
       });
     }
 
@@ -1878,17 +1882,19 @@ export class StackTraceApp {
         if (e.target === settingsModal) {
           // Cancel changes - reload original settings
           this.loadSettingsIntoModal();
-          settingsModal.style.display = 'none';
+          settingsModal.classList.add('modal-hidden');
+          settingsModal.classList.remove('modal-visible');
         }
       });
     }
 
     // Close modal with Escape key (cancel changes)
     document.addEventListener('keydown', e => {
-      if (e.key === 'Escape' && settingsModal && settingsModal.style.display === 'block') {
+      if (e.key === 'Escape' && settingsModal && settingsModal.classList.contains('modal-visible')) {
         // Cancel changes - reload original settings
         this.loadSettingsIntoModal();
-        settingsModal.style.display = 'none';
+        settingsModal.classList.add('modal-hidden');
+        settingsModal.classList.remove('modal-visible');
       }
     });
 
@@ -1910,7 +1916,8 @@ export class StackTraceApp {
     if (settingsModal) {
       // Load current settings into modal
       this.loadSettingsIntoModal();
-      settingsModal.style.display = 'block';
+      settingsModal.classList.add('modal-visible');
+      settingsModal.classList.remove('modal-hidden');
     }
   }
 
@@ -1932,12 +1939,17 @@ export class StackTraceApp {
       deserialize: (value: any) => String(value),
     },
     titleManipulationRules: {
-      type: 'textarea' as const,
-      serialize: (value: string) => value,
-      deserialize: (value: any) => String(value),
+      type: 'custom' as const,
+      serialize: (value: TitleRule[]) => value,
+      deserialize: (value: any) => value || [],
     },
-    categoryIgnoredPrefixes: {
-      type: 'textarea' as const,
+    categoryRules: {
+      type: 'custom' as const,
+      serialize: (value: CategoryRule[]) => value,
+      deserialize: (value: any) => value,
+    },
+    categoryExtractionPattern: {
+      type: 'text' as const,
       serialize: (value: string) => value,
       deserialize: (value: any) => String(value),
     },
@@ -1948,12 +1960,26 @@ export class StackTraceApp {
 
     // Load all setting values into modal inputs using config map
     Object.entries(this.settingsConfig).forEach(([key, config]) => {
+      if (key === 'titleManipulationRules') {
+        // Custom handling for rule editor
+        this.loadRulesIntoEditor(settings.titleManipulationRules);
+        return;
+      }
+      if (key === 'categoryRules') {
+        // Custom handling for category rule editor
+        this.loadCategoryRulesIntoEditor(settings.categoryRules || []);
+        return;
+      }
+
       const element = document.getElementById(key) as HTMLInputElement | HTMLTextAreaElement;
       if (element && key in settings) {
         const value = (settings as any)[key];
         element.value = String(config.deserialize(value));
       }
     });
+
+    // Setup collapsible sections
+    this.setupCollapsibleSections();
   }
 
   private saveSettingsFromModal(): void {
@@ -1961,6 +1987,17 @@ export class StackTraceApp {
     const updates: Partial<AppSettings> = {};
 
     Object.entries(this.settingsConfig).forEach(([key, config]) => {
+      if (key === 'titleManipulationRules') {
+        // Custom handling for rule editor
+        updates.titleManipulationRules = this.getRulesFromEditor();
+        return;
+      }
+      if (key === 'categoryRules') {
+        // Custom handling for category rule editor
+        updates.categoryRules = this.getCategoryRulesFromEditor();
+        return;
+      }
+
       const element = document.getElementById(key) as HTMLInputElement | HTMLTextAreaElement;
       if (element) {
         let value: any;
@@ -1979,7 +2016,8 @@ export class StackTraceApp {
     // Close modal
     const settingsModal = document.getElementById('settingsModal');
     if (settingsModal) {
-      settingsModal.style.display = 'none';
+      settingsModal.classList.add('modal-hidden');
+      settingsModal.classList.remove('modal-visible');
     }
   }
 
@@ -1991,7 +2029,7 @@ export class StackTraceApp {
   private createTooltip(): void {
     this.tooltip = document.createElement('div');
     this.tooltip.className = 'goroutine-tooltip';
-    this.tooltip.style.display = 'none';
+    this.tooltip.classList.add('hidden');
     document.body.appendChild(this.tooltip);
   }
 
@@ -2008,7 +2046,7 @@ export class StackTraceApp {
     this.tooltip.style.left = '-9999px';
     this.tooltip.style.top = '-9999px';
     this.tooltip.style.transform = 'none';
-    this.tooltip.style.display = 'block';
+    this.tooltip.classList.remove('hidden');
 
     // Get accurate measurements
     const tooltipRect = this.tooltip.getBoundingClientRect();
@@ -2048,7 +2086,7 @@ export class StackTraceApp {
   }
 
   private hideTooltip(): void {
-    this.tooltip.style.display = 'none';
+    this.tooltip.classList.add('hidden');
   }
 
   private addTooltipToLink(link: HTMLElement, goroutineId: string): void {
@@ -2064,5 +2102,383 @@ export class StackTraceApp {
       this.tooltip.style.left = `${(event as MouseEvent).pageX - 20}px`;
       this.tooltip.style.top = `${(event as MouseEvent).pageY + 10}px`;
     });
+  }
+
+  /**
+   * Load rules into the rule editor
+   */
+  private loadRulesIntoEditor(rules: TitleRule[]): void {
+    const rulesList = document.getElementById('rulesList');
+    if (!rulesList) return;
+
+    // Clear existing rule items only (not the add buttons)
+    const ruleItems = rulesList.querySelectorAll('.rule-item');
+    ruleItems.forEach(item => item.remove());
+
+    // Add each rule to the editor
+    rules.forEach(rule => this.addRuleToEditor(rule));
+
+    // Setup add button if not already done
+    this.setupRuleEditor();
+
+
+    // Update rule count in header
+    this.updateRuleListHeader('rulesList', rules.length);
+  }
+
+  /**
+   * Get rules from the rule editor
+   */
+  private getRulesFromEditor(): TitleRule[] {
+    const rulesList = document.getElementById('rulesList');
+    if (!rulesList) return [];
+
+    const rules: TitleRule[] = [];
+    const ruleItems = rulesList.querySelectorAll('.rule-item');
+
+    ruleItems.forEach(ruleItem => {
+      // Determine rule type based on CSS class
+      if (ruleItem.classList.contains('skip-rule')) {
+        const ruleInput = ruleItem.querySelector('.rule-input') as HTMLInputElement;
+        if (ruleInput && ruleInput.value.trim()) {
+          rules.push({ skip: ruleInput.value.trim() });
+        }
+      } else if (ruleItem.classList.contains('trim-rule')) {
+        const ruleInput = ruleItem.querySelector('.rule-input') as HTMLInputElement;
+        if (ruleInput && ruleInput.value.trim()) {
+          rules.push({ trim: ruleInput.value.trim() });
+        }
+      } else if (ruleItem.classList.contains('fold-rule')) {
+        // For fold rules, get pattern, replacement, and optional while condition from separate inputs
+        const patternInput = ruleItem.querySelector('.rule-pattern-input') as HTMLInputElement;
+        const replacementInput = ruleItem.querySelector('.rule-replacement-input') as HTMLInputElement;
+        const whileInput = ruleItem.querySelector('.rule-while-input') as HTMLInputElement;
+        
+        if (patternInput && patternInput.value.trim()) {
+          const pattern = patternInput.value.trim();
+          const replacement = replacementInput ? replacementInput.value.trim() : '';
+          const whileCondition = whileInput ? whileInput.value.trim() : '';
+          
+          const rule: any = { fold: pattern, to: replacement };
+          if (whileCondition) {
+            rule.while = whileCondition;
+          }
+          rules.push(rule);
+        }
+      }
+    });
+
+    return rules;
+  }
+
+  /**
+   * Add a rule to the editor
+   */
+  private addRuleToEditor(rule?: TitleRule, ruleType?: 'skip' | 'trim' | 'fold'): void {
+    const rulesList = document.getElementById('rulesList');
+    if (!rulesList) return;
+
+    // Determine the rule type and template to use
+    let templateId: string;
+
+    if (rule) {
+      if ('skip' in rule) {
+        templateId = 'skip-rule-template';
+      } else if ('trim' in rule) {
+        templateId = 'trim-rule-template';
+      } else if ('fold' in rule) {
+        templateId = 'fold-rule-template';
+      } else {
+        return; // Invalid rule
+      }
+    } else if (ruleType) {
+      templateId = `${ruleType}-rule-template`;
+    } else {
+      return; // Need either rule or ruleType
+    }
+
+    const template = document.getElementById(templateId) as HTMLTemplateElement;
+    if (!template) return;
+
+    const ruleItem = template.content.cloneNode(true) as DocumentFragment;
+    const ruleElement = ruleItem.querySelector('.rule-item') as HTMLElement;
+    
+    // Populate values based on rule type
+    if (rule) {
+      if ('skip' in rule) {
+        const ruleInput = ruleElement.querySelector('.rule-input') as HTMLInputElement;
+        if (ruleInput) ruleInput.value = rule.skip;
+      } else if ('trim' in rule) {
+        const ruleInput = ruleElement.querySelector('.rule-input') as HTMLInputElement;
+        if (ruleInput) ruleInput.value = rule.trim;
+      } else if ('fold' in rule) {
+        const patternInput = ruleElement.querySelector('.rule-pattern-input') as HTMLInputElement;
+        const replacementInput = ruleElement.querySelector('.rule-replacement-input') as HTMLInputElement;
+        const whileInput = ruleElement.querySelector('.rule-while-input') as HTMLInputElement;
+        if (patternInput) patternInput.value = rule.fold;
+        if (replacementInput) replacementInput.value = rule.to || '';
+        if (whileInput && rule.while) whileInput.value = rule.while;
+      }
+    }
+
+    // Setup remove button event listener
+    const removeBtn = ruleElement.querySelector('.remove-rule-btn') as HTMLButtonElement;
+    if (removeBtn) {
+      removeBtn.addEventListener('click', () => {
+        ruleElement.remove();
+        // Update rule count after removal
+        const rulesList = document.getElementById('rulesList');
+        if (rulesList) {
+          const remainingRules = rulesList.querySelectorAll('.rule-item').length;
+          this.updateRuleListHeader('rulesList', remainingRules);
+        }
+      });
+    }
+
+    // Insert before add buttons
+    const addButtons = rulesList.querySelector('.add-rule-buttons');
+    if (addButtons) {
+      rulesList.insertBefore(ruleItem, addButtons);
+    } else {
+      rulesList.appendChild(ruleItem);
+    }
+    
+    // Update rule count after addition
+    const remainingRules = rulesList.querySelectorAll('.rule-item').length;
+    this.updateRuleListHeader('rulesList', remainingRules);
+  }
+
+
+  /**
+   * Setup the rule editor
+   */
+  private setupRuleEditor(): void {
+    const addSkipBtn = document.getElementById('addSkipBtn');
+    const addTrimBtn = document.getElementById('addTrimBtn');
+    const addFoldBtn = document.getElementById('addFoldBtn');
+    
+    if (!addSkipBtn || !addTrimBtn || !addFoldBtn) return;
+
+    // Remove existing listeners to prevent duplicates
+    addSkipBtn.replaceWith(addSkipBtn.cloneNode(true));
+    addTrimBtn.replaceWith(addTrimBtn.cloneNode(true));
+    addFoldBtn.replaceWith(addFoldBtn.cloneNode(true));
+    
+    const newAddSkipBtn = document.getElementById('addSkipBtn');
+    const newAddTrimBtn = document.getElementById('addTrimBtn');
+    const newAddFoldBtn = document.getElementById('addFoldBtn');
+
+    newAddSkipBtn?.addEventListener('click', () => {
+      this.addRuleToEditor(undefined, 'skip');
+    });
+    
+    newAddTrimBtn?.addEventListener('click', () => {
+      this.addRuleToEditor(undefined, 'trim');
+    });
+    
+    newAddFoldBtn?.addEventListener('click', () => {
+      this.addRuleToEditor(undefined, 'fold');
+    });
+  }
+
+  /**
+   * Load category rules into the category rule editor
+   */
+  private loadCategoryRulesIntoEditor(rules: CategoryRule[]): void {
+    const categoryRulesList = document.getElementById('categoryRulesList');
+    if (!categoryRulesList) return;
+
+    // Clear existing rule items only (not the add buttons)
+    const ruleItems = categoryRulesList.querySelectorAll('.rule-item');
+    ruleItems.forEach(item => item.remove());
+
+    // Add each rule to the editor
+    rules.forEach(rule => this.addCategoryRuleToEditor(rule));
+
+    // Setup add button if not already done
+    this.setupCategoryRuleEditor();
+
+
+    // Update rule count in header
+    this.updateRuleListHeader('categoryRulesList', rules.length);
+  }
+
+  /**
+   * Get category rules from the category rule editor
+   */
+  private getCategoryRulesFromEditor(): CategoryRule[] {
+    const categoryRulesList = document.getElementById('categoryRulesList');
+    if (!categoryRulesList) return [];
+
+    const rules: CategoryRule[] = [];
+    const ruleItems = categoryRulesList.querySelectorAll('.rule-item');
+
+    ruleItems.forEach(ruleItem => {
+      if (ruleItem.classList.contains('skip-rule')) {
+        const ruleInput = ruleItem.querySelector('.rule-input') as HTMLInputElement;
+        if (ruleInput && ruleInput.value.trim()) {
+          rules.push({ skip: ruleInput.value.trim() });
+        }
+      } else if (ruleItem.classList.contains('match-rule')) {
+        const ruleInput = ruleItem.querySelector('.rule-input') as HTMLInputElement;
+        if (ruleInput && ruleInput.value.trim()) {
+          rules.push({ match: ruleInput.value.trim() });
+        }
+      } else if (ruleItem.classList.contains('unknown-rule')) {
+        const jsonInput = ruleItem.querySelector('.rule-json-input') as HTMLTextAreaElement;
+        if (jsonInput && jsonInput.value.trim()) {
+          try {
+            const parsedRule = JSON.parse(jsonInput.value.trim());
+            rules.push(parsedRule);
+          } catch (e) {
+            console.warn('Invalid JSON in unknown rule, skipping:', jsonInput.value);
+          }
+        }
+      }
+    });
+
+    return rules;
+  }
+
+  /**
+   * Add a category rule to the editor
+   */
+  private addCategoryRuleToEditor(rule?: CategoryRule, ruleType?: 'skip' | 'match'): void {
+    const categoryRulesList = document.getElementById('categoryRulesList');
+    if (!categoryRulesList) return;
+
+    // Determine the rule type and template to use
+    let templateId: string;
+
+    if (rule) {
+      if ('skip' in rule) {
+        templateId = 'category-skip-rule-template';
+      } else if ('match' in rule) {
+        templateId = 'category-match-rule-template';
+      } else {
+        // Unknown rule type - use fallback template
+        templateId = 'category-unknown-rule-template';
+      }
+    } else if (ruleType) {
+      templateId = `category-${ruleType}-rule-template`;
+    } else {
+      return; // Need either rule or ruleType
+    }
+
+    const template = document.getElementById(templateId) as HTMLTemplateElement;
+    if (!template) return;
+
+    const ruleItem = template.content.cloneNode(true) as DocumentFragment;
+    const ruleElement = ruleItem.querySelector('.rule-item') as HTMLElement;
+    
+    // Populate values based on rule type
+    if (rule) {
+      if ('skip' in rule) {
+        const ruleInput = ruleElement.querySelector('.rule-input') as HTMLInputElement;
+        if (ruleInput) ruleInput.value = rule.skip;
+      } else if ('match' in rule) {
+        const ruleInput = ruleElement.querySelector('.rule-input') as HTMLInputElement;
+        if (ruleInput) ruleInput.value = rule.match;
+      } else {
+        // Unknown rule type - show as JSON
+        const jsonInput = ruleElement.querySelector('.rule-json-input') as HTMLTextAreaElement;
+        if (jsonInput) jsonInput.value = JSON.stringify(rule, null, 2);
+      }
+    }
+
+    // Setup remove button event listener
+    const removeBtn = ruleElement.querySelector('.remove-rule-btn') as HTMLButtonElement;
+    if (removeBtn) {
+      removeBtn.addEventListener('click', () => {
+        ruleElement.remove();
+        // Update rule count after removal
+        const categoryRulesList = document.getElementById('categoryRulesList');
+        if (categoryRulesList) {
+          const remainingRules = categoryRulesList.querySelectorAll('.rule-item').length;
+          this.updateRuleListHeader('categoryRulesList', remainingRules);
+        }
+      });
+    }
+
+    // Insert before add buttons
+    const addButtons = categoryRulesList.querySelector('.add-rule-buttons');
+    if (addButtons) {
+      categoryRulesList.insertBefore(ruleItem, addButtons);
+    } else {
+      categoryRulesList.appendChild(ruleItem);
+    }
+    
+    // Update rule count after addition
+    const categoryRulesList2 = document.getElementById('categoryRulesList');
+    if (categoryRulesList2) {
+      const remainingRules = categoryRulesList2.querySelectorAll('.rule-item').length;
+      this.updateRuleListHeader('categoryRulesList', remainingRules);
+    }
+  }
+
+  /**
+   * Setup the category rule editor
+   */
+  private setupCategoryRuleEditor(): void {
+    const addCategorySkipBtn = document.getElementById('addCategorySkipBtn');
+    const addCategoryMatchBtn = document.getElementById('addCategoryMatchBtn');
+    
+    if (!addCategorySkipBtn || !addCategoryMatchBtn) return;
+
+    // Remove existing listeners to prevent duplicates
+    addCategorySkipBtn.replaceWith(addCategorySkipBtn.cloneNode(true));
+    addCategoryMatchBtn.replaceWith(addCategoryMatchBtn.cloneNode(true));
+    
+    const newAddCategorySkipBtn = document.getElementById('addCategorySkipBtn');
+    const newAddCategoryMatchBtn = document.getElementById('addCategoryMatchBtn');
+
+    newAddCategorySkipBtn?.addEventListener('click', () => {
+      this.addCategoryRuleToEditor(undefined, 'skip');
+    });
+    
+    newAddCategoryMatchBtn?.addEventListener('click', () => {
+      this.addCategoryRuleToEditor(undefined, 'match');
+    });
+  }
+
+
+
+  /**
+   * Setup collapsible sections
+   */
+  private setupCollapsibleSections(): void {
+    const collapsibleHeaders = document.querySelectorAll('.collapsible-header');
+    
+    collapsibleHeaders.forEach(header => {
+      header.addEventListener('click', () => {
+        // Find the rule-editor container
+        const ruleEditor = header.closest('.rules-editor');
+        if (!ruleEditor) return;
+        
+        const isCollapsed = ruleEditor.classList.contains('collapsed');
+        
+        if (isCollapsed) {
+          ruleEditor.classList.remove('collapsed');
+          header.classList.remove('collapsed');
+        } else {
+          ruleEditor.classList.add('collapsed');
+          header.classList.add('collapsed');
+        }
+      });
+    });
+  }
+
+  /**
+   * Update rule list header with rule count
+   */
+  private updateRuleListHeader(listId: string, count: number): void {
+    const targetId = listId === 'rulesList' ? 'rulesEditor' : 'categoryRulesEditor';
+    const header = document.querySelector(`#${targetId} .collapsible-header`) as HTMLElement;
+    if (header) {
+      const textSpan = header.querySelector('span:last-child');
+      if (textSpan) {
+        textSpan.textContent = `Rules (${count})`;
+      }
+    }
   }
 }
