@@ -28,7 +28,7 @@
                 // Skip CRDB infrastructure that launches goroutines for other features to get to the feature instead.
                 'jobs.', 'kv/kvclient/rangefeed', 'kv/kvpb._', 
                 // Skip CRDB base server layers to get to the actual server being booted.
-                'rpc.NewServerEx',  'rpc.internalClientAdapter', 'rpc.serverStreamInterceptorsChain', 'rpc.kvAuth', // CRDB RPC utilities
+                'rpc.NewServerEx',  'rpc.internalClientAdapter', 'rpc.makeInternalClientAdapter', 'rpc.serverStreamInterceptorsChain', 'rpc.kvAuth', // CRDB RPC utilities
                 // Skip common dist helpers related to launching procs.
                 'sql/flowinfra.(*FlowBase).StartInternal.func', 'sql/execinfra.(*ProcessorBaseNoHelper).Run', 'sql/execinfra.Run'
             ].join('\n'),
@@ -71,7 +71,8 @@
                 's|syscall.Syscall,stdlib|syscall|',
                 's|internal/poll.runtime_pollWait,stdlib|netpoll|',
                 's|google.golang.org/grpc/internal/transport.(*Stream).waitOnHeader,google.golang.org/grpc|grpc|',
-                's|util/admission.(*WorkQueue).Admit,^(util/admission|kv/kvserver/kvadmission)|AC|'
+                's|util/admission.(*WorkQueue).Admit,^(util/admission|kv/kvserver/kvadmission)|AC|',
+                's|google.golang.org/grpc/internal/transport.(*recvBufferReader).read,(google.golang.org/grpc.*|io.Read)|recv|',
             ].join('\n'),
             
             nameFindRules: [
