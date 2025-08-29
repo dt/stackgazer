@@ -30,20 +30,15 @@ export class ZipHandler {
     pattern: RegExp = /^(.*\/)?stacks\.txt$/
   ): Promise<ExtractResult> {
     try {
-      console.log('ZipHandler: Starting zip extraction for file:', file.name, 'pattern:', pattern);
       const JSZipClass = await getJSZip();
       if (!JSZipClass) {
         throw new Error(
           'JSZip failed to load from CDN. Please check your internet connection and try again.'
         );
       }
-      console.log('ZipHandler: Got JSZip class, creating instance');
       const arrayBuffer = await file.arrayBuffer();
-      console.log('ZipHandler: Loading zip from array buffer');
       const contents = await new JSZipClass().loadAsync(arrayBuffer);
-      console.log('ZipHandler: Zip loaded successfully, extracting files');
       const result = await this.extractFromZip(contents, pattern);
-      console.log('ZipHandler: Extraction completed, found', result.files.length, 'files');
       return result;
     } catch (error) {
       console.error('ZipHandler: Error during zip extraction:', error);
@@ -60,37 +55,16 @@ export class ZipHandler {
     const extractedFiles: ZipFile[] = [];
     let totalSize = 0;
 
-    console.log(
-      'ZipHandler: Scanning zip contents, found',
-      Object.keys(contents.files).length,
-      'entries'
-    );
 
     // Extract matching files
     for (const [path, file] of Object.entries(contents.files)) {
-      console.log(
-        'ZipHandler: Checking file:',
-        path,
-        'is dir:',
-        (file as any).dir,
-        'matches pattern:',
-        pattern.test(path)
-      );
       if (!(file as any).dir && pattern.test(path)) {
-        console.log('ZipHandler: Extracting matching file:', path);
         const content = await (file as any).async('text');
         extractedFiles.push({ path, content });
         totalSize += content.length;
-        console.log('ZipHandler: Extracted file:', path, 'size:', content.length);
       }
     }
 
-    console.log(
-      'ZipHandler: Final extraction result:',
-      extractedFiles.length,
-      'files, total size:',
-      totalSize
-    );
     return { files: extractedFiles, totalSize };
   }
 }

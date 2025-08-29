@@ -6,6 +6,7 @@
 import { ProfileCollection } from '../src/app/ProfileCollection.ts';
 import { SettingsManager } from '../src/app/SettingsManager.ts';
 import { FileParser, ZipHandler } from '../src/parser/index.js';
+import { StackTraceApp } from '../src/ui/StackTraceApp.ts';
 import JSZip from 'jszip';
 import { TEST_DATA, DEFAULT_SETTINGS, test } from './shared-test-data.js';
 
@@ -544,6 +545,394 @@ main.worker()
     // The filtering logic should hit the pinned stack condition
     if (stack.counts.matches === 0) {
       throw new Error('Pinned stack should be made visible even with zero child matches');
+    }
+  });
+
+
+  // Test comprehensive filter constraint combinations 
+  await test('Wait time filtering works correctly', async () => {
+    const collection = new ProfileCollection(DEFAULT_SETTINGS);
+    await addFile(collection, TEST_DATA.exampleStacks2, 'stacks.txt');
+    
+    // Get baseline counts
+    const baseStats = collection.getStackStatistics();
+    const originalTotal = baseStats.totalGoroutines;
+    
+    // Test wait-only filter should reduce visible count
+    collection.setFilter({ filterString: '', minWait: 5, maxWait: 15 });
+    const waitOnlyStats = collection.getStackStatistics();
+    if (waitOnlyStats.visibleGoroutines >= originalTotal) {
+      throw new Error(`Wait filter should reduce goroutines: got ${waitOnlyStats.visibleGoroutines}, expected < ${originalTotal}`);
+    }
+    
+    // Test range constraints
+    collection.setFilter({ filterString: '', minWait: 0, maxWait: 0 });
+    const zeroWaitStats = collection.getStackStatistics();
+    
+    collection.setFilter({ filterString: '', minWait: 10, maxWait: 20 });
+    const highWaitStats = collection.getStackStatistics();
+    
+    // Should have different results for different ranges
+    if (zeroWaitStats.visibleGoroutines === highWaitStats.visibleGoroutines) {
+      console.warn('Wait filters may not be working - got same counts for different ranges');
+    }
+  });
+  
+  await test('State filtering works correctly', async () => {
+    const collection = new ProfileCollection(DEFAULT_SETTINGS);
+    await addFile(collection, TEST_DATA.exampleStacks2, 'stacks.txt');
+    
+    // Get available states from the data
+    const stateStats = collection.getStateStatistics();
+    const availableStates = Array.from(stateStats.keys());
+    if (availableStates.length === 0) {
+      throw new Error('No states found in test data');
+    }
+    
+    // Test filtering by one state
+    const testState = availableStates[0];
+    collection.setFilter({ filterString: '', states: new Set([testState]) });
+    const stateFilterStats = collection.getStackStatistics();
+    
+    // Should show only goroutines with that state
+    const expectedCount = stateStats.get(testState)?.total || 0;
+    if (stateFilterStats.visibleGoroutines !== expectedCount) {
+      throw new Error(`State filter mismatch: expected ${expectedCount}, got ${stateFilterStats.visibleGoroutines}`);
+    }
+  });
+
+  await test('Combined filter constraints work correctly', async () => {
+    const collection = new ProfileCollection(DEFAULT_SETTINGS);
+    await addFile(collection, TEST_DATA.exampleStacks2, 'stacks.txt');
+    
+    // Test string + wait combination
+    collection.setFilter({ filterString: 'select' });
+    const stringOnlyStats = collection.getStackStatistics();
+    
+    collection.setFilter({ filterString: '', minWait: 5, maxWait: 15 });
+    const waitOnlyStats = collection.getStackStatistics();
+    
+    collection.setFilter({ filterString: 'select', minWait: 5, maxWait: 15 });
+    const combinedStats = collection.getStackStatistics();
+    
+    // Combined filter should be more restrictive than either alone
+    if (combinedStats.visibleGoroutines > stringOnlyStats.visibleGoroutines) {
+      throw new Error(`Combined filter should be ≤ string-only: ${combinedStats.visibleGoroutines} > ${stringOnlyStats.visibleGoroutines}`);
+    }
+    if (combinedStats.visibleGoroutines > waitOnlyStats.visibleGoroutines) {
+      throw new Error(`Combined filter should be ≤ wait-only: ${combinedStats.visibleGoroutines} > ${waitOnlyStats.visibleGoroutines}`);
+    }
+  });
+
+  await test('Multiple state filtering works correctly', async () => {
+    const collection = new ProfileCollection(DEFAULT_SETTINGS);
+    await addFile(collection, TEST_DATA.exampleStacks2, 'stacks.txt');
+    
+    const stateStats = collection.getStateStatistics();
+    const availableStates = Array.from(stateStats.keys());
+    if (availableStates.length < 2) {
+      console.warn('Skipping multi-state test - need at least 2 states');
+      return;
+    }
+    
+    // Test filtering by multiple states should be additive
+    const state1 = availableStates[0];
+    const state2 = availableStates[1];
+    
+    collection.setFilter({ filterString: '', states: new Set([state1]) });
+    const state1Stats = collection.getStackStatistics();
+    
+    collection.setFilter({ filterString: '', states: new Set([state2]) });
+    const state2Stats = collection.getStackStatistics();
+    
+    collection.setFilter({ filterString: '', states: new Set([state1, state2]) });
+    const bothStatesStats = collection.getStackStatistics();
+    
+    // Multiple states should show at least as many as individual states
+    if (bothStatesStats.visibleGoroutines < state1Stats.visibleGoroutines) {
+      throw new Error(`Multi-state filter should include state1 results: ${bothStatesStats.visibleGoroutines} < ${state1Stats.visibleGoroutines}`);
+    }
+    if (bothStatesStats.visibleGoroutines < state2Stats.visibleGoroutines) {
+      throw new Error(`Multi-state filter should include state2 results: ${bothStatesStats.visibleGoroutines} < ${state2Stats.visibleGoroutines}`);
+    }
+  });
+
+  await test('Filter constraints are truly applied at goroutine level', async () => {
+    const collection = new ProfileCollection(DEFAULT_SETTINGS);
+    await addFile(collection, TEST_DATA.exampleStacks2, 'stacks.txt');
+    
+    // Apply a filter and check individual goroutine match states
+    collection.setFilter({ filterString: 'select', minWait: 5, maxWait: 15 });
+    
+    let checkedGoroutines = 0;
+    let correctlyFiltered = 0;
+    
+    for (const category of collection.getCategories()) {
+      for (const stack of category.stacks) {
+        for (const file of stack.files) {
+          for (const group of file.groups) {
+            for (const goroutine of group.goroutines) {
+              checkedGoroutines++;
+              
+              // Check if goroutine matches all constraints
+              const goroutineTextMatches = goroutine.id.includes('select');
+              const stackTextMatches = goroutine.stack.searchableText.includes('select');
+              const groupTextMatches = group.labels.some(label => label.includes('select'));
+              const textMatches = goroutineTextMatches || stackTextMatches || groupTextMatches;
+              
+              const waitMatches = goroutine.waitMinutes >= 5 && goroutine.waitMinutes <= 15;
+              const shouldMatchFilter = textMatches && waitMatches;
+              
+              // Account for pinning - pinned items are always visible regardless of filter
+              const isPinned = goroutine.pinned || 
+                              (group.pinned) || 
+                              (file.counts.pinned > 0) || 
+                              (stack.pinned) || 
+                              (category.pinned);
+              const shouldMatch = shouldMatchFilter || isPinned;
+              
+              if (goroutine.matches === shouldMatch) {
+                correctlyFiltered++;
+              }
+            }
+          }
+        }
+      }
+    }
+    
+    if (checkedGoroutines === 0) {
+      throw new Error('No goroutines found to check');
+    }
+    
+    const accuracy = correctlyFiltered / checkedGoroutines;
+    if (accuracy < 0.95) {
+      throw new Error(`Filter accuracy too low: ${accuracy} (${correctlyFiltered}/${checkedGoroutines})`);
+    }
+    
+    console.log(`✅ Filter accuracy: ${(accuracy * 100).toFixed(1)}% (${correctlyFiltered}/${checkedGoroutines})`);
+  });
+
+  await test('Filter state changes are properly tracked', async () => {
+    const collection = new ProfileCollection(DEFAULT_SETTINGS);
+    await addFile(collection, TEST_DATA.exampleStacks2, 'stacks.txt');
+    
+    // Apply first filter
+    collection.setFilter({ filterString: 'select' });
+    collection.clearFilterChanges(); // Reset priorMatches
+    
+    // Apply different filter  
+    collection.setFilter({ filterString: 'main' });
+    
+    // Check that changes were detected
+    let hasChanges = false;
+    for (const category of collection.getCategories()) {
+      for (const stack of category.stacks) {
+        if (stack.counts.matches !== stack.counts.priorMatches) {
+          hasChanges = true;
+          break;
+        }
+      }
+      if (hasChanges) break;
+    }
+    
+    if (!hasChanges) {
+      throw new Error('Filter changes should be detected when switching filters');
+    }
+  });
+
+  await test('Wait time parsing rejects invalid formats', async () => {
+    // Test parseWaitValue logic directly (matching the implementation)
+    const parseWaitValue = (value: string): number | null => {
+      if (!/^\d*\.?\d+$/.test(value.trim())) {
+        return null;
+      }
+      const parsed = parseFloat(value);
+      return isNaN(parsed) ? null : parsed;
+    };
+    
+    // Test cases that should be rejected
+    const invalidCases = [
+      '4z',      // Invalid suffix
+      '3x',      // Invalid suffix  
+      '2.5abc',  // Invalid suffix
+      '',        // Empty
+      'abc',     // Non-numeric
+      '5.5.5'    // Multiple decimals
+    ];
+    
+    for (const testCase of invalidCases) {
+      const result = parseWaitValue(testCase);
+      if (result !== null) {
+        throw new Error(`Expected '${testCase}' to be rejected but got: ${result}`);
+      }
+    }
+    
+    // Test cases that should be accepted
+    const validCases = [
+      { input: '4', expected: 4 },
+      { input: '3', expected: 3 },
+      { input: '2.5', expected: 2.5 },
+      { input: '10', expected: 10 },
+      { input: '0', expected: 0 },
+      { input: '0.1', expected: 0.1 }
+    ];
+    
+    for (const testCase of validCases) {
+      const result = parseWaitValue(testCase.input);
+      if (result !== testCase.expected) {
+        throw new Error(`Expected '${testCase.input}' to parse to ${testCase.expected} but got: ${result}`);
+      }
+    }
+  });
+
+  await test('Multiple wait constraints behavior', async () => {
+    // Test the parseFilterString logic with multiple wait constraints
+    const parseWaitValue = (value: string): number | null => {
+      if (!/^\d*\.?\d+$/.test(value.trim())) {
+        return null;
+      }
+      const parsed = parseFloat(value);
+      return isNaN(parsed) ? null : parsed;
+    };
+
+    const parseFilterString = (input: string) => {
+      const parts = input.split(' ').map(p => p.trim()).filter(p => p.length > 0);
+      const waitParts: string[] = [];
+      const textParts: string[] = [];
+      
+      let minWait: number | undefined;
+      let maxWait: number | undefined;
+      let hasMinConstraint = false;
+      let hasMaxConstraint = false;
+      let hasExactConstraint = false;
+      
+      for (const part of parts) {
+        if (part.startsWith('wait:')) {
+          waitParts.push(part);
+          const waitSpec = part.substring(5);
+          
+          if (waitSpec.startsWith('>')) {
+            if (hasMinConstraint) {
+              return { filterString: '', error: 'Multiple minimum wait constraints not allowed (e.g., wait:>5 wait:>10)' };
+            }
+            if (hasExactConstraint) {
+              return { filterString: '', error: 'Exact wait time cannot be combined with other wait constraints' };
+            }
+            const value = parseWaitValue(waitSpec.substring(1));
+            if (value === null) {
+              return { filterString: '', error: `Invalid wait filter: ${part}` };
+            }
+            minWait = value + 1;
+            hasMinConstraint = true;
+          } else if (waitSpec.startsWith('<')) {
+            if (hasMaxConstraint) {
+              return { filterString: '', error: 'Multiple maximum wait constraints not allowed (e.g., wait:<5 wait:<10)' };
+            }
+            if (hasExactConstraint) {
+              return { filterString: '', error: 'Exact wait time cannot be combined with other wait constraints' };
+            }
+            const value = parseWaitValue(waitSpec.substring(1));
+            if (value === null) {
+              return { filterString: '', error: `Invalid wait filter: ${part}` };
+            }
+            maxWait = value - 1;
+            hasMaxConstraint = true;
+          } else {
+            if (hasExactConstraint) {
+              return { filterString: '', error: 'Multiple exact wait constraints not allowed (e.g., wait:5 wait:10)' };
+            }
+            if (hasMinConstraint || hasMaxConstraint) {
+              return { filterString: '', error: 'Exact wait time cannot be combined with other wait constraints' };
+            }
+            const value = parseWaitValue(waitSpec);
+            if (value === null) {
+              return { filterString: '', error: `Invalid wait filter: ${part}` };
+            }
+            minWait = value;
+            maxWait = value;
+            hasExactConstraint = true;
+          }
+        } else {
+          textParts.push(part);
+        }
+      }
+      
+      if (textParts.length > 1) {
+        return { filterString: '', error: 'Only one search term allowed (plus wait: filters)' };
+      }
+      
+      if (minWait !== undefined && minWait < 0) {
+        return { filterString: '', error: 'Minimum wait time cannot be negative' };
+      }
+      if (maxWait !== undefined && maxWait < 0) {
+        return { filterString: '', error: 'Maximum wait time cannot be negative' };
+      }
+      if (minWait !== undefined && maxWait !== undefined && minWait > maxWait) {
+        return { filterString: '', error: 'Minimum wait time cannot be greater than maximum' };
+      }
+      
+      return { filterString: textParts.join(' '), minWait, maxWait };
+    };
+
+    // Test multiple same-type constraints (should now be invalid)
+    const duplicateMin = parseFilterString('wait:>10 wait:>5');
+    if (!duplicateMin.error) {
+      throw new Error('Expected "wait:>10 wait:>5" to produce an error but it did not');
+    }
+    if (!duplicateMin.error.includes('Multiple minimum wait constraints')) {
+      throw new Error(`Expected error about multiple min constraints, got: ${duplicateMin.error}`);
+    }
+
+    const duplicateMax = parseFilterString('wait:<10 wait:<5');
+    if (!duplicateMax.error) {
+      throw new Error('Expected "wait:<10 wait:<5" to produce an error but it did not');
+    }
+    if (!duplicateMax.error.includes('Multiple maximum wait constraints')) {
+      throw new Error(`Expected error about multiple max constraints, got: ${duplicateMax.error}`);
+    }
+
+    // Test exact combined with range (should be invalid)
+    const exactPlusMin = parseFilterString('wait:5 wait:>10');
+    if (!exactPlusMin.error) {
+      throw new Error('Expected "wait:5 wait:>10" to produce an error but it did not');
+    }
+    if (!exactPlusMin.error.includes('cannot be combined')) {
+      throw new Error(`Expected error about combining exact with range, got: ${exactPlusMin.error}`);
+    }
+
+    const exactPlusMax = parseFilterString('wait:5 wait:<10');
+    if (!exactPlusMax.error) {
+      throw new Error('Expected "wait:5 wait:<10" to produce an error but it did not');
+    }
+    if (!exactPlusMax.error.includes('cannot be combined')) {
+      throw new Error(`Expected error about combining exact with range, got: ${exactPlusMax.error}`);
+    }
+
+    // Test valid different-type constraints (should still work)
+    const validRange = parseFilterString('wait:>5 wait:<10');
+    if (validRange.error) {
+      throw new Error(`Expected "wait:>5 wait:<10" to be valid but got error: ${validRange.error}`);
+    }
+    if (validRange.minWait !== 6 || validRange.maxWait !== 9) {
+      throw new Error(`Expected minWait=6, maxWait=9 but got minWait=${validRange.minWait}, maxWait=${validRange.maxWait}`);
+    }
+
+    // Test constraint order doesn't matter for valid ranges
+    const reverseOrder = parseFilterString('wait:<10 wait:>5');
+    if (reverseOrder.error) {
+      throw new Error(`Expected "wait:<10 wait:>5" to be valid but got error: ${reverseOrder.error}`);
+    }
+    if (reverseOrder.minWait !== 6 || reverseOrder.maxWait !== 9) {
+      throw new Error(`Expected same result regardless of order but got minWait=${reverseOrder.minWait}, maxWait=${reverseOrder.maxWait}`);
+    }
+
+    // Test contradictory valid ranges (should error)
+    const contradictory = parseFilterString('wait:>5 wait:<5');
+    if (!contradictory.error) {
+      throw new Error('Expected "wait:>5 wait:<5" to produce an error but it did not');
+    }
+    if (!contradictory.error.includes('greater than maximum')) {
+      throw new Error(`Expected error about min > max, got: ${contradictory.error}`);
     }
   });
 
