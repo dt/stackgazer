@@ -417,6 +417,16 @@ body {
     gap: 12px;
 }
 
+/* Add downward arrow with rightward tip prefix to stack titles */
+.stack-title::before {
+    content: "↳";
+    margin-right: -4px;
+    opacity: 1;
+    font-size: 1.1em;
+    position: relative;
+    top: -3px;
+}
+
 .group-title-text {
     font-weight: bold;
     color: white;
@@ -942,7 +952,7 @@ body {
     transition: transform 0.2s ease;
 }
 
-.custom-rules-section.collapsed .custom-rules-title h5::before {
+.custom-rules-section.settings-collapsed .custom-rules-title h5::before {
     content: '▶';
 }
 
@@ -1879,9 +1889,9 @@ body {
     border-top: 1px solid var(--border-secondary);
 }
 
-/* Collapse behavior: hide rule-list and footer-buttons when rules-editor has collapsed class */
-.rules-editor.collapsed .rules-list,
-.rules-editor.collapsed .footer-buttons {
+/* Collapse behavior: hide rule-list and footer-buttons when rules-editor has collapsed-settings class */
+.rules-editor.collapsed-settings .rules-list,
+.rules-editor.collapsed-settings .footer-buttons {
     display: none;
 }
 
@@ -2082,7 +2092,7 @@ body {
     transition: transform 0.2s ease;
 }
 
-.collapsible-header.collapsed .expand-icon {
+.collapsible-header.collapsed-settings .expand-icon {
     transform: rotate(-90deg);
 }
 
@@ -2090,7 +2100,7 @@ body {
     padding: 0;
 }
 
-.collapsible-content.collapsed {
+.collapsible-content.collapsed-settings {
     display: none;
 }
 
@@ -2303,12 +2313,12 @@ body {
 }
 
 /* Triangle points right when content is collapsed, down when expanded */
-.default-rules-section:has(.default-rules-content.collapsed) .expand-icon {
+.default-rules-section:has(.default-rules-content.collapsed-settings) .expand-icon {
     transform: rotate(-90deg);
 }
 
 /* Fallback for browsers without :has() support - use a class on the section */
-.default-rules-section.collapsed .expand-icon {
+.default-rules-section.settings-collapsed .expand-icon {
     transform: rotate(-90deg);
 }
 
@@ -2325,8 +2335,8 @@ body {
     transition: all 0.2s ease;
 }
 
-.default-rules-content.collapsed,
-.custom-rules-content.collapsed {
+.default-rules-content.collapsed-settings,
+.custom-rules-content.collapsed-settings {
     display: none;
 }
 
