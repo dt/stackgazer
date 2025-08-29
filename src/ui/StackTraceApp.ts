@@ -527,6 +527,135 @@ export class StackTraceApp {
     this.updateStats();
   }
 
+  private handleNavigationClick(e: Event): void {
+    e.preventDefault();
+    e.stopPropagation();
+    const link = e.currentTarget as HTMLElement;
+    const targetId = link.dataset.targetId;
+    const sourceId = link.dataset.sourceId;
+    if (targetId && sourceId) {
+      this.navigateToGoroutine(targetId, sourceId);
+    }
+  }
+
+  private handleShowAllCreatedClick(e: Event): void {
+    e.preventDefault();
+    e.stopPropagation();
+    const link = e.currentTarget as HTMLElement;
+    const creatorId = link.dataset.creatorId;
+    const secondLineId = link.dataset.secondLineId;
+    
+    if (creatorId && secondLineId) {
+      const goroutine = this.profileCollection.getGoroutineByID(creatorId);
+      if (goroutine) {
+        const secondLine = document.getElementById(secondLineId) as HTMLElement;
+        if (secondLine) {
+          this.showAllCreatedGoroutines(creatorId, goroutine.created, secondLine);
+        }
+      }
+    }
+  }
+
+  private handleTooltipMouseEnter(e: MouseEvent): void {
+    const link = e.currentTarget as HTMLElement;
+    const goroutineId = link.dataset.tooltipGoroutineId;
+    if (goroutineId) {
+      this.showGoroutinePreviewTooltip(goroutineId, e);
+    }
+  }
+
+  private handleTooltipMouseLeave(): void {
+    this.hideTooltip();
+  }
+
+  private handleTooltipMouseMove(e: MouseEvent): void {
+    this.tooltip.style.left = `${e.pageX - 20}px`;
+    this.tooltip.style.top = `${e.pageY + 10}px`;
+  }
+
+  private handleShowMoreClick(e: Event): void {
+    e.stopPropagation();
+    const showMoreLink = e.currentTarget as HTMLElement;
+    const groupId = showMoreLink.dataset.groupId;
+    
+    if (!groupId) return;
+    
+    const groupContent = showMoreLink.parentElement as HTMLElement;
+    if (!groupContent) return;
+    
+    // Find the group in the data model
+    const group = this.findGroupById(groupId);
+    if (!group) return;
+    
+    // Get currently visible goroutines to determine which ones to add
+    const visibleGoroutineIds = new Set(
+      Array.from(groupContent.querySelectorAll('.goroutine-entry')).map(el => el.id.replace('goroutine-', ''))
+    );
+    
+    // Add remaining goroutines that aren't already visible
+    group.goroutines.forEach(goroutine => {
+      if (!visibleGoroutineIds.has(goroutine.id)) {
+        const goroutineElement = this.createGoroutineElement(goroutine);
+        groupContent.appendChild(goroutineElement);
+      }
+    });
+    
+    // Remove the show more link since all goroutines are now visible
+    showMoreLink.remove();
+    this.setFilter(this.buildCurrentFilter());
+  }
+
+  private findGroupById(groupId: string): Group | null {
+    const categories = this.profileCollection.getCategories();
+    for (const category of categories) {
+      for (const stack of category.stacks) {
+        for (const fileSection of stack.files) {
+          for (const group of fileSection.groups) {
+            if (group.id === groupId) {
+              return group;
+            }
+          }
+        }
+      }
+    }
+    return null;
+  }
+
+  private handleFileRenameClick(e: Event): void {
+    e.stopPropagation();
+    const fileNameSpan = e.currentTarget as HTMLElement;
+    const fileName = fileNameSpan.dataset.fileName;
+    if (fileName) {
+      this.startFileRename(fileNameSpan, fileName);
+    }
+  }
+
+  private handleFileRemoveClick(e: Event): void {
+    e.stopPropagation();
+    const removeBtn = e.currentTarget as HTMLElement;
+    const fileName = removeBtn.dataset.fileName;
+    if (fileName) {
+      this.profileCollection.removeFile(fileName);
+      this.render();
+    }
+  }
+
+  private handleRuleRemoveClick(e: Event): void {
+    const removeBtn = e.currentTarget as HTMLElement;
+    const ruleElement = removeBtn.closest('.rule-item') as HTMLElement;
+    const listType = removeBtn.dataset.listType || 'rulesList';
+    
+    if (ruleElement) {
+      ruleElement.remove();
+      // Update rule count after removal
+      const rulesList = document.getElementById(listType);
+      if (rulesList) {
+        const remainingRules = rulesList.querySelectorAll('.rule-item').length;
+        this.updateRuleListHeader(listType, remainingRules);
+      }
+    }
+  }
+
   private toggleNarrowSidebar(): void {
     const sidebar = document.querySelector('.sidebar') as HTMLElement;
     const overlay = document.getElementById('sidebarOverlay') as HTMLElement;
@@ -942,11 +1071,7 @@ export class StackTraceApp {
           content.style.display = '';
         }
         
-        // Update icon directly
-        const icon = section.querySelector('.expand-icon') as HTMLElement;
-        if (icon) {
-          icon.textContent = '▼';
-        }
+        // Icon is handled by CSS pseudo-elements based on collapsed classes
         
         section.classList.remove('container-collapsed');
         
@@ -961,11 +1086,7 @@ export class StackTraceApp {
           content.style.display = '';
         }
         
-        // Update icon directly
-        const icon = section.querySelector('.expand-icon') as HTMLElement;
-        if (icon) {
-          icon.textContent = '▼';
-        }
+        // Icon is handled by CSS pseudo-elements based on collapsed classes
         
         section.classList.remove('container-collapsed');
         
@@ -988,10 +1109,7 @@ export class StackTraceApp {
           content.style.display = 'none';
         }
         
-        const icon = section.querySelector('.expand-icon') as HTMLElement;
-        if (icon) {
-          icon.textContent = '▶';
-        }
+        // Icon is handled by CSS pseudo-elements based on collapsed classes
         
         // Use consistent CSS class for all containers
         section.classList.add('container-collapsed');
@@ -1005,10 +1123,7 @@ export class StackTraceApp {
           content.style.display = 'none';
         }
         
-        const icon = section.querySelector('.expand-icon') as HTMLElement;
-        if (icon) {
-          icon.textContent = '▶';
-        }
+        // Icon is handled by CSS pseudo-elements based on collapsed classes
         
         section.classList.add('container-collapsed');
       });
@@ -1033,10 +1148,7 @@ export class StackTraceApp {
           content.style.display = '';
         }
         
-        const icon = container.querySelector('.expand-icon') as HTMLElement;
-        if (icon) {
-          icon.textContent = '▼';
-        }
+        // Icon is handled by CSS pseudo-elements based on collapsed classes
       } else {
         // Collapse: Add CSS class and hide content
         container.classList.add('container-collapsed');
@@ -1046,10 +1158,7 @@ export class StackTraceApp {
           content.style.display = 'none';
         }
         
-        const icon = container.querySelector('.expand-icon') as HTMLElement;
-        if (icon) {
-          icon.textContent = '▶';
-        }
+        // Icon is handled by CSS pseudo-elements based on collapsed classes
       }
     } else {
       container.classList.toggle('section-collapsed');
@@ -1190,6 +1299,12 @@ export class StackTraceApp {
     const container = header.closest('.section') as HTMLElement;
     if (!container) return;
 
+    // Don't toggle if clicking on a button (pin, copy, etc.)
+    const target = e.target as HTMLElement;
+    if (target.tagName === 'BUTTON' || target.closest('button')) {
+      return;
+    }
+
     // Check if selection changed during the drag
     const selection = window.getSelection();
     const selectionAtMouseUp = selection ? selection.toString() : '';
@@ -1283,10 +1398,8 @@ export class StackTraceApp {
       // Set file name
       const fileNameSpan = fileItem.querySelector('.file-name-text') as HTMLElement;
       fileNameSpan.textContent = fileName;
-      fileNameSpan.addEventListener('click', e => {
-        e.stopPropagation(); // Prevent event bubbling
-        this.startFileRename(fileNameSpan, fileName);
-      });
+      fileNameSpan.dataset.fileName = fileName;
+      fileNameSpan.addEventListener('click', this.handleFileRenameClick.bind(this));
 
       // Set file statistics
       const stats = fileStatsByName.get(fileName) || { visible: 0, total: 0 };
@@ -1295,11 +1408,8 @@ export class StackTraceApp {
 
       // Setup remove button
       const removeBtn = fileItem.querySelector('.file-remove-btn') as HTMLButtonElement;
-      removeBtn.addEventListener('click', e => {
-        e.stopPropagation(); // Prevent toggle when clicking remove
-        this.profileCollection.removeFile(fileName);
-        this.render();
-      });
+      removeBtn.dataset.fileName = fileName;
+      removeBtn.addEventListener('click', this.handleFileRemoveClick.bind(this));
 
       fileList.appendChild(fileItem);
     });
@@ -1523,17 +1633,9 @@ export class StackTraceApp {
       const countSpan = showMoreLink.querySelector('.show-more-link-clickable') as HTMLElement;
       countSpan.textContent = remainingGoroutines.length.toString();
 
-      showMoreLink.addEventListener('click', e => {
-        e.stopPropagation();
-        // Create DOM elements for remaining goroutines (lazy creation)
-        remainingGoroutines.forEach(goroutine => {
-          const goroutineElement = this.createGoroutineElement(goroutine);
-          groupContent.appendChild(goroutineElement);
-        });
-        // Remove the show more link since all goroutines are now visible
-        showMoreLink.remove();
-        this.setFilter(this.buildCurrentFilter());
-      });
+      // Store group ID to find group in data model
+      showMoreLink.dataset.groupId = group.id;
+      showMoreLink.addEventListener('click', this.handleShowMoreClick.bind(this));
       groupContent.appendChild(showMoreLink);
     }
 
@@ -1610,11 +1712,9 @@ export class StackTraceApp {
         const creatorLink = document.createElement('span');
         creatorLink.className = 'creator-link';
         creatorLink.textContent = goroutine.creator;
-        creatorLink.addEventListener('click', e => {
-          e.preventDefault();
-          e.stopPropagation();
-          this.navigateToGoroutine(goroutine.creator!, goroutine.id);
-        });
+        creatorLink.dataset.targetId = goroutine.creator;
+        creatorLink.dataset.sourceId = goroutine.id;
+        creatorLink.addEventListener('click', this.handleNavigationClick.bind(this));
         this.addTooltipToLink(creatorLink, goroutine.creator);
         createdBySection.appendChild(creatorLink);
       } else {
@@ -1634,6 +1734,9 @@ export class StackTraceApp {
     ) as HTMLElement;
 
     if (goroutine.created.length > 0) {
+      // Generate unique ID for the second line for "show more" functionality
+      const secondLineId = `second-line-${goroutine.id}`;
+      secondLine.id = secondLineId;
       const createdText = document.createElement('span');
       createdText.className = 'created-goroutines-label';
       createdText.textContent = `created ${goroutine.created.length} goroutine${goroutine.created.length > 1 ? 's' : ''}: `;
@@ -1653,11 +1756,9 @@ export class StackTraceApp {
         const createdLink = document.createElement('span');
         createdLink.className = 'creator-link';
         createdLink.textContent = created;
-        createdLink.addEventListener('click', e => {
-          e.preventDefault();
-          e.stopPropagation();
-          this.navigateToGoroutine(created, goroutine.id);
-        });
+        createdLink.dataset.targetId = created;
+        createdLink.dataset.sourceId = goroutine.id;
+        createdLink.addEventListener('click', this.handleNavigationClick.bind(this));
         this.addTooltipToLink(createdLink, created);
         secondLine.appendChild(createdLink);
       });
@@ -1670,11 +1771,9 @@ export class StackTraceApp {
         moreLink.textContent = `${goroutine.created.length - maxShow} more`;
         moreLink.className = 'created-goroutines-more creator-link';
         moreLink.classList.add('cursor-pointer');
-        moreLink.addEventListener('click', e => {
-          e.preventDefault();
-          e.stopPropagation();
-          this.showAllCreatedGoroutines(goroutine.id, goroutine.created, secondLine);
-        });
+        moreLink.dataset.creatorId = goroutine.id;
+        moreLink.dataset.secondLineId = secondLineId;
+        moreLink.addEventListener('click', this.handleShowAllCreatedClick.bind(this));
         secondLine.appendChild(moreText);
         secondLine.appendChild(moreLink);
       }
@@ -2238,11 +2337,9 @@ export class StackTraceApp {
       const createdLink = document.createElement('span');
       createdLink.className = 'creator-link';
       createdLink.textContent = created;
-      createdLink.addEventListener('click', e => {
-        e.preventDefault();
-        e.stopPropagation();
-        this.navigateToGoroutine(created, creatorId);
-      });
+      createdLink.dataset.targetId = created;
+      createdLink.dataset.sourceId = creatorId;
+      createdLink.addEventListener('click', this.handleNavigationClick.bind(this));
       this.addTooltipToLink(createdLink, created);
       secondLine.appendChild(createdLink);
     });
@@ -2283,7 +2380,11 @@ export class StackTraceApp {
       console.warn(`Goroutine ${goroutineId} not found in profile collection`);
       return;
     }
+    // Always unforce any existing forced goroutine first
+    this.setFilter(this.buildCurrentFilter({ forcedGoroutine: undefined }));
+    
     if (!g.matches) {
+      // Now force this goroutine to be visible
       this.setFilter(this.buildCurrentFilter({ forcedGoroutine: goroutineId }));
     }
 
@@ -2330,6 +2431,14 @@ export class StackTraceApp {
         // Remove the appropriate collapsed class to expand
         currentElement.classList.remove('container-collapsed');
         currentElement.classList.remove('section-collapsed');
+
+        // Also reset any inline display styles that might have been set during collapse
+        const content = currentElement.querySelector('.section-content') as HTMLElement;
+        if (content) {
+          content.style.display = '';
+        }
+
+        // The expand icon is handled by CSS pseudo-elements based on collapsed classes
 
         // Skip aria-expanded for performance
       }
@@ -2687,14 +2796,16 @@ export class StackTraceApp {
     document.body.appendChild(this.tooltip);
   }
 
-  private showTooltip(goroutineId: string, event: MouseEvent): void {
+  private showGoroutinePreviewTooltip(goroutineId: string, event: MouseEvent): void {
     const goroutine = this.profileCollection.getGoroutineByID(goroutineId);
     if (!goroutine) return;
 
+    const category = this.profileCollection.getCategoryForGoroutine(goroutineId);
+    const categoryPrefix = category ? `${category.name} → ` : '';
     const stackTitle = goroutine.stack.name;
     const waitText = goroutine.waitMinutes > 0 ? `, ${goroutine.waitMinutes} mins` : '';
 
-    this.tooltip.textContent = `[${goroutine.state}${waitText}] ${stackTitle}`;
+    this.tooltip.textContent = `[${goroutine.state}${waitText}] ${categoryPrefix}${stackTitle}`;
 
     // Position off-screen first to measure it
     this.tooltip.style.left = '-9999px';
@@ -2744,18 +2855,10 @@ export class StackTraceApp {
   }
 
   private addTooltipToLink(link: HTMLElement, goroutineId: string): void {
-    link.addEventListener('mouseenter', event => {
-      this.showTooltip(goroutineId, event as MouseEvent);
-    });
-
-    link.addEventListener('mouseleave', () => {
-      this.hideTooltip();
-    });
-
-    link.addEventListener('mousemove', event => {
-      this.tooltip.style.left = `${(event as MouseEvent).pageX - 20}px`;
-      this.tooltip.style.top = `${(event as MouseEvent).pageY + 10}px`;
-    });
+    link.dataset.tooltipGoroutineId = goroutineId;
+    link.addEventListener('mouseenter', this.handleTooltipMouseEnter.bind(this));
+    link.addEventListener('mouseleave', this.handleTooltipMouseLeave.bind(this));
+    link.addEventListener('mousemove', this.handleTooltipMouseMove.bind(this));
   }
 
   /**
@@ -2904,15 +3007,8 @@ export class StackTraceApp {
     // Setup remove button event listener
     const removeBtn = ruleElement.querySelector('.remove-rule-btn') as HTMLButtonElement;
     if (removeBtn) {
-      removeBtn.addEventListener('click', () => {
-        ruleElement.remove();
-        // Update rule count after removal
-        const rulesList = document.getElementById('rulesList');
-        if (rulesList) {
-          const remainingRules = rulesList.querySelectorAll('.rule-item').length;
-          this.updateRuleListHeader('rulesList', remainingRules);
-        }
-      });
+      removeBtn.dataset.listType = 'rulesList';
+      removeBtn.addEventListener('click', this.handleRuleRemoveClick.bind(this));
     }
 
     // Insert before add buttons
@@ -3076,15 +3172,8 @@ export class StackTraceApp {
     // Setup remove button event listener
     const removeBtn = ruleElement.querySelector('.remove-rule-btn') as HTMLButtonElement;
     if (removeBtn) {
-      removeBtn.addEventListener('click', () => {
-        ruleElement.remove();
-        // Update rule count after removal
-        const categoryRulesList = document.getElementById('categoryRulesList');
-        if (categoryRulesList) {
-          const remainingRules = categoryRulesList.querySelectorAll('.rule-item').length;
-          this.updateRuleListHeader('categoryRulesList', remainingRules);
-        }
-      });
+      removeBtn.dataset.listType = 'categoryRulesList';
+      removeBtn.addEventListener('click', this.handleRuleRemoveClick.bind(this));
     }
 
     // Insert before add buttons
@@ -3623,4 +3712,5 @@ export class StackTraceApp {
       }
     });
   }
+
 }
