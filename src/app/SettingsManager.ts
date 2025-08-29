@@ -13,7 +13,7 @@ export interface AppSettings {
   // Parsing options
   functionTrimPrefixes: string;
   fileTrimPrefixes: string;
-  
+
   // Text-based rule format - legacy (for backward compatibility)
   categorySkipRules: string;
   categoryMatchRules: string;
@@ -75,34 +75,34 @@ export class SettingsManager {
       'rpc.kvAuth',
       'sql/flowinfra.(*FlowBase).StartInternal.func',
       'sql/execinfra.(*ProcessorBaseNoHelper).Run',
-      'sql/execinfra.Run'
+      'sql/execinfra.Run',
     ].join('\n');
 
     return {
       // Parsing options
       functionTrimPrefixes: '',
       fileTrimPrefixes: '',
-      
+
       // Legacy rule format (for backward compatibility)
       categorySkipRules: defaultCategorySkipRules,
-      
+
       categoryMatchRules: 's|^((([^\\/.]*\\\\.[^\\/]*)*\\/)?[^\\/.]+(\\/[^\\/.]+)?)|$1|',
-      
+
       nameSkipRules: [
         'sync.runtime_notifyListWait',
-        'sync.runtime_Semacquire', 
+        'sync.runtime_Semacquire',
         'golang.org/x/sync/errgroup.(*Group).Wait',
         'rpc.NewContext.ClientInterceptor.func8',
         'util/cidr.metricsConn.Read',
-        'server.(*Node).batchInternal'
+        'server.(*Node).batchInternal',
       ].join('\n'),
-      
+
       nameTrimRules: [
         's|\\.func\\d+(\\.\\d+)?$||',
         'util/',
-        's|^server\\.\\(\\*Node\\)\\.Batch$|batch|'
+        's|^server\\.\\(\\*Node\\)\\.Batch$|batch|',
       ].join('\n'),
-      
+
       nameFoldRules: [
         's|sync.(*Cond).Wait,|condwait|',
         's|sync.(*WaitGroup).Wait,|waitgroup|',
@@ -113,11 +113,11 @@ export class SettingsManager {
         's|syscall.Syscall,stdlib|syscall|',
         's|internal/poll.runtime_pollWait,stdlib|netpoll|',
         's|google.golang.org/grpc/internal/transport.(*Stream).waitOnHeader,google.golang.org/grpc|grpc|',
-        's|util/admission.(*WorkQueue).Admit,^(util/admission|kv/kvserver/kvadmission)|AC|'
+        's|util/admission.(*WorkQueue).Admit,^(util/admission|kv/kvserver/kvadmission)|AC|',
       ].join('\n'),
-      
+
       nameFindRules: [
-        's|kv/kvclient/kvcoord.(*DistSender).Send,^(kv/kvclient/kvcoord|kv\\.)|DistSender|'
+        's|kv/kvclient/kvcoord.(*DistSender).Send,^(kv/kvclient/kvcoord|kv\\.)|DistSender|',
       ].join('\n'),
 
       // New custom/default rule system - all enabled by default with empty custom rules
@@ -364,13 +364,13 @@ export class SettingsManager {
    */
   getCategoryRules(): CategoryRule[] {
     const rules: CategoryRule[] = [];
-    
+
     // Add skip rules
     const skipRules = this.getCategorySkipRules();
     for (const rule of skipRules) {
       rules.push({ skip: rule });
     }
-    
+
     // Add match rules
     const combinedMatchRules = this.getCombinedCategoryMatchRules();
     if (combinedMatchRules) {
@@ -378,7 +378,7 @@ export class SettingsManager {
         .split('\n')
         .map(line => line.trim())
         .filter(line => line.length > 0);
-      
+
       for (const line of matchLines) {
         if (line.startsWith('s|')) {
           // Parse s|pattern|replacement| format and convert to match rule
@@ -392,7 +392,7 @@ export class SettingsManager {
         }
       }
     }
-    
+
     return rules;
   }
 
@@ -475,19 +475,19 @@ export class SettingsManager {
    */
   getTitleManipulationRules(): TitleRule[] {
     const rules: TitleRule[] = [];
-    
+
     // Add skip rules
     rules.push(...this.parseTextRules(this.getCombinedNameSkipRules(), 'skip'));
-    
+
     // Add trim rules
     rules.push(...this.parseTextRules(this.getCombinedNameTrimRules(), 'trim'));
-    
+
     // Add fold rules
     rules.push(...this.parseTextRules(this.getCombinedNameFoldRules(), 'fold'));
-    
+
     // Add find rules
     rules.push(...this.parseTextRules(this.getCombinedNameFindRules(), 'find'));
-    
+
     return rules;
   }
 
@@ -542,16 +542,16 @@ export class SettingsManager {
    */
   getCombinedCategorySkipRules(): string {
     let combined = '';
-    
+
     if (this.settings.useDefaultCategorySkipRules) {
       combined += this.getDefaultCategorySkipRulesString();
     }
-    
+
     if (this.settings.customCategorySkipRules.trim()) {
       if (combined) combined += '\n';
       combined += this.settings.customCategorySkipRules;
     }
-    
+
     return combined;
   }
 
@@ -560,16 +560,16 @@ export class SettingsManager {
    */
   getCombinedCategoryMatchRules(): string {
     let combined = '';
-    
+
     if (this.settings.useDefaultCategoryMatchRules) {
       combined += this.getDefaultCategoryMatchRulesString();
     }
-    
+
     if (this.settings.customCategoryMatchRules.trim()) {
       if (combined) combined += '\n';
       combined += this.settings.customCategoryMatchRules;
     }
-    
+
     return combined;
   }
 
@@ -578,16 +578,16 @@ export class SettingsManager {
    */
   getCombinedNameSkipRules(): string {
     let combined = '';
-    
+
     if (this.settings.useDefaultNameSkipRules) {
       combined += this.getDefaultNameSkipRulesString();
     }
-    
+
     if (this.settings.customNameSkipRules.trim()) {
       if (combined) combined += '\n';
       combined += this.settings.customNameSkipRules;
     }
-    
+
     return combined;
   }
 
@@ -596,16 +596,16 @@ export class SettingsManager {
    */
   getCombinedNameTrimRules(): string {
     let combined = '';
-    
+
     if (this.settings.useDefaultNameTrimRules) {
       combined += this.getDefaultNameTrimRulesString();
     }
-    
+
     if (this.settings.customNameTrimRules.trim()) {
       if (combined) combined += '\n';
       combined += this.settings.customNameTrimRules;
     }
-    
+
     return combined;
   }
 
@@ -614,16 +614,16 @@ export class SettingsManager {
    */
   getCombinedNameFoldRules(): string {
     let combined = '';
-    
+
     if (this.settings.useDefaultNameFoldRules) {
       combined += this.getDefaultNameFoldRulesString();
     }
-    
+
     if (this.settings.customNameFoldRules.trim()) {
       if (combined) combined += '\n';
       combined += this.settings.customNameFoldRules;
     }
-    
+
     return combined;
   }
 
@@ -632,17 +632,16 @@ export class SettingsManager {
    */
   getCombinedNameFindRules(): string {
     let combined = '';
-    
+
     if (this.settings.useDefaultNameFindRules) {
       combined += this.getDefaultNameFindRulesString();
     }
-    
+
     if (this.settings.customNameFindRules.trim()) {
       if (combined) combined += '\n';
       combined += this.settings.customNameFindRules;
     }
-    
+
     return combined;
   }
-
 }

@@ -115,14 +115,14 @@ export interface AppSettings {
 // State sorting utility
 const STATE_SORT_ORDER = [
   'running',
-  'runnable', 
+  'runnable',
   'syscall',
   'IO wait',
   'semacquire',
   'select',
   'chan receive',
   'chan send',
-  'wait'
+  'wait',
 ];
 
 /**
@@ -142,11 +142,11 @@ export function sortStates(states: string[]): string[] {
   return states.sort((a, b) => {
     const priorityA = getStateSortPriority(a);
     const priorityB = getStateSortPriority(b);
-    
+
     if (priorityA !== priorityB) {
       return priorityA - priorityB;
     }
-    
+
     // Both have same priority (likely both unknown), sort alphabetically
     return a.localeCompare(b);
   });
@@ -159,11 +159,11 @@ export function sortStateEntries<T>(entries: [string, T][]): [string, T][] {
   return entries.sort(([stateA], [stateB]) => {
     const priorityA = getStateSortPriority(stateA);
     const priorityB = getStateSortPriority(stateB);
-    
+
     if (priorityA !== priorityB) {
       return priorityA - priorityB;
     }
-    
+
     // Both have same priority (likely both unknown), sort alphabetically
     return stateA.localeCompare(stateB);
   });

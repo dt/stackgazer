@@ -97,17 +97,23 @@ await runParseTests();
 
 await test('ExtractedName assignment', async () => {
   // Test extractedName assignment in parseFormat2 (lines 249-250)
-  const format2Parser = new FileParser({ nameExtractionPatterns: [
-    { regex: 'name:(\\w+)', replacement: '$1' }
-  ]});
-  
-  const format2Result = await format2Parser.parseFile('name:myfile\ngoroutine 1 [running]:\nmain()\n\tmain.go:1', 'test.txt');
+  const format2Parser = new FileParser({
+    nameExtractionPatterns: [{ regex: 'name:(\\w+)', replacement: '$1' }],
+  });
+
+  const format2Result = await format2Parser.parseFile(
+    'name:myfile\ngoroutine 1 [running]:\nmain()\n\tmain.go:1',
+    'test.txt'
+  );
   if (!format2Result.success || format2Result.data.extractedName !== 'myfile') {
     throw new Error(`Format2 extractedName failed: got '${format2Result.data.extractedName}'`);
   }
-  
+
   // Test extractedName assignment in parseFormat1 (lines 304-305)
-  const format1Result = await format2Parser.parseFile('name:testfile\ngoroutine profile: total 1\n1 @ 0x1\n#\t0x1\tmain\tmain.go:1', 'test.txt');
+  const format1Result = await format2Parser.parseFile(
+    'name:testfile\ngoroutine profile: total 1\n1 @ 0x1\n#\t0x1\tmain\tmain.go:1',
+    'test.txt'
+  );
   if (!format1Result.success || format1Result.data.extractedName !== 'testfile') {
     throw new Error(`Format1 extractedName failed: got '${format1Result.data.extractedName}'`);
   }
@@ -115,22 +121,30 @@ await test('ExtractedName assignment', async () => {
 
 await test('Name extraction patterns', async () => {
   // Test hex conversion pattern (lines 65-68)
-  const hexParser = new FileParser({ nameExtractionPatterns: [
-    { regex: 'n0x([0-9a-f]+)', replacement: 'hex:$1' }
-  ]});
-  
-  const hexResult = await hexParser.parseFile('n0xff\\ngoroutine 1 [running]:\\nmain()\\n\\tmain.go:1', 'test.txt');
+  const hexParser = new FileParser({
+    nameExtractionPatterns: [{ regex: 'n0x([0-9a-f]+)', replacement: 'hex:$1' }],
+  });
+
+  const hexResult = await hexParser.parseFile(
+    'n0xff\\ngoroutine 1 [running]:\\nmain()\\n\\tmain.go:1',
+    'test.txt'
+  );
   if (!hexResult.success || hexResult.data.extractedName !== '255') {
     throw new Error('Hex conversion failed');
   }
-  
+
   // Test invalid regex pattern (lines 78-82)
-  const invalidParser = new FileParser({ nameExtractionPatterns: [
-    { regex: '[invalid regex', replacement: '$1' },
-    { regex: 'valid(\\w+)', replacement: '$1' }
-  ]});
-  
-  const invalidResult = await invalidParser.parseFile('validtest\\ngoroutine 1 [running]:\\nmain()\\n\\tmain.go:1', 'test.txt');
+  const invalidParser = new FileParser({
+    nameExtractionPatterns: [
+      { regex: '[invalid regex', replacement: '$1' },
+      { regex: 'valid(\\w+)', replacement: '$1' },
+    ],
+  });
+
+  const invalidResult = await invalidParser.parseFile(
+    'validtest\\ngoroutine 1 [running]:\\nmain()\\n\\tmain.go:1',
+    'test.txt'
+  );
   if (!invalidResult.success) throw new Error('Parse failed');
   if (invalidResult.data.extractedName !== 'test') {
     throw new Error(`Expected 'test', got '${invalidResult.data.extractedName}'`);
@@ -142,10 +156,10 @@ await test('Function name without arguments', async () => {
   const content = `goroutine 1 [running]:
 main.worker
 \t/main.go:10 +0x10`;
-  
+
   const result = await parser.parseFile(content, 'test.txt');
   if (!result.success) throw new Error('Parse failed');
-  
+
   const frame = result.data.groups[0].trace[0];
   if (frame.func !== 'main.worker') {
     throw new Error(`Expected 'main.worker', got '${frame.func}'`);
@@ -159,7 +173,7 @@ Another log line
 goroutine 1 [running]:
 main()
 \tmain.go:1 +0x1`;
-  
+
   const result = await parser.parseFile(content, 'test.txt');
   if (!result.success) throw new Error('Parse failed');
   if (result.data.groups.length !== 1) {
@@ -173,7 +187,7 @@ await test('JSON parsing error in format1', async () => {
 1 @ 0x1
 # labels: {invalid json}
 #\t0x1\tmain\tmain.go:1`;
-  
+
   const result = await parser.parseFile(content, 'test.txt');
   if (result.success || !result.error?.includes('Failed to parse labels')) {
     throw new Error('Expected JSON parsing error');

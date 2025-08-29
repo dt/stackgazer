@@ -52,15 +52,13 @@ function isStdLib(functionName: string): boolean {
   return !beforeSlash.includes('.');
 }
 
-type TitleRule = 
+type TitleRule =
   | { skip: string }
   | { trim: string }
   | { fold: string; to: string; while?: string }
   | { find: string; to: string; while?: string };
 
-type CategoryRule = 
-  | { skip: string }
-  | { match: string };
+type CategoryRule = { skip: string } | { match: string };
 
 /**
  * Parses title manipulation rules and applies them to generate stack names
@@ -84,9 +82,15 @@ class StackNamer {
     if (functionName.startsWith(pattern)) {
       return true;
     }
-    
+
     // If pattern contains regex special characters and literal match failed, try as regex
-    if (pattern.includes('(') || pattern.includes('[') || pattern.includes('*') || pattern.includes('+') || pattern.includes('?')) {
+    if (
+      pattern.includes('(') ||
+      pattern.includes('[') ||
+      pattern.includes('*') ||
+      pattern.includes('+') ||
+      pattern.includes('?')
+    ) {
       try {
         const regex = new RegExp(pattern);
         return regex.test(functionName);
@@ -95,20 +99,19 @@ class StackNamer {
         return false;
       }
     }
-    
+
     // Pattern doesn't contain special chars and prefix match failed
     return false;
   }
 
-
   generateTitle(trace: Frame[]): string {
     let stackName = '';
     let frameOffset = 0;
-    
+
     while (frameOffset < trace.length) {
       const frame = trace[frameOffset];
       const frameName = frame.func;
-      
+
       // For each skip rule, if it matches the frame name: advance frame offset, continue
       let shouldSkip = false;
       for (const rule of this.rules) {
@@ -119,7 +122,7 @@ class StackNamer {
         }
       }
       if (shouldSkip) continue;
-      
+
       // If a fold rule matches frame name: prepend its replacement to stackName, advance frame offset by one plus however many match the while pattern
       let foldMatched = false;
       for (const rule of this.rules) {
@@ -128,13 +131,13 @@ class StackNamer {
           if (!stackName.startsWith(rule.to)) {
             stackName = rule.to + (stackName ? ' → ' + stackName : '');
           }
-          
+
           // Advance by 1 plus matching while frames
           frameOffset++;
           if (rule.while) {
             while (frameOffset < trace.length) {
               const nextFrame = trace[frameOffset];
-              
+
               // Check if this frame should be skipped
               let shouldSkip = false;
               for (const skipRule of this.rules) {
@@ -143,14 +146,14 @@ class StackNamer {
                   break;
                 }
               }
-              
+
               if (shouldSkip) {
                 frameOffset++;
                 continue;
               }
-              
+
               let shouldContinue = false;
-              
+
               if (rule.while === 'stdlib' && isStdLib(nextFrame.func)) {
                 shouldContinue = true;
               } else if (rule.while !== 'stdlib') {
@@ -161,7 +164,7 @@ class StackNamer {
                   shouldContinue = nextFrame.func.startsWith(rule.while);
                 }
               }
-              
+
               if (shouldContinue) {
                 frameOffset++;
               } else {
@@ -169,13 +172,13 @@ class StackNamer {
               }
             }
           }
-          
+
           foldMatched = true;
           break;
         }
       }
       if (foldMatched) continue;
-      
+
       // Set trimmed name to frame's func, then trim it with each matching trim rule
       let trimmedName = frameName;
       for (const rule of this.rules) {
@@ -207,16 +210,16 @@ class StackNamer {
           }
         }
       }
-      
+
       // Prepend trimmed framename to stackname
       if (!stackName.startsWith(trimmedName)) {
         stackName = trimmedName + (stackName ? ' → ' + stackName : '');
       }
-      
+
       // For each find rule, check if it finds a match; if many match, use the one with the largest offset
       let bestFind = null;
       let bestOffset = -1;
-      
+
       for (let searchOffset = frameOffset + 1; searchOffset < trace.length; searchOffset++) {
         const searchFrame = trace[searchOffset];
         for (const rule of this.rules) {
@@ -228,19 +231,19 @@ class StackNamer {
           }
         }
       }
-      
+
       if (bestFind) {
         // Prepend the find rule's replacement to stackname
         if (!stackName.startsWith(bestFind.to)) {
           stackName = bestFind.to + (stackName ? ' → ' + stackName : '');
         }
-        
+
         // Advance frame offset by 1 (the match) plus as many following frames match the while pattern
         frameOffset = bestOffset + 1;
         if (bestFind.while) {
           while (frameOffset < trace.length) {
             const nextFrame = trace[frameOffset];
-            
+
             // Check if this frame should be skipped
             let shouldSkip = false;
             for (const skipRule of this.rules) {
@@ -249,14 +252,14 @@ class StackNamer {
                 break;
               }
             }
-            
+
             if (shouldSkip) {
               frameOffset++;
               continue;
             }
-            
+
             let shouldContinue = false;
-            
+
             if (bestFind.while === 'stdlib' && isStdLib(nextFrame.func)) {
               shouldContinue = true;
             } else if (bestFind.while !== 'stdlib') {
@@ -267,7 +270,7 @@ class StackNamer {
                 shouldContinue = nextFrame.func.startsWith(bestFind.while);
               }
             }
-            
+
             if (shouldContinue) {
               frameOffset++;
             } else {
@@ -277,11 +280,11 @@ class StackNamer {
         }
         continue;
       }
-      
+
       // Since no find or fold or skip caused a continue: done
       return stackName || (trace.length > 0 ? trace[trace.length - 1].func : '');
     }
-    
+
     return stackName || (trace.length > 0 ? trace[trace.length - 1].func : '');
   }
 
@@ -292,7 +295,7 @@ class StackNamer {
     for (let i = 0; i < frames.length; i++) {
       const frame = frames[i];
       const functionName = frame.func;
-      
+
       for (const rule of this.rules) {
         if ('find' in rule && this.matchesPattern(functionName, rule.find)) {
           // Found a match, now skip frames according to while pattern
@@ -301,7 +304,7 @@ class StackNamer {
             while (skipToIndex < frames.length) {
               const skipFrame = frames[skipToIndex];
               let shouldContinueSkipping = false;
-              
+
               if (rule.while === 'stdlib' && isStdLib(skipFrame.func)) {
                 shouldContinueSkipping = true;
               } else if (rule.while !== 'stdlib') {
@@ -312,7 +315,7 @@ class StackNamer {
                   shouldContinueSkipping = skipFrame.func.startsWith(rule.while);
                 }
               }
-              
+
               if (shouldContinueSkipping) {
                 skipToIndex++;
               } else {
@@ -320,7 +323,7 @@ class StackNamer {
               }
             }
           }
-          
+
           return { result: rule.to, skipToIndex };
         }
       }
@@ -332,7 +335,10 @@ class StackNamer {
    * Apply find rules to scan remaining frames and extract additional information
    * Returns prefix (to prepend), suffix (to append after arrow), and new determined name if naming resumes
    */
-  private applyFindRules(frames: Frame[], initialSuffix: string): { prefix: string; suffix: string; newName?: string } {
+  private applyFindRules(
+    frames: Frame[],
+    initialSuffix: string
+  ): { prefix: string; suffix: string; newName?: string } {
     let prefix = '';
     let suffix = initialSuffix;
     let frameIndex = 0;
@@ -347,14 +353,14 @@ class StackNamer {
         if ('find' in rule && this.matchesPattern(functionName, rule.find)) {
           // Add the find text to prefix
           prefix += (prefix ? ' → ' : '') + rule.to;
-          
+
           // Skip frames matching the while pattern
           let skipIndex = frameIndex + 1;
           if (rule.while) {
             while (skipIndex < frames.length) {
               const skipFrame = frames[skipIndex];
               let shouldContinueSkipping = false;
-              
+
               if (rule.while === 'stdlib' && isStdLib(skipFrame.func)) {
                 shouldContinueSkipping = true;
               } else if (rule.while !== 'stdlib') {
@@ -366,7 +372,7 @@ class StackNamer {
                   shouldContinueSkipping = skipFrame.func.startsWith(rule.while);
                 }
               }
-              
+
               if (shouldContinueSkipping) {
                 skipIndex++;
               } else {
@@ -374,7 +380,7 @@ class StackNamer {
               }
             }
           }
-          
+
           // Insert find prefix into the existing suffix
           // The suffix already contains the determined name, just insert our prefix
           const parts = suffix.split(' → ');
@@ -399,11 +405,14 @@ class StackNamer {
   /**
    * Resume naming process from given frames (used by find rules)
    */
-  private resumeNamingFromFrames(frames: Frame[], initialSuffix: string): { name: string; suffix: string } {
+  private resumeNamingFromFrames(
+    frames: Frame[],
+    initialSuffix: string
+  ): { name: string; suffix: string } {
     // Apply the same naming logic as generateTitle but starting from these frames
     const tempNamer = new StackNamer(this.rules);
     const tempName = tempNamer.generateTitle(frames);
-    
+
     // Extract any additional suffix that might have been accumulated
     const arrowIndex = tempName.indexOf(' → ');
     if (arrowIndex !== -1) {
@@ -454,7 +463,7 @@ export class ProfileCollection {
 
   /**
    * Generate a category name from the trace using category rules
-   * The first non-skipped frame determines the category; if a match rule matches this frame 
+   * The first non-skipped frame determines the category; if a match rule matches this frame
    * its first capture group (or a capture chosen by #num suffix) is used; otherwise the whole frame is used.
    */
   private generateCategoryName(trace: Frame[]): string {
@@ -466,10 +475,10 @@ export class ProfileCollection {
       const func = frame.func;
 
       // Phase 1: Check if this frame should be skipped (check ALL skip rules)
-      const shouldSkip = this.settings.categoryRules.some(rule => 
-        'skip' in rule && func.startsWith(rule.skip)
+      const shouldSkip = this.settings.categoryRules.some(
+        rule => 'skip' in rule && func.startsWith(rule.skip)
       );
-      
+
       if (shouldSkip) {
         continue; // Skip this frame, try the next one
       }
@@ -499,9 +508,8 @@ export class ProfileCollection {
   private applyMatchRule(func: string, matchPattern: string): string | null {
     // First, strip any comment suffix (-- comment)
     const commentIndex = matchPattern.indexOf(' --');
-    const cleanPattern = commentIndex !== -1 
-      ? matchPattern.substring(0, commentIndex).trim()
-      : matchPattern;
+    const cleanPattern =
+      commentIndex !== -1 ? matchPattern.substring(0, commentIndex).trim() : matchPattern;
 
     // Parse pattern#num syntax
     const hashIndex = cleanPattern.lastIndexOf('#');
@@ -523,7 +531,7 @@ export class ProfileCollection {
     try {
       const regex = new RegExp(pattern);
       const match = func.match(regex);
-      
+
       if (match) {
         // Return the specified capture group or whole match
         return match[captureGroup] || match[0] || '';
@@ -739,7 +747,7 @@ export class ProfileCollection {
         if (goroutine.waitMinutes > g.counts.maxWait) {
           g.counts.maxWait = goroutine.waitMinutes;
         }
-        
+
         // Initially all goroutines match (no filter applied)
         if (goroutine.waitMinutes < g.counts.minMatchingWait) {
           g.counts.minMatchingWait = goroutine.waitMinutes;
@@ -751,7 +759,7 @@ export class ProfileCollection {
         // Update state counts
         const currentTotalCount = g.counts.states.get(goroutine.state) || 0;
         g.counts.states.set(goroutine.state, currentTotalCount + 1);
-        
+
         const currentMatchingCount = g.counts.matchingStates.get(goroutine.state) || 0;
         g.counts.matchingStates.set(goroutine.state, currentMatchingCount + 1);
       }
@@ -785,7 +793,7 @@ export class ProfileCollection {
         fileSection.counts.matches += g.counts.matches;
         fileSection.counts.priorMatches += g.counts.priorMatches;
         fileSection.counts.filterMatches += g.counts.filterMatches;
-        
+
         // Update wait time bounds
         if (g.counts.minWait < fileSection.counts.minWait) {
           fileSection.counts.minWait = g.counts.minWait;
@@ -799,7 +807,7 @@ export class ProfileCollection {
         if (g.counts.maxMatchingWait > fileSection.counts.maxMatchingWait) {
           fileSection.counts.maxMatchingWait = g.counts.maxMatchingWait;
         }
-        
+
         // Aggregate state counts
         for (const [state, count] of g.counts.states) {
           const currentCount = fileSection.counts.states.get(state) || 0;
@@ -814,7 +822,7 @@ export class ProfileCollection {
       stack.counts.matches += g.counts.matches;
       stack.counts.priorMatches += g.counts.priorMatches;
       stack.counts.filterMatches += g.counts.filterMatches;
-      
+
       // Update stack wait time bounds
       if (g.counts.minWait < stack.counts.minWait) {
         stack.counts.minWait = g.counts.minWait;
@@ -828,7 +836,7 @@ export class ProfileCollection {
       if (g.counts.maxMatchingWait > stack.counts.maxMatchingWait) {
         stack.counts.maxMatchingWait = g.counts.maxMatchingWait;
       }
-      
+
       // Aggregate stack state counts
       for (const [state, count] of g.counts.states) {
         const currentCount = stack.counts.states.get(state) || 0;
@@ -843,7 +851,7 @@ export class ProfileCollection {
       category.counts.matches += g.counts.matches;
       category.counts.priorMatches += g.counts.priorMatches;
       category.counts.filterMatches += g.counts.filterMatches;
-      
+
       // Update category wait time bounds
       if (g.counts.minWait < category.counts.minWait) {
         category.counts.minWait = g.counts.minWait;
@@ -857,7 +865,7 @@ export class ProfileCollection {
       if (g.counts.maxMatchingWait > category.counts.maxMatchingWait) {
         category.counts.maxMatchingWait = g.counts.maxMatchingWait;
       }
-      
+
       // Aggregate category state counts
       for (const [state, count] of g.counts.states) {
         const currentCount = category.counts.states.get(state) || 0;
@@ -1094,7 +1102,11 @@ export class ProfileCollection {
         const stackTextMatches = filter == null || stack.searchableText.includes(filter);
         if (stackTextMatches) {
           // If there are no wait/state constraints, all goroutines match
-          if (filterObj.minWait === undefined && filterObj.maxWait === undefined && filterObj.states === undefined) {
+          if (
+            filterObj.minWait === undefined &&
+            filterObj.maxWait === undefined &&
+            filterObj.states === undefined
+          ) {
             stack.counts.matches = stack.counts.total;
             stack.counts.filterMatches = stack.counts.total;
             // Copy all statistics from total to matching
@@ -1147,15 +1159,18 @@ export class ProfileCollection {
 
                 for (const goroutine of group.goroutines) {
                   // Text already matches stack, check wait/state constraints
-                  let waitMatches = (filterObj.minWait === undefined || goroutine.waitMinutes >= filterObj.minWait) &&
-                                   (filterObj.maxWait === undefined || goroutine.waitMinutes <= filterObj.maxWait);
-                  let stateMatches = filterObj.states === undefined || filterObj.states.has(goroutine.state);
-                  
+                  let waitMatches =
+                    (filterObj.minWait === undefined ||
+                      goroutine.waitMinutes >= filterObj.minWait) &&
+                    (filterObj.maxWait === undefined || goroutine.waitMinutes <= filterObj.maxWait);
+                  let stateMatches =
+                    filterObj.states === undefined || filterObj.states.has(goroutine.state);
+
                   goroutine.matches = waitMatches && stateMatches;
                   if (goroutine.matches) {
                     group.counts.matches++;
                     group.counts.filterMatches++;
-                    
+
                     // Update matching statistics at all levels
                     [group.counts, fileSection.counts, stack.counts].forEach(counts => {
                       if (goroutine.waitMinutes < counts.minMatchingWait) {
@@ -1169,36 +1184,45 @@ export class ProfileCollection {
                     });
                   }
                 }
-                
+
                 // Reset bounds if no matches at group level
                 if (group.counts.matches === 0) {
                   group.counts.minMatchingWait = Infinity;
                   group.counts.maxMatchingWait = -Infinity;
                 }
               }
-              
+
               // Aggregate from groups to file
-              fileSection.counts.matches = fileSection.groups.reduce((sum, g) => sum + g.counts.matches, 0);
-              fileSection.counts.filterMatches = fileSection.groups.reduce((sum, g) => sum + g.counts.filterMatches, 0);
-              
+              fileSection.counts.matches = fileSection.groups.reduce(
+                (sum, g) => sum + g.counts.matches,
+                0
+              );
+              fileSection.counts.filterMatches = fileSection.groups.reduce(
+                (sum, g) => sum + g.counts.filterMatches,
+                0
+              );
+
               // Reset bounds if no matches at file level
               if (fileSection.counts.matches === 0) {
                 fileSection.counts.minMatchingWait = Infinity;
                 fileSection.counts.maxMatchingWait = -Infinity;
               }
             }
-            
+
             // Aggregate from files to stack
             stack.counts.matches = stack.files.reduce((sum, f) => sum + f.counts.matches, 0);
-            stack.counts.filterMatches = stack.files.reduce((sum, f) => sum + f.counts.filterMatches, 0);
-            
+            stack.counts.filterMatches = stack.files.reduce(
+              (sum, f) => sum + f.counts.filterMatches,
+              0
+            );
+
             // Reset bounds if no matches at stack level
             if (stack.counts.matches === 0) {
               stack.counts.minMatchingWait = Infinity;
               stack.counts.maxMatchingWait = -Infinity;
             }
           }
-          
+
           // Calculate pinned counts - if stack is pinned, everything is pinned
           if (stack.pinned) {
             stack.counts.pinned = stack.counts.total;
@@ -1246,7 +1270,11 @@ export class ProfileCollection {
               const groupMatches = group.labels.some(label => label.includes(filter));
               if (groupMatches) {
                 // Group matches text, but still need to check wait/state constraints
-                if (filterObj.minWait === undefined && filterObj.maxWait === undefined && filterObj.states === undefined) {
+                if (
+                  filterObj.minWait === undefined &&
+                  filterObj.maxWait === undefined &&
+                  filterObj.states === undefined
+                ) {
                   // No wait/state constraints, all goroutines match
                   group.counts.matches = group.counts.total;
                   group.counts.filterMatches = group.counts.total;
@@ -1265,18 +1293,22 @@ export class ProfileCollection {
                   group.counts.minMatchingWait = Infinity;
                   group.counts.maxMatchingWait = -Infinity;
                   group.counts.matchingStates.clear();
-                  
+
                   for (const goroutine of group.goroutines) {
                     // Text already matches group, check wait/state constraints
-                    let waitMatches = (filterObj.minWait === undefined || goroutine.waitMinutes >= filterObj.minWait) &&
-                                     (filterObj.maxWait === undefined || goroutine.waitMinutes <= filterObj.maxWait);
-                    let stateMatches = filterObj.states === undefined || filterObj.states.has(goroutine.state);
-                    
+                    let waitMatches =
+                      (filterObj.minWait === undefined ||
+                        goroutine.waitMinutes >= filterObj.minWait) &&
+                      (filterObj.maxWait === undefined ||
+                        goroutine.waitMinutes <= filterObj.maxWait);
+                    let stateMatches =
+                      filterObj.states === undefined || filterObj.states.has(goroutine.state);
+
                     goroutine.matches = waitMatches && stateMatches;
                     if (goroutine.matches) {
                       group.counts.matches++;
                       group.counts.filterMatches++;
-                      
+
                       // Update matching statistics
                       if (goroutine.waitMinutes < group.counts.minMatchingWait) {
                         group.counts.minMatchingWait = goroutine.waitMinutes;
@@ -1288,7 +1320,7 @@ export class ProfileCollection {
                       group.counts.matchingStates.set(goroutine.state, currentCount + 1);
                     }
                   }
-                  
+
                   // Reset bounds if no matches
                   if (group.counts.matches === 0) {
                     group.counts.minMatchingWait = Infinity;
@@ -1309,10 +1341,13 @@ export class ProfileCollection {
                 for (const goroutine of group.goroutines) {
                   // Check all filter constraints
                   let textMatches = filter == null || goroutine.id.includes(filter);
-                  let waitMatches = (filterObj.minWait === undefined || goroutine.waitMinutes >= filterObj.minWait) &&
-                                   (filterObj.maxWait === undefined || goroutine.waitMinutes <= filterObj.maxWait);
-                  let stateMatches = filterObj.states === undefined || filterObj.states.has(goroutine.state);
-                  
+                  let waitMatches =
+                    (filterObj.minWait === undefined ||
+                      goroutine.waitMinutes >= filterObj.minWait) &&
+                    (filterObj.maxWait === undefined || goroutine.waitMinutes <= filterObj.maxWait);
+                  let stateMatches =
+                    filterObj.states === undefined || filterObj.states.has(goroutine.state);
+
                   goroutine.matches = textMatches && waitMatches && stateMatches;
                   if (goroutine.matches) {
                     group.counts.filterMatches++;
@@ -1383,7 +1418,6 @@ export class ProfileCollection {
               fileSection.counts.matches += group.counts.matches;
               fileSection.counts.filterMatches += group.counts.filterMatches;
             }
-
 
             // Aggregate file section matching statistics up to stack
             if (fileSection.counts.matches > 0) {
@@ -1495,7 +1529,6 @@ export class ProfileCollection {
         category.counts.pinned = category.stacks.reduce((sum, x) => sum + x.counts.pinned, 0);
       }
     }
-
   }
 
   /**
@@ -1711,7 +1744,7 @@ export class ProfileCollection {
       visibleGoroutines += cat.counts.matches;
       total += cat.stacks.length;
       visible += cat.stacks.filter(stack => stack.counts.matches > 0).length;
-      
+
       // Count goroutines visible due to pinning
       pinnedGoroutines += cat.counts.pinned;
     });

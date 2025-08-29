@@ -31,7 +31,7 @@ async function setup() {
   browser = await chromium.launch();
   page = await browser.newPage();
 
-  // Set default timeout for all operations  
+  // Set default timeout for all operations
   page.setDefaultTimeout(QUICK_TIMEOUT);
 
   // Collect console errors
@@ -279,7 +279,9 @@ async function runTests() {
     console.log(`  After clear: ${finalVisible.length}/${allCategories.length} categories visible`);
 
     if (finalVisible.length !== allCategories.length) {
-      throw new Error(`Not all categories visible after clear: ${finalVisible.length}/${allCategories.length}`);
+      throw new Error(
+        `Not all categories visible after clear: ${finalVisible.length}/${allCategories.length}`
+      );
     }
   });
 
@@ -289,16 +291,16 @@ async function runTests() {
     const consistencyCheck = await page.evaluate(() => {
       const categories = document.querySelectorAll('.category-section');
       let totalGoroutines = 0;
-      
+
       categories.forEach(cat => {
         const goroutines = cat.querySelectorAll('.goroutine-entry');
         totalGoroutines += goroutines.length;
       });
 
-      return { 
+      return {
         categoriesCount: categories.length,
         totalGoroutines,
-        hasContent: categories.length > 0 && totalGoroutines > 0
+        hasContent: categories.length > 0 && totalGoroutines > 0,
       };
     });
 
@@ -320,7 +322,7 @@ async function runTests() {
     // Test that expand/collapse buttons exist and are clickable
     const expandBtn = await page.$('#expandAllBtn');
     const collapseBtn = await page.$('#collapseAllBtn');
-    
+
     if (!expandBtn || !collapseBtn) {
       throw new Error('Expand/collapse buttons should exist');
     }
@@ -330,7 +332,7 @@ async function runTests() {
     await page.waitForTimeout(100);
     console.log('  ✅ Expand all button clickable');
 
-    // Test basic collapse functionality  
+    // Test basic collapse functionality
     await page.click('#collapseAllBtn');
     await page.waitForTimeout(100);
     console.log('  ✅ Collapse all button clickable');
@@ -521,15 +523,19 @@ async function runTests() {
         id: 'test-stack',
         name: 'Test Stack with Many Goroutines',
         trace: ['func1() at file1.go:10', 'func2() at file2.go:20'],
-        files: [{
-          id: 'test-file',
-          fileName: 'test.go',
-          groups: [{
-            id: 'test-group',
-            labels: [],
-            goroutines: []
-          }]
-        }]
+        files: [
+          {
+            id: 'test-file',
+            fileName: 'test.go',
+            groups: [
+              {
+                id: 'test-group',
+                labels: [],
+                goroutines: [],
+              },
+            ],
+          },
+        ],
       };
 
       // Add 50 goroutines with same state to trigger chunking
@@ -548,8 +554,8 @@ async function runTests() {
             name: 'Test Stack',
             trace: [],
             searchableText: '',
-            counts: { total: 1, matches: 1, filterMatches: 1, pinned: 0 }
-          }
+            counts: { total: 1, matches: 1, filterMatches: 1, pinned: 0 },
+          },
         });
       }
 
@@ -559,7 +565,7 @@ async function runTests() {
         name: 'Test Category',
         stacks: [mockStack],
         pinned: false,
-        counts: { total: 50, matches: 50, filterMatches: 50, pinned: 0 }
+        counts: { total: 50, matches: 50, filterMatches: 50, pinned: 0 },
       };
 
       // Access the StackTraceApp instance and call copyStackToClipboard
@@ -579,10 +585,10 @@ async function runTests() {
       try {
         // Call the copy method
         await app.copyStackToClipboard(mockStack, mockCategory);
-        
+
         // Restore original method
         navigator.clipboard.writeText = originalWriteText;
-        
+
         return copiedText;
       } catch (error) {
         navigator.clipboard.writeText = originalWriteText;
@@ -597,7 +603,7 @@ async function runTests() {
     // Verify chunking behavior
     const lines = copyResult.split('\n');
     const goroutineLines = lines.filter(line => line.startsWith('goroutine '));
-    
+
     // Should have 5 chunks: 12 + 12 + 12 + 12 + 2 (50 goroutines with 12 per chunk)
     if (goroutineLines.length !== 5) {
       throw new Error(`Expected 5 chunked lines, got ${goroutineLines.length}`);
@@ -609,7 +615,7 @@ async function runTests() {
       throw new Error(`First chunk should have 12 IDs, got ${firstChunkIds?.length || 0}`);
     }
 
-    // Check last chunk has 2 IDs  
+    // Check last chunk has 2 IDs
     const lastChunkIds = goroutineLines[4].match(/goroutine ([\d,]+) \[/)?.[1].split(',');
     if (!lastChunkIds || lastChunkIds.length !== 2) {
       throw new Error(`Last chunk should have 2 IDs, got ${lastChunkIds?.length || 0}`);
@@ -621,7 +627,9 @@ async function runTests() {
       throw new Error('All chunked lines should have the same header format');
     }
 
-    console.log(`  ✅ Chunking works: ${goroutineLines.length} chunks for 50 goroutines (12 per chunk)`);
+    console.log(
+      `  ✅ Chunking works: ${goroutineLines.length} chunks for 50 goroutines (12 per chunk)`
+    );
     console.log(`  ✅ First chunk: ${firstChunkIds.length} IDs`);
     console.log(`  ✅ Last chunk: ${lastChunkIds.length} IDs`);
   });
@@ -653,16 +661,16 @@ async function runTests() {
       await page.waitForSelector('#settingsModalCloseBtn', { timeout: 100 });
       await page.click('#settingsModalCloseBtn');
       await page.waitForTimeout(50); // Short wait for modal to close
-      
+
       // Verify modal is hidden
-      const modalHidden = !await page.isVisible('#settingsModal');
+      const modalHidden = !(await page.isVisible('#settingsModal'));
       if (!modalHidden) throw new Error('Settings modal should be hidden after close');
-      
+
       console.log('  ✅ Settings modal closes successfully');
     } catch (error) {
       throw new Error('Settings modal close functionality failed');
     }
-    
+
     console.log('  ✅ Settings modal basic functionality works');
   });
 
