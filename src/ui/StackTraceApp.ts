@@ -350,7 +350,7 @@ export class StackTraceApp {
       this.render();
 
       // Always reapply current filter to ensure proper visibility state
-      this.setFilter({ filterString: this.filterInputValue });
+      this.setFilter(this.buildCurrentFilter());
     } catch (error) {
       console.error('Error handling files:', error);
       alert(`Error handling files: ${error}`);
@@ -413,18 +413,151 @@ export class StackTraceApp {
       clearTimeout(this.filterDebounceTimer);
     }
 
-    // Set a new timer to apply the filter after a short delay
-    this.filterDebounceTimer = window.setTimeout(() => {
-      this.setFilter({ filterString: query });
-      this.saveUIState();
-      this.filterDebounceTimer = null;
-    }, 100);
+    // Immediate validation - show errors right away
+    const parsed = this.parseFilterString(query);
+    this.showFilterError(parsed.error);
+    
+    // Only set filter if valid
+    if (!parsed.error) {
+      // Set a new timer to apply the filter after a short delay
+      this.filterDebounceTimer = window.setTimeout(() => {
+        // Re-parse the current filter value to handle rapid changes
+        const currentParsed = this.parseFilterString(this.filterInputValue);
+        if (!currentParsed.error) {
+          this.setFilter({
+            filterString: currentParsed.filterString,
+            minWait: currentParsed.minWait,
+            maxWait: currentParsed.maxWait
+          });
+        }
+        this.saveUIState();
+        this.filterDebounceTimer = null;
+      }, 300);
+    }
+  }
+
+  private showFilterError(error?: string): void {
+    const filterInput = document.getElementById('filterInput') as HTMLInputElement;
+    const filterError = document.getElementById('filterError') as HTMLElement;
+    
+    if (error) {
+      filterInput.classList.add('error');
+      filterError.textContent = error;
+      filterError.style.display = 'block';
+    } else {
+      filterInput.classList.remove('error');
+      filterError.style.display = 'none';
+    }
   }
 
   private setFilter(filter: Filter): void {
     this.profileCollection.setFilter(filter);
     this.updateVisibility();
     this.updateStats();
+  }
+
+  private parseWaitValue(value: string): number | null {
+    // More strict parsing than parseFloat - reject strings with invalid characters
+    if (!/^\d*\.?\d+$/.test(value.trim())) {
+      return null;
+    }
+    const parsed = parseFloat(value);
+    return isNaN(parsed) ? null : parsed;
+  }
+
+  private parseFilterString(input: string): { filterString: string; minWait?: number; maxWait?: number; error?: string } {
+    const parts = input.split(' ').map(p => p.trim()).filter(p => p.length > 0);
+    const waitParts: string[] = [];
+    const textParts: string[] = [];
+    
+    let minWait: number | undefined;
+    let maxWait: number | undefined;
+    let hasMinConstraint = false;
+    let hasMaxConstraint = false;
+    let hasExactConstraint = false;
+    
+    for (const part of parts) {
+      if (part.startsWith('wait:')) {
+        waitParts.push(part);
+        const waitSpec = part.substring(5); // Remove 'wait:' prefix
+        
+        if (waitSpec.startsWith('>')) {
+          if (hasMinConstraint) {
+            return { filterString: '', error: 'Multiple minimum wait constraints not allowed (e.g., wait:>5 wait:>10)' };
+          }
+          if (hasExactConstraint) {
+            return { filterString: '', error: 'Exact wait time cannot be combined with other wait constraints' };
+          }
+          const value = this.parseWaitValue(waitSpec.substring(1));
+          if (value === null) {
+            return { filterString: '', error: `Invalid wait filter: ${part}` };
+          }
+          minWait = value + 1;
+          hasMinConstraint = true;
+        } else if (waitSpec.startsWith('<')) {
+          if (hasMaxConstraint) {
+            return { filterString: '', error: 'Multiple maximum wait constraints not allowed (e.g., wait:<5 wait:<10)' };
+          }
+          if (hasExactConstraint) {
+            return { filterString: '', error: 'Exact wait time cannot be combined with other wait constraints' };
+          }
+          const value = this.parseWaitValue(waitSpec.substring(1));
+          if (value === null) {
+            return { filterString: '', error: `Invalid wait filter: ${part}` };
+          }
+          maxWait = value - 1;
+          hasMaxConstraint = true;
+        } else {
+          if (hasExactConstraint) {
+            return { filterString: '', error: 'Multiple exact wait constraints not allowed (e.g., wait:5 wait:10)' };
+          }
+          if (hasMinConstraint || hasMaxConstraint) {
+            return { filterString: '', error: 'Exact wait time cannot be combined with other wait constraints' };
+          }
+          const value = this.parseWaitValue(waitSpec);
+          if (value === null) {
+            return { filterString: '', error: `Invalid wait filter: ${part}` };
+          }
+          minWait = value;
+          maxWait = value;
+          hasExactConstraint = true;
+        }
+      } else {
+        textParts.push(part);
+      }
+    }
+    
+    // Validation: only one non-wait string allowed
+    if (textParts.length > 1) {
+      return { filterString: '', error: 'Only one search term allowed (plus wait: filters)' };
+    }
+    
+    // Validation: 0 <= min <= max
+    if (minWait !== undefined && minWait < 0) {
+      return { filterString: '', error: 'Minimum wait time cannot be negative' };
+    }
+    if (maxWait !== undefined && maxWait < 0) {
+      return { filterString: '', error: 'Maximum wait time cannot be negative' };
+    }
+    if (minWait !== undefined && maxWait !== undefined && minWait > maxWait) {
+      return { filterString: '', error: 'Minimum wait time cannot be greater than maximum' };
+    }
+    
+    return {
+      filterString: textParts.join(' '),
+      minWait,
+      maxWait
+    };
+  }
+
+  private buildCurrentFilter(overrides: Partial<Filter> = {}): Filter {
+    const parsed = this.parseFilterString(this.filterInputValue);
+    return {
+      filterString: parsed.filterString,
+      minWait: parsed.minWait,
+      maxWait: parsed.maxWait,
+      ...overrides
+    };
   }
 
   private clearFilter(): void {
@@ -435,11 +568,13 @@ export class StackTraceApp {
     }
 
     this.filterInputValue = '';
+    
     const filterInput = document.getElementById('filterInput') as HTMLInputElement;
     if (filterInput) {
       filterInput.value = '';
     }
 
+    this.showFilterError(); // Clear any error display
     this.profileCollection.clearFilter();
 
     this.updateVisibility();
@@ -616,14 +751,15 @@ export class StackTraceApp {
         categoryElement.classList.add('filtered');
       } else {
         // Unhide if needed and set the header.
-        if (category.counts.priorMatches == 0) {
-          categoryElement.classList.remove('filtered');
-        }
+        categoryElement.classList.remove('filtered');
         this.updateDisplayedCount(categoryElement, category.counts);
 
         // Process each stack in the category
         for (const stack of category.stacks) {
-          if (!force && stack.counts.matches === stack.counts.priorMatches) {
+          // Skip optimization when matches don't change, but only if both are > 0
+          // If either is 0, we must update visibility since the element might be incorrectly shown/hidden
+          if (!force && stack.counts.matches === stack.counts.priorMatches && 
+              stack.counts.matches > 0 && stack.counts.priorMatches > 0) {
             continue;
           }
           const stackElement = document.getElementById(stack.id) as HTMLElement;
@@ -636,9 +772,7 @@ export class StackTraceApp {
             stackElement.classList.add('filtered');
           } else {
             // Unhide if needed and set the header.
-            if (stack.counts.priorMatches == 0) {
-              stackElement.classList.remove('filtered');
-            }
+            stackElement.classList.remove('filtered');
             this.updateDisplayedCount(stackElement, stack.counts);
 
             for (const fileSection of stack.files) {
@@ -654,9 +788,7 @@ export class StackTraceApp {
                 fileSectionElement.classList.add('filtered');
               } else {
                 // Unhide if needed and set the header.
-                if (fileSection.counts.priorMatches === 0) {
-                  fileSectionElement.classList.remove('filtered');
-                }
+                fileSectionElement.classList.remove('filtered');
                 this.updateDisplayedCount(fileSectionElement, fileSection.counts);
 
                 for (const group of fileSection.groups) {
@@ -671,9 +803,7 @@ export class StackTraceApp {
                     groupElement.classList.add('filtered');
                   } else {
                     // Unhide if needed and set the header.
-                    if (group.counts.priorMatches === 0) {
-                      groupElement.classList.remove('filtered');
-                    }
+                    groupElement.classList.remove('filtered');
                     this.updateDisplayedCount(groupElement, group.counts);
 
                     for (const goroutine of group.goroutines) {
@@ -711,7 +841,7 @@ export class StackTraceApp {
     this.renderFiles();
     this.renderStacks();
     this.updateDropZone();
-    this.profileCollection.setFilter({ filterString: this.filterInputValue });
+    this.profileCollection.setFilter(this.buildCurrentFilter());
     this.updateVisibility(true); // Force update all counts after full render
     this.updateStats();
   }
@@ -885,7 +1015,7 @@ export class StackTraceApp {
       const pinned = this.profileCollection.toggleCategoryPin(category.id);
       categoryElement.classList.toggle('pinned', pinned);
       pinButton.classList.toggle('pinned', pinned);
-      this.setFilter({ filterString: this.filterInputValue });
+      this.setFilter(this.buildCurrentFilter());
       this.updateVisibility();
       this.updateStats();
     });
@@ -895,7 +1025,7 @@ export class StackTraceApp {
       const pinned = this.profileCollection.toggleCategoryPinWithChildren(category.id);
       // Update UI for all affected elements
       this.refreshPinStates();
-      this.setFilter({ filterString: this.filterInputValue });
+      this.setFilter(this.buildCurrentFilter());
       this.updateVisibility();
       this.updateStats();
     });
@@ -939,7 +1069,7 @@ export class StackTraceApp {
       const pinned = this.profileCollection.toggleStackPin(stack.id);
       stackElement.classList.toggle('pinned', pinned);
       pinButton.classList.toggle('pinned', pinned);
-      this.setFilter({ filterString: this.filterInputValue });
+      this.setFilter(this.buildCurrentFilter());
       this.updateVisibility();
       this.updateStats();
     });
@@ -949,7 +1079,7 @@ export class StackTraceApp {
       const pinned = this.profileCollection.toggleStackPinWithChildren(stack.id);
       // Update UI for all affected elements
       this.refreshPinStates();
-      this.setFilter({ filterString: this.filterInputValue });
+      this.setFilter(this.buildCurrentFilter());
       this.updateVisibility();
       this.updateStats();
     });
@@ -1059,7 +1189,7 @@ export class StackTraceApp {
       const pinned = this.profileCollection.toggleGroupPin(group.id);
       groupSection.classList.toggle('pinned', pinned);
       pinButton.classList.toggle('pinned', pinned);
-      this.setFilter({ filterString: this.filterInputValue });
+      this.setFilter(this.buildCurrentFilter());
       this.updateVisibility();
       this.updateStats();
     });
@@ -1069,7 +1199,7 @@ export class StackTraceApp {
       this.profileCollection.toggleGroupPinWithChildren(group.id);
       // Update UI for all affected elements
       this.refreshPinStates();
-      this.setFilter({ filterString: this.filterInputValue });
+      this.setFilter(this.buildCurrentFilter());
       this.updateVisibility();
       this.updateStats();
     });
@@ -1109,7 +1239,7 @@ export class StackTraceApp {
         });
         // Remove the show more link since all goroutines are now visible
         showMoreLink.remove();
-        this.setFilter({ filterString: this.filterInputValue });
+        this.setFilter(this.buildCurrentFilter());
       });
       groupContent.appendChild(showMoreLink);
     }
@@ -1176,7 +1306,7 @@ export class StackTraceApp {
       // TODO: Fix this - shouldn't need to recalc entire filter just for pin state change
       // A pin can only affect the pinned item and those on its path to the root;
       // setFilter visits _every_ item which is a huge waste.
-      this.setFilter({ filterString: this.filterInputValue });
+      this.setFilter(this.buildCurrentFilter());
       this.updateVisibility();
       this.updateStats();
     });
@@ -1781,7 +1911,7 @@ export class StackTraceApp {
       this.render();
 
       // Always reapply current filter to ensure proper visibility state
-      this.setFilter({ filterString: this.filterInputValue });
+      this.setFilter(this.buildCurrentFilter());
     } catch (error) {
       // End any ongoing timers in case of error
       if (fileName.endsWith('.zip')) {
@@ -1864,7 +1994,7 @@ export class StackTraceApp {
       return;
     }
     if (!g.matches) {
-      this.setFilter({ filterString: this.filterInputValue, forcedGoroutine: goroutineId });
+      this.setFilter(this.buildCurrentFilter({ forcedGoroutine: goroutineId }));
     }
 
     // Find the goroutine element by its unique ID

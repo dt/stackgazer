@@ -170,4 +170,4 @@ export function sortStateEntries<T>(entries: [string, T][]): [string, T][] {
 }
 
 // Re-export AppState types
-export { AppState, NavigationStateChanges, ExpansionStateChanges } from './AppState.js';
+export { AppState } from './AppState.js';

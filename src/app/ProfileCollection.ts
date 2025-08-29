@@ -1086,34 +1086,112 @@ export class ProfileCollection {
         stack.counts.maxMatchingWait = -Infinity;
         stack.counts.matchingStates.clear();
 
-        // If the stack itself matches, just flip everything to match.
-        if (filter == null || stack.searchableText.includes(filter)) {
-          stack.counts.matches = stack.counts.total;
-          stack.counts.filterMatches = stack.counts.total;
-          // Copy all statistics from total to matching
-          stack.counts.minMatchingWait = stack.counts.minWait;
-          stack.counts.maxMatchingWait = stack.counts.maxWait;
-          stack.counts.matchingStates = new Map(stack.counts.states);
-
-          for (const fileSection of stack.files) {
-            fileSection.counts.matches = fileSection.counts.total;
-            fileSection.counts.filterMatches = fileSection.counts.total;
+        // If the stack itself matches text filter, still need to check wait/state constraints
+        const stackTextMatches = filter == null || stack.searchableText.includes(filter);
+        if (stackTextMatches) {
+          // If there are no wait/state constraints, all goroutines match
+          if (filterObj.minWait === undefined && filterObj.maxWait === undefined && filterObj.states === undefined) {
+            stack.counts.matches = stack.counts.total;
+            stack.counts.filterMatches = stack.counts.total;
             // Copy all statistics from total to matching
-            fileSection.counts.minMatchingWait = fileSection.counts.minWait;
-            fileSection.counts.maxMatchingWait = fileSection.counts.maxWait;
-            fileSection.counts.matchingStates = new Map(fileSection.counts.states);
+            stack.counts.minMatchingWait = stack.counts.minWait;
+            stack.counts.maxMatchingWait = stack.counts.maxWait;
+            stack.counts.matchingStates = new Map(stack.counts.states);
 
-            for (const group of fileSection.groups) {
-              group.counts.matches = group.counts.total;
-              group.counts.filterMatches = group.counts.total;
+            for (const fileSection of stack.files) {
+              fileSection.counts.matches = fileSection.counts.total;
+              fileSection.counts.filterMatches = fileSection.counts.total;
               // Copy all statistics from total to matching
-              group.counts.minMatchingWait = group.counts.minWait;
-              group.counts.maxMatchingWait = group.counts.maxWait;
-              group.counts.matchingStates = new Map(group.counts.states);
+              fileSection.counts.minMatchingWait = fileSection.counts.minWait;
+              fileSection.counts.maxMatchingWait = fileSection.counts.maxWait;
+              fileSection.counts.matchingStates = new Map(fileSection.counts.states);
 
-              for (const goroutine of group.goroutines) {
-                goroutine.matches = true;
+              for (const group of fileSection.groups) {
+                group.counts.matches = group.counts.total;
+                group.counts.filterMatches = group.counts.total;
+                // Copy all statistics from total to matching
+                group.counts.minMatchingWait = group.counts.minWait;
+                group.counts.maxMatchingWait = group.counts.maxWait;
+                group.counts.matchingStates = new Map(group.counts.states);
+
+                for (const goroutine of group.goroutines) {
+                  goroutine.matches = true;
+                }
               }
+            }
+          } else {
+            // Stack matches text but still need to check wait/state constraints on each goroutine
+            stack.counts.matches = 0;
+            stack.counts.filterMatches = 0;
+            stack.counts.minMatchingWait = Infinity;
+            stack.counts.maxMatchingWait = -Infinity;
+            stack.counts.matchingStates.clear();
+
+            for (const fileSection of stack.files) {
+              fileSection.counts.matches = 0;
+              fileSection.counts.filterMatches = 0;
+              fileSection.counts.minMatchingWait = Infinity;
+              fileSection.counts.maxMatchingWait = -Infinity;
+              fileSection.counts.matchingStates.clear();
+
+              for (const group of fileSection.groups) {
+                group.counts.matches = 0;
+                group.counts.filterMatches = 0;
+                group.counts.minMatchingWait = Infinity;
+                group.counts.maxMatchingWait = -Infinity;
+                group.counts.matchingStates.clear();
+
+                for (const goroutine of group.goroutines) {
+                  // Text already matches stack, check wait/state constraints
+                  let waitMatches = (filterObj.minWait === undefined || goroutine.waitMinutes >= filterObj.minWait) &&
+                                   (filterObj.maxWait === undefined || goroutine.waitMinutes <= filterObj.maxWait);
+                  let stateMatches = filterObj.states === undefined || filterObj.states.has(goroutine.state);
+                  
+                  goroutine.matches = waitMatches && stateMatches;
+                  if (goroutine.matches) {
+                    group.counts.matches++;
+                    group.counts.filterMatches++;
+                    
+                    // Update matching statistics at all levels
+                    [group.counts, fileSection.counts, stack.counts].forEach(counts => {
+                      if (goroutine.waitMinutes < counts.minMatchingWait) {
+                        counts.minMatchingWait = goroutine.waitMinutes;
+                      }
+                      if (goroutine.waitMinutes > counts.maxMatchingWait) {
+                        counts.maxMatchingWait = goroutine.waitMinutes;
+                      }
+                      const currentCount = counts.matchingStates.get(goroutine.state) || 0;
+                      counts.matchingStates.set(goroutine.state, currentCount + 1);
+                    });
+                  }
+                }
+                
+                // Reset bounds if no matches at group level
+                if (group.counts.matches === 0) {
+                  group.counts.minMatchingWait = Infinity;
+                  group.counts.maxMatchingWait = -Infinity;
+                }
+              }
+              
+              // Aggregate from groups to file
+              fileSection.counts.matches = fileSection.groups.reduce((sum, g) => sum + g.counts.matches, 0);
+              fileSection.counts.filterMatches = fileSection.groups.reduce((sum, g) => sum + g.counts.filterMatches, 0);
+              
+              // Reset bounds if no matches at file level
+              if (fileSection.counts.matches === 0) {
+                fileSection.counts.minMatchingWait = Infinity;
+                fileSection.counts.maxMatchingWait = -Infinity;
+              }
+            }
+            
+            // Aggregate from files to stack
+            stack.counts.matches = stack.files.reduce((sum, f) => sum + f.counts.matches, 0);
+            stack.counts.filterMatches = stack.files.reduce((sum, f) => sum + f.counts.filterMatches, 0);
+            
+            // Reset bounds if no matches at stack level
+            if (stack.counts.matches === 0) {
+              stack.counts.minMatchingWait = Infinity;
+              stack.counts.maxMatchingWait = -Infinity;
             }
           }
           
@@ -1163,16 +1241,55 @@ export class ProfileCollection {
             for (const group of fileSection.groups) {
               const groupMatches = group.labels.some(label => label.includes(filter));
               if (groupMatches) {
-                // If group matches or is pinned, all goroutines in the group match.
-                group.counts.matches = group.counts.total;
-                group.counts.filterMatches = group.counts.total;
-                // Copy all statistics from total to matching
-                group.counts.minMatchingWait = group.counts.minWait;
-                group.counts.maxMatchingWait = group.counts.maxWait;
-                group.counts.matchingStates = new Map(group.counts.states);
+                // Group matches text, but still need to check wait/state constraints
+                if (filterObj.minWait === undefined && filterObj.maxWait === undefined && filterObj.states === undefined) {
+                  // No wait/state constraints, all goroutines match
+                  group.counts.matches = group.counts.total;
+                  group.counts.filterMatches = group.counts.total;
+                  // Copy all statistics from total to matching
+                  group.counts.minMatchingWait = group.counts.minWait;
+                  group.counts.maxMatchingWait = group.counts.maxWait;
+                  group.counts.matchingStates = new Map(group.counts.states);
 
-                for (const goroutine of group.goroutines) {
-                  goroutine.matches = true;
+                  for (const goroutine of group.goroutines) {
+                    goroutine.matches = true;
+                  }
+                } else {
+                  // Group matches text but still need to check wait/state constraints
+                  group.counts.matches = 0;
+                  group.counts.filterMatches = 0;
+                  group.counts.minMatchingWait = Infinity;
+                  group.counts.maxMatchingWait = -Infinity;
+                  group.counts.matchingStates.clear();
+                  
+                  for (const goroutine of group.goroutines) {
+                    // Text already matches group, check wait/state constraints
+                    let waitMatches = (filterObj.minWait === undefined || goroutine.waitMinutes >= filterObj.minWait) &&
+                                     (filterObj.maxWait === undefined || goroutine.waitMinutes <= filterObj.maxWait);
+                    let stateMatches = filterObj.states === undefined || filterObj.states.has(goroutine.state);
+                    
+                    goroutine.matches = waitMatches && stateMatches;
+                    if (goroutine.matches) {
+                      group.counts.matches++;
+                      group.counts.filterMatches++;
+                      
+                      // Update matching statistics
+                      if (goroutine.waitMinutes < group.counts.minMatchingWait) {
+                        group.counts.minMatchingWait = goroutine.waitMinutes;
+                      }
+                      if (goroutine.waitMinutes > group.counts.maxMatchingWait) {
+                        group.counts.maxMatchingWait = goroutine.waitMinutes;
+                      }
+                      const currentCount = group.counts.matchingStates.get(goroutine.state) || 0;
+                      group.counts.matchingStates.set(goroutine.state, currentCount + 1);
+                    }
+                  }
+                  
+                  // Reset bounds if no matches
+                  if (group.counts.matches === 0) {
+                    group.counts.minMatchingWait = Infinity;
+                    group.counts.maxMatchingWait = -Infinity;
+                  }
                 }
               } else {
                 const isPinned =
@@ -1186,8 +1303,13 @@ export class ProfileCollection {
                 group.counts.matchingStates.clear();
 
                 for (const goroutine of group.goroutines) {
-                  // First check normal filter logic
-                  goroutine.matches = goroutine.id.includes(filter);
+                  // Check all filter constraints
+                  let textMatches = filter == null || goroutine.id.includes(filter);
+                  let waitMatches = (filterObj.minWait === undefined || goroutine.waitMinutes >= filterObj.minWait) &&
+                                   (filterObj.maxWait === undefined || goroutine.waitMinutes <= filterObj.maxWait);
+                  let stateMatches = filterObj.states === undefined || filterObj.states.has(goroutine.state);
+                  
+                  goroutine.matches = textMatches && waitMatches && stateMatches;
                   if (goroutine.matches) {
                     group.counts.filterMatches++;
                     group.counts.matches++;
@@ -1427,19 +1549,12 @@ export class ProfileCollection {
    * Toggle pinned state for a goroutine
    */
   toggleGoroutinePin(goroutineId: string): boolean {
-    console.log(
-      `🔍 PIN DEBUG: ProfileCollection.toggleGoroutinePin called with goroutineId: ${goroutineId}`
-    );
     const goroutine = this.goroutinesByID.get(goroutineId);
     if (goroutine) {
       const oldPinned = goroutine.pinned;
       goroutine.pinned = !goroutine.pinned;
-      console.log(
-        `🔍 PIN DEBUG: Goroutine ${goroutineId} pin state changed from ${oldPinned} to ${goroutine.pinned}`
-      );
       return goroutine.pinned;
     }
-    console.log(`🔍 PIN DEBUG: Goroutine ${goroutineId} not found!`);
     return false;
   }
 
