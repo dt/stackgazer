@@ -908,6 +908,231 @@ main.worker()
 
 
 
+
+  await test('Category lookup for goroutines', async () => {
+    const collection = new ProfileCollection(DEFAULT_SETTINGS);
+    await addFile(collection, TEST_DATA.exampleStacks2, 'stacks.txt');
+    
+    const categories = collection.getCategories();
+    if (categories.length === 0) {
+      throw new Error('Expected at least one category');
+    }
+    
+    // Get a goroutine from the first category
+    let testGoroutineId: string | undefined;
+    for (const category of categories) {
+      for (const stack of category.stacks) {
+        for (const file of stack.files) {
+          for (const group of file.groups) {
+            if (group.goroutines.length > 0) {
+              testGoroutineId = group.goroutines[0].id;
+              break;
+            }
+          }
+          if (testGoroutineId) break;
+        }
+        if (testGoroutineId) break;
+      }
+      if (testGoroutineId) break;
+    }
+    
+    if (!testGoroutineId) {
+      throw new Error('Could not find a test goroutine');
+    }
+    
+    // Test getCategoryForGoroutine
+    const foundCategory = collection.getCategoryForGoroutine(testGoroutineId);
+    if (!foundCategory) {
+      throw new Error('getCategoryForGoroutine should return a category for existing goroutine');
+    }
+    
+    // Verify it's the correct category by checking if it contains the goroutine
+    let goroutineFound = false;
+    for (const stack of foundCategory.stacks) {
+      for (const file of stack.files) {
+        for (const group of file.groups) {
+          if (group.goroutines.some(g => g.id === testGoroutineId)) {
+            goroutineFound = true;
+            break;
+          }
+        }
+        if (goroutineFound) break;
+      }
+      if (goroutineFound) break;
+    }
+    
+    if (!goroutineFound) {
+      throw new Error('Returned category does not actually contain the goroutine');
+    }
+    
+    // Test with non-existent goroutine
+    const nonExistentCategory = collection.getCategoryForGoroutine('nonexistent-id');
+    if (nonExistentCategory !== undefined) {
+      throw new Error('getCategoryForGoroutine should return undefined for non-existent goroutine');
+    }
+  });
+
+  await test('Navigation chain with forced visibility', async () => {
+    const collection = new ProfileCollection(DEFAULT_SETTINGS);
+    await addFile(collection, TEST_DATA.exampleStacks2, 'stacks.txt');
+    
+    // Apply a restrictive filter so most goroutines don't match
+    collection.setFilter({ filterString: 'nonexistent_function' });
+    
+    // Find three goroutines that don't match the filter
+    const allGoroutines = [];
+    for (const cat of collection.getCategories()) {
+      for (const stack of cat.stacks) {
+        for (const file of stack.files) {
+          for (const group of file.groups) {
+            allGoroutines.push(...group.goroutines);
+          }
+        }
+      }
+    }
+    
+    const nonMatchingGoroutines = allGoroutines.filter(g => !g.matches);
+    if (nonMatchingGoroutines.length < 3) {
+      throw new Error('Need at least 3 non-matching goroutines for this test');
+    }
+    
+    const [g1, g2, g3] = nonMatchingGoroutines.slice(0, 3);
+    
+    // Step 1: Force g1 to be visible
+    collection.setFilter({ filterString: 'nonexistent_function', forcedGoroutine: g1.id });
+    
+    // Verify g1 is visible and others are not
+    const afterStep1 = collection.lookupGoroutine(g1.id);
+    const g2AfterStep1 = collection.lookupGoroutine(g2.id);
+    const g3AfterStep1 = collection.lookupGoroutine(g3.id);
+    
+    if (!afterStep1?.matches) {
+      throw new Error('g1 should be visible after forced');
+    }
+    if (g2AfterStep1?.matches) {
+      throw new Error('g2 should not be visible initially');
+    }
+    if (g3AfterStep1?.matches) {
+      throw new Error('g3 should not be visible initially');
+    }
+    
+    // Step 2: Navigate from g1 to g2 (should force g2 and unforce g1)
+    collection.setFilter({ filterString: 'nonexistent_function', forcedGoroutine: g2.id });
+    
+    // Verify g2 is now visible and g1 is not (since it doesn't match the original filter)
+    const g1AfterStep2 = collection.lookupGoroutine(g1.id);
+    const afterStep2 = collection.lookupGoroutine(g2.id);
+    const g3AfterStep2 = collection.lookupGoroutine(g3.id);
+    
+    if (g1AfterStep2?.matches) {
+      throw new Error('g1 should not be visible after navigating away (it does not match filter)');
+    }
+    if (!afterStep2?.matches) {
+      throw new Error('g2 should be visible after navigation');
+    }
+    if (g3AfterStep2?.matches) {
+      throw new Error('g3 should still not be visible');
+    }
+    
+    // Step 3: Navigate from g2 to g3 (should force g3 and unforce g2)
+    collection.setFilter({ filterString: 'nonexistent_function', forcedGoroutine: g3.id });
+    
+    // Verify g3 is now visible and g2 is not
+    const g1AfterStep3 = collection.lookupGoroutine(g1.id);
+    const g2AfterStep3 = collection.lookupGoroutine(g2.id);
+    const afterStep3 = collection.lookupGoroutine(g3.id);
+    
+    if (g1AfterStep3?.matches) {
+      throw new Error('g1 should still not be visible');
+    }
+    if (g2AfterStep3?.matches) {
+      throw new Error('g2 should not be visible after navigating away (it does not match filter)');
+    }
+    if (!afterStep3?.matches) {
+      throw new Error('g3 should be visible after navigation');
+    }
+  });
+
+  await test('Same-category navigation with forced visibility', async () => {
+    const collection = new ProfileCollection(DEFAULT_SETTINGS);
+    await addFile(collection, TEST_DATA.exampleStacks2, 'stacks.txt');
+    
+    // Apply a restrictive filter so most goroutines don't match
+    collection.setFilter({ filterString: 'nonexistent_function' });
+    
+    // Find goroutines in the same category but different stacks
+    let sameCategoryGoroutines: { goroutine: any, categoryId: string, stackId: string }[] = [];
+    
+    for (const cat of collection.getCategories()) {
+      const categoryGoroutines = [];
+      for (const stack of cat.stacks) {
+        for (const file of stack.files) {
+          for (const group of file.groups) {
+            for (const goroutine of group.goroutines) {
+              if (!goroutine.matches) { // Only non-matching goroutines
+                categoryGoroutines.push({
+                  goroutine,
+                  categoryId: cat.id,
+                  stackId: stack.id
+                });
+              }
+            }
+          }
+        }
+      }
+      
+      if (categoryGoroutines.length >= 2) {
+        // Check if we have goroutines from different stacks in this category
+        const uniqueStacks = new Set(categoryGoroutines.map(g => g.stackId));
+        if (uniqueStacks.size >= 2) {
+          sameCategoryGoroutines = categoryGoroutines;
+          break;
+        }
+      }
+    }
+    
+    if (sameCategoryGoroutines.length < 2) {
+      throw new Error('Need at least 2 non-matching goroutines in same category but different stacks');
+    }
+    
+    // Get two goroutines from different stacks within the same category
+    const [g1Info, g2Info] = sameCategoryGoroutines.filter((g, i, arr) => 
+      arr.findIndex(other => other.stackId === g.stackId) === i
+    ).slice(0, 2);
+    
+    if (g1Info.stackId === g2Info.stackId) {
+      throw new Error('Test requires goroutines from different stacks');
+    }
+    
+    console.log(`Testing same-category navigation: ${g1Info.categoryId}, stacks ${g1Info.stackId} -> ${g2Info.stackId}`);
+    
+    // Step 1: Force g1 to be visible
+    collection.setFilter({ filterString: 'nonexistent_function', forcedGoroutine: g1Info.goroutine.id });
+    
+    const g1AfterForce = collection.lookupGoroutine(g1Info.goroutine.id);
+    const g2BeforeNav = collection.lookupGoroutine(g2Info.goroutine.id);
+    
+    if (!g1AfterForce?.matches) {
+      throw new Error('g1 should be visible after being forced');
+    }
+    if (g2BeforeNav?.matches) {
+      throw new Error('g2 should not be visible initially');
+    }
+    
+    // Step 2: Navigate from g1 to g2 (same category, different stack)
+    collection.setFilter({ filterString: 'nonexistent_function', forcedGoroutine: g2Info.goroutine.id });
+    
+    const g1AfterNav = collection.lookupGoroutine(g1Info.goroutine.id);
+    const g2AfterNav = collection.lookupGoroutine(g2Info.goroutine.id);
+    
+    if (g1AfterNav?.matches) {
+      throw new Error('g1 should not be visible after navigating away (it does not match filter)');
+    }
+    if (!g2AfterNav?.matches) {
+      throw new Error('g2 should be visible after navigation (forced visibility)');
+    }
+  });
+
   console.log('\n✅ All comprehensive tests passed');
 }
 
