@@ -331,12 +331,15 @@ export class StackTraceApp {
           await this.handleZipFile(file);
         } else {
           // Handle regular text file
+          console.time(`📄 File Import: ${file.name}`);
           const text = await file.text();
           const result = await this.parser.parseFile(text, file.name);
 
           if (result.success) {
             this.profileCollection.addFile(result.data);
+            console.timeEnd(`📄 File Import: ${file.name}`);
           } else {
+            console.timeEnd(`📄 File Import: ${file.name}`);
             console.error(`Failed to parse ${file.name}:`, result.error);
             alert(`Failed to parse ${file.name}: ${result.error}`);
           }
@@ -356,20 +359,16 @@ export class StackTraceApp {
 
   private async handleZipFile(file: File): Promise<void> {
     try {
-      console.log('StackTraceApp: Starting zip file handling for:', file.name);
+      console.time(`🗜 Zip Import: ${file.name}`);
       const arrayBuffer = await file.arrayBuffer();
-      console.log('StackTraceApp: Got array buffer, size:', arrayBuffer.byteLength);
       const JSZipClass = await getJSZip();
       if (!JSZipClass) {
         throw new Error(
           'JSZip failed to load from CDN. Please check your internet connection and try again.'
         );
       }
-      console.log('StackTraceApp: Got JSZip class:', typeof JSZipClass);
       const zip = new JSZipClass();
-      console.log('StackTraceApp: JSZip instance created:', zip);
       const zipContent = await zip.loadAsync(arrayBuffer);
-      console.log('StackTraceApp: Zip loaded successfully');
 
       // Find stack trace files in the zip (using settings pattern)
       const pattern = this.settingsManager.getZipFilePatternRegex();
@@ -380,13 +379,16 @@ export class StackTraceApp {
       for (const zipFileName of files) {
         const zipFile = zipContent.files[zipFileName];
         if (!zipFile.dir) {
-          const content = await zipFile.async('text');
           const baseName = zipFileName.split('/').pop() || zipFileName;
+          console.time(`  📄 Zip Entry: ${baseName}`);
+          const content = await zipFile.async('text');
           const result = await this.parser.parseFile(content, baseName);
 
           if (result.success) {
             this.profileCollection.addFile(result.data);
+            console.timeEnd(`  📄 Zip Entry: ${baseName}`);
           } else {
+            console.timeEnd(`  📄 Zip Entry: ${baseName}`);
             console.error(`Failed to parse ${baseName} from zip:`, result.error);
             alert(`Failed to parse ${baseName} from zip: ${result.error}`);
           }
@@ -397,7 +399,9 @@ export class StackTraceApp {
         console.warn(`No stack trace files found in zip matching pattern: ${pattern}`);
         alert(`No stack trace files found in zip file. Looking for files matching: ${pattern}`);
       }
+      console.timeEnd(`🗜 Zip Import: ${file.name}`);
     } catch (error) {
+      console.timeEnd(`🗜 Zip Import: ${file.name}`);
       console.error(`Error processing zip file ${file.name}:`, error);
       alert(`Failed to process zip file ${file.name}: ${error}`);
     }
@@ -492,16 +496,12 @@ export class StackTraceApp {
   }
 
   private expandAllStacks(): void {
-    console.time('expandAllStacks TOTAL');
-    
     const categories = document.querySelectorAll('.category-section');
     const hasCollapsedCategories = Array.from(categories).some(cat =>
       cat.classList.contains('container-collapsed')
     );
 
     if (hasCollapsedCategories) {
-      console.log(`=== FAST Expanding ${categories.length} categories ===`);
-      console.time('forEach categories DIRECT STYLE');
       categories.forEach(section => {
         // PERFORMANCE FIX: Set styles directly to avoid CSS cascade
         const content = section.querySelector('.section-content') as HTMLElement;
@@ -519,11 +519,8 @@ export class StackTraceApp {
         
         // Skip aria updates for performance
       });
-      console.timeEnd('forEach categories DIRECT STYLE');
     } else {
       const stacks = document.querySelectorAll('.stack-section');
-      console.log(`=== FAST Expanding ${stacks.length} stacks ===`);
-      console.time('forEach stacks DIRECT STYLE');
       stacks.forEach(section => {
         // PERFORMANCE FIX: Set styles directly to avoid CSS cascade
         const content = section.querySelector('.section-content') as HTMLElement;
@@ -541,9 +538,7 @@ export class StackTraceApp {
         
         // Skip aria updates for performance
       });
-      console.timeEnd('forEach stacks DIRECT STYLE');
     }
-    console.timeEnd('expandAllStacks TOTAL');
   }
 
   private collapseAllStacks(): void {
@@ -570,14 +565,8 @@ export class StackTraceApp {
       });
     } else {
       const categories = document.querySelectorAll('.category-section');
-      console.log(`=== FAST Collapsing ${categories.length} categories ===`);
-      console.time('forEach categories DIRECT STYLE');
       
       categories.forEach((section, index) => {
-        if (index % 10 === 0) {
-          console.log(`Progress: ${index}/${categories.length} categories`);
-        }
-        
         // PERFORMANCE FIX: Bypass CSS cascade by setting styles directly
         const content = section.querySelector('.section-content') as HTMLElement;
         if (content) {
@@ -594,11 +583,7 @@ export class StackTraceApp {
         
         // Skip aria updates for performance
       });
-      
-      console.timeEnd('forEach categories DIRECT STYLE');
     }
-    
-    console.timeEnd('collapseAllStacks TOTAL');
   }
 
   private toggleContainerCollapse(container: HTMLElement): void {
@@ -761,7 +746,6 @@ export class StackTraceApp {
           // the height of the cat header (or just a tad less to avoid a gap),
           // then restore its scroll margin.
           if (container.classList.contains('stack-section')) {
-            console.log('stack was above the fold: scroll it.');
             const parentCategory = container.closest('.category-section');
             const parentHeader = parentCategory
               ? (parentCategory.querySelector('.header') as HTMLElement)
@@ -1189,6 +1173,9 @@ export class StackTraceApp {
       const pinned = this.profileCollection.toggleGoroutinePin(goroutine.id);
       goroutineElement.classList.toggle('pinned', pinned);
       pinButton.classList.toggle('pinned', pinned);
+      // TODO: Fix this - shouldn't need to recalc entire filter just for pin state change
+      // A pin can only affect the pinned item and those on its path to the root;
+      // setFilter visits _every_ item which is a huge waste.
       this.setFilter({ filterString: this.filterInputValue });
       this.updateVisibility();
       this.updateStats();
@@ -1316,17 +1303,33 @@ export class StackTraceApp {
   private updateStats(): void {
     const stats = this.profileCollection.getStackStatistics();
 
-    const totalElement = document.getElementById('totalStacks');
-    const visibleElement = document.getElementById('visibleStacks');
-    const totalGoroutinesElement = document.getElementById('totalGoroutines');
-    const visibleGoroutinesElement = document.getElementById('visibleGoroutines');
+    const stackCountsElement = document.getElementById('stackCounts');
+    const goroutineCountsElement = document.getElementById('goroutineCounts');
 
-    if (totalElement) totalElement.textContent = stats.total.toString();
-    if (visibleElement) visibleElement.textContent = stats.visible.toString();
-    if (totalGoroutinesElement)
-      totalGoroutinesElement.textContent = stats.totalGoroutines.toString();
-    if (visibleGoroutinesElement)
-      visibleGoroutinesElement.textContent = stats.visibleGoroutines.toString();
+    if (stackCountsElement) {
+      // Calculate pinned stacks (stacks visible due to pinning)
+      let pinnedStacks = 0;
+      this.profileCollection.getCategories().forEach(cat => {
+        for (const stack of cat.stacks) {
+          if (stack.counts.pinned > 0) {
+            pinnedStacks++;
+          }
+        }
+      });
+      
+      if (pinnedStacks > 0) {
+        stackCountsElement.textContent = `${stats.visible} (${pinnedStacks}📌) / ${stats.total}`;
+      } else {
+        stackCountsElement.textContent = `${stats.visible} / ${stats.total}`;
+      }
+    }
+    if (goroutineCountsElement) {
+      if (stats.pinnedGoroutines > 0) {
+        goroutineCountsElement.textContent = `${stats.visibleGoroutines} (${stats.pinnedGoroutines}📌) / ${stats.totalGoroutines}`;
+      } else {
+        goroutineCountsElement.textContent = `${stats.visibleGoroutines} / ${stats.totalGoroutines}`;
+      }
+    }
 
     // Update state statistics in headers and sidebar
     this.updateStateStats();
@@ -1371,8 +1374,8 @@ export class StackTraceApp {
     });
 
     // Add wait time range
-    const waitRange = `${category.counts.minMatchingWait}-${category.counts.maxMatchingWait}mins`;
-    statsElement.textContent = `${stateElements.join(', ')} • ${waitRange}`;
+    const waitText = this.formatWaitTime(category.counts.minMatchingWait, category.counts.maxMatchingWait);
+    statsElement.textContent = waitText ? `${stateElements.join(', ')} • ${waitText}` : stateElements.join(', ');
   }
 
   private updateStackStateStats(stack: UniqueStack): void {
@@ -1396,8 +1399,14 @@ export class StackTraceApp {
     });
 
     // Add wait time range
-    const waitRange = `${stack.counts.minMatchingWait}-${stack.counts.maxMatchingWait}mins`;
-    statsElement.textContent = `${stateElements.join(', ')} • ${waitRange}`;
+    const waitText = this.formatWaitTime(stack.counts.minMatchingWait, stack.counts.maxMatchingWait);
+    statsElement.textContent = waitText ? `${stateElements.join(', ')} • ${waitText}` : stateElements.join(', ');
+  }
+
+  private formatWaitTime(minWait: number, maxWait: number): string {
+    if (minWait === 0 && maxWait === 0) return '';
+    if (minWait === maxWait) return `${minWait}mins`;
+    return `${minWait}-${maxWait}mins`;
   }
 
   private updateSidebarStateStats(): void {
@@ -1417,7 +1426,7 @@ export class StackTraceApp {
     const sortedEntries = sortStateEntries(sortedStates);
 
     const stateElements = sortedEntries.map(([state, counts]) => {
-      return `<div>${counts.visible}/${counts.total} ${state}</div>`;
+      return `<div><span>${state}</span><span>${counts.visible} / ${counts.total}</span></div>`;
     });
 
     sidebarStateStats.innerHTML = stateElements.join('');
@@ -1714,20 +1723,16 @@ export class StackTraceApp {
 
       if (fileName.endsWith('.zip')) {
         // Handle zip files
-        console.log('StackTraceApp: Handling zip file from URL:', fileName);
+        console.time(`🌐 URL Zip Import: ${fileName}`);
         const arrayBuffer = await response.arrayBuffer();
-        console.log('StackTraceApp: Got array buffer from URL, size:', arrayBuffer.byteLength);
         const JSZipClass = await getJSZip();
         if (!JSZipClass) {
           throw new Error(
             'JSZip failed to load from CDN. Please check your internet connection and try again.'
           );
         }
-        console.log('StackTraceApp: Got JSZip class for URL zip:', typeof JSZipClass);
         const zip = new JSZipClass();
-        console.log('StackTraceApp: URL JSZip instance created:', zip);
         const zipContent = await zip.loadAsync(arrayBuffer);
-        console.log('StackTraceApp: URL zip loaded successfully');
 
         // Find stack trace files in the zip (using settings pattern)
         const pattern = this.settingsManager.getZipFilePatternRegex();
@@ -1738,13 +1743,16 @@ export class StackTraceApp {
         for (const zipFileName of files) {
           const file = zipContent.files[zipFileName];
           if (!file.dir) {
-            const content = await file.async('text');
             const baseName = zipFileName.split('/').pop() || zipFileName;
+            console.time(`  📄 URL Zip Entry: ${baseName}`);
+            const content = await file.async('text');
             const result = await this.parser.parseFile(content, baseName);
 
             if (result.success) {
               this.profileCollection.addFile(result.data); // Let extractedName take precedence
+              console.timeEnd(`  📄 URL Zip Entry: ${baseName}`);
             } else {
+              console.timeEnd(`  📄 URL Zip Entry: ${baseName}`);
               console.error(`URL zip - Failed to parse ${baseName}:`, result.error);
             }
           }
@@ -1753,14 +1761,18 @@ export class StackTraceApp {
         if (files.length === 0) {
           console.warn(`URL zip - No stack trace files found matching pattern: ${pattern}`);
         }
+        console.timeEnd(`🌐 URL Zip Import: ${fileName}`);
       } else {
         // Handle single text files
+        console.time(`🌐 URL File Import: ${fileName}`);
         const text = await response.text();
         const result = await this.parser.parseFile(text, fileName);
 
         if (result.success) {
           this.profileCollection.addFile(result.data);
+          console.timeEnd(`🌐 URL File Import: ${fileName}`);
         } else {
+          console.timeEnd(`🌐 URL File Import: ${fileName}`);
           console.error(`Failed to parse ${fileName}:`, result.error);
           throw new Error(result.error);
         }
@@ -1771,6 +1783,12 @@ export class StackTraceApp {
       // Always reapply current filter to ensure proper visibility state
       this.setFilter({ filterString: this.filterInputValue });
     } catch (error) {
+      // End any ongoing timers in case of error
+      if (fileName.endsWith('.zip')) {
+        console.timeEnd(`🌐 URL Zip Import: ${fileName}`);
+      } else {
+        console.timeEnd(`🌐 URL File Import: ${fileName}`);
+      }
       console.error('URL load error:', error);
       throw error;
     }
@@ -1846,7 +1864,6 @@ export class StackTraceApp {
       return;
     }
     if (!g.matches) {
-      console.log(`Goroutine ${goroutineId} does not match current filter; forcing it visible...`);
       this.setFilter({ filterString: this.filterInputValue, forcedGoroutine: goroutineId });
     }
 
@@ -2895,33 +2912,68 @@ export class StackTraceApp {
       // Add markdown title with # prefix
       const stackTitle = `# ${stack.name}`;
       
-      // Group goroutines by state and wait time
+      // Group goroutines by file, then by state and wait time
       let goroutineInfo = '';
-      const goroutineGroups = this.groupGoroutinesByStateAndWait(stack);
       
-      if (goroutineGroups.size > 0) {
+      if (stack.files.length > 0) {
         const goroutineLines: string[] = [];
         
-        // Sort groups by state then by wait time (ascending)
-        const sortedEntries = Array.from(goroutineGroups.entries()).sort(([keyA, goroutinesA], [keyB, goroutinesB]) => {
-          const stateA = goroutinesA[0].state;
-          const stateB = goroutinesB[0].state;
-          const waitA = goroutinesA[0].waitMinutes;
-          const waitB = goroutinesB[0].waitMinutes;
+        for (const fileSection of stack.files) {
+          // Group goroutines within this file by state and wait
+          const fileGroups = new Map<string, Goroutine[]>();
           
-          // First sort by state
-          if (stateA !== stateB) {
-            return stateA.localeCompare(stateB);
+          for (const group of fileSection.groups) {
+            for (const goroutine of group.goroutines) {
+              const waitText = goroutine.waitMinutes > 0 ? `, ${goroutine.waitMinutes}m` : '';
+              const key = `${goroutine.state}${waitText}`;
+              
+              if (!fileGroups.has(key)) {
+                fileGroups.set(key, []);
+              }
+              fileGroups.get(key)!.push(goroutine);
+            }
           }
           
-          // Then sort by wait time (ascending)
-          return waitA - waitB;
-        });
-        
-        for (const [stateWait, goroutines] of sortedEntries) {
-          const ids = goroutines.map(g => g.id).join(',');
-          goroutineLines.push(`goroutine ${ids} [${stateWait}]:`);
+          if (fileGroups.size > 0) {
+            // Add file header if there are multiple files
+            if (stack.files.length > 1) {
+              goroutineLines.push(`# ${fileSection.fileName}`);
+            }
+            
+            // Sort groups by state then by wait time (ascending)
+            const sortedEntries = Array.from(fileGroups.entries()).sort(([keyA, goroutinesA], [keyB, goroutinesB]) => {
+              const stateA = goroutinesA[0].state;
+              const stateB = goroutinesB[0].state;
+              const waitA = goroutinesA[0].waitMinutes;
+              const waitB = goroutinesB[0].waitMinutes;
+              
+              // First sort by state
+              if (stateA !== stateB) {
+                return stateA.localeCompare(stateB);
+              }
+              
+              // Then sort by wait time (ascending)
+              return waitA - waitB;
+            });
+            
+            for (const [stateWait, goroutines] of sortedEntries) {
+              const ids = goroutines.map(g => g.id);
+              
+              // If more than 12 goroutines, chunk them
+              if (ids.length > 12) {
+                for (let i = 0; i < ids.length; i += 12) {
+                  const chunk = ids.slice(i, i + 12);
+                  const chunkIds = chunk.join(',');
+                  goroutineLines.push(`goroutine ${chunkIds} [${stateWait}]:`);
+                }
+              } else {
+                const allIds = ids.join(',');
+                goroutineLines.push(`goroutine ${allIds} [${stateWait}]:`);
+              }
+            }
+          }
         }
+        
         goroutineInfo = goroutineLines.join('\n');
       }
       

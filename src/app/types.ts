@@ -9,6 +9,7 @@ export interface Counts {
   matches: number;
   priorMatches: number;
   filterMatches: number;
+  pinned: number;
   minWait: number;
   maxWait: number;
   minMatchingWait: number;
