@@ -430,8 +430,101 @@ export class StackTraceApp {
       this.handleResizeForNarrowMode();
     });
 
+
     // Settings modal
     this.setupSettingsModal();
+  }
+
+  private handleCopyButtonClick(e: Event): void {
+    e.stopPropagation();
+    const button = e.currentTarget as HTMLElement;
+    const stackId = button.dataset.stackId;
+    const categoryId = button.dataset.categoryId;
+    
+    if (!stackId || !categoryId) return;
+
+    // Use O(n) lookup for now since we don't have category/stack maps in UI layer
+    // TODO: Consider adding fast lookup maps if this becomes a bottleneck
+    const categories = this.profileCollection.getCategories();
+    const category = categories.find(c => c.id === categoryId);
+    if (!category) return;
+
+    const stack = category.stacks.find(s => s.id === stackId);
+    if (!stack) return;
+
+    this.copyStackToClipboard(stack, category);
+  }
+
+  private handlePinButtonClick(e: Event): void {
+    e.stopPropagation();
+    const button = e.currentTarget as HTMLElement;
+    const pinContainer = button.closest('[data-pin-type]') as HTMLElement;
+    if (!pinContainer) return;
+
+    const pinType = pinContainer.dataset.pinType;
+    const pinId = pinContainer.dataset.pinId;
+    if (!pinType || !pinId) return;
+
+    let pinned = false;
+    switch (pinType) {
+      case 'category':
+        pinned = this.profileCollection.toggleCategoryPin(pinId);
+        break;
+      case 'stack':
+        pinned = this.profileCollection.toggleStackPin(pinId);
+        break;
+      case 'group':
+        pinned = this.profileCollection.toggleGroupPin(pinId);
+        break;
+      case 'goroutine':
+        pinned = this.profileCollection.toggleGoroutinePin(pinId);
+        break;
+      default:
+        return;
+    }
+
+    pinContainer.classList.toggle('pinned', pinned);
+    button.classList.toggle('pinned', pinned);
+    this.setFilter(this.buildCurrentFilter());
+    this.updateVisibility();
+    this.updateStats();
+  }
+
+  private handlePinButtonDoubleClick(e: Event): void {
+    e.stopPropagation();
+    const button = e.currentTarget as HTMLElement;
+    const pinContainer = button.closest('[data-pin-type]') as HTMLElement;
+    if (!pinContainer) return;
+
+    const pinType = pinContainer.dataset.pinType;
+    const pinId = pinContainer.dataset.pinId;
+    if (!pinType || !pinId) return;
+
+    switch (pinType) {
+      case 'category':
+        // Category double-click uses special method that pins/unpins with children
+        this.profileCollection.toggleCategoryPinWithChildren(pinId);
+        // Update UI for all affected elements
+        this.refreshPinStates();
+        break;
+      case 'stack':
+        // Stack double-click uses special method that pins/unpins with children  
+        this.profileCollection.toggleStackPinWithChildren(pinId);
+        // Update UI for all affected elements
+        this.refreshPinStates();
+        break;
+      case 'group':
+        // Group double-click uses special method that pins/unpins with children
+        this.profileCollection.toggleGroupPinWithChildren(pinId);
+        // Update UI for all affected elements
+        this.refreshPinStates();
+        break;
+      // Goroutines don't have children to unpin
+    }
+
+    this.setFilter(this.buildCurrentFilter());
+    this.updateVisibility();
+    this.updateStats();
   }
 
   private toggleNarrowSidebar(): void {
@@ -1206,34 +1299,18 @@ export class StackTraceApp {
 
     // Set category-specific attributes
     categoryElement.id = category.id;
+    categoryElement.dataset.pinType = 'category';
+    categoryElement.dataset.pinId = category.id;
 
     // Set content
     const title = categoryElement.querySelector('.category-title') as HTMLElement;
     title.textContent = category.name;
 
-    // Setup pin button event handlers
+    // Setup pin button with bound method (no closure allocation)
     const pinButton = categoryElement.querySelector('.pin-button') as HTMLButtonElement;
     pinButton.title = 'Pin/unpin this category';
-
-    pinButton.addEventListener('click', e => {
-      e.stopPropagation();
-      const pinned = this.profileCollection.toggleCategoryPin(category.id);
-      categoryElement.classList.toggle('pinned', pinned);
-      pinButton.classList.toggle('pinned', pinned);
-      this.setFilter(this.buildCurrentFilter());
-      this.updateVisibility();
-      this.updateStats();
-    });
-
-    pinButton.addEventListener('dblclick', e => {
-      e.stopPropagation();
-      const pinned = this.profileCollection.toggleCategoryPinWithChildren(category.id);
-      // Update UI for all affected elements
-      this.refreshPinStates();
-      this.setFilter(this.buildCurrentFilter());
-      this.updateVisibility();
-      this.updateStats();
-    });
+    pinButton.addEventListener('click', this.handlePinButtonClick.bind(this));
+    pinButton.addEventListener('dblclick', this.handlePinButtonDoubleClick.bind(this));
 
     // Set initial count display
     this.updateDisplayedCount(categoryElement, category.counts);
@@ -1243,7 +1320,7 @@ export class StackTraceApp {
 
     // Render all stacks in this category in existing order (sorted at import time)
     for (const stack of category.stacks) {
-      const stackElement = this.createStackElement(stack);
+      const stackElement = this.createStackElement(stack, category);
       content.appendChild(stackElement);
     }
 
@@ -1253,50 +1330,32 @@ export class StackTraceApp {
     return categoryElement;
   }
 
-  private createStackElement(stack: UniqueStack): HTMLElement {
+  private createStackElement(stack: UniqueStack, category: Category): HTMLElement {
     // Clone template
     const clone = this.templates.stack.content.cloneNode(true) as DocumentFragment;
     const stackElement = clone.firstElementChild as HTMLElement;
 
     // Set stack-specific attributes
     stackElement.id = stack.id;
+    stackElement.dataset.pinType = 'stack';
+    stackElement.dataset.pinId = stack.id;
 
     // Set content
     const title = stackElement.querySelector('.stack-title') as HTMLElement;
     title.textContent = stack.name;
 
-    // Setup pin button event handlers
+    // Setup pin button with bound method (no closure allocation)
     const pinButton = stackElement.querySelector('.pin-button') as HTMLButtonElement;
     pinButton.title = 'Pin/unpin this stack';
+    pinButton.addEventListener('click', this.handlePinButtonClick.bind(this));
+    pinButton.addEventListener('dblclick', this.handlePinButtonDoubleClick.bind(this));
 
-    pinButton.addEventListener('click', e => {
-      e.stopPropagation();
-      const pinned = this.profileCollection.toggleStackPin(stack.id);
-      stackElement.classList.toggle('pinned', pinned);
-      pinButton.classList.toggle('pinned', pinned);
-      this.setFilter(this.buildCurrentFilter());
-      this.updateVisibility();
-      this.updateStats();
-    });
-
-    pinButton.addEventListener('dblclick', e => {
-      e.stopPropagation();
-      const pinned = this.profileCollection.toggleStackPinWithChildren(stack.id);
-      // Update UI for all affected elements
-      this.refreshPinStates();
-      this.setFilter(this.buildCurrentFilter());
-      this.updateVisibility();
-      this.updateStats();
-    });
-
-    // Setup copy button event handlers
+    // Setup copy button with bound method (no closure allocation)
     const copyButton = stackElement.querySelector('.copy-button') as HTMLButtonElement;
     copyButton.title = 'Copy stack name and trace to clipboard';
-
-    copyButton.addEventListener('click', e => {
-      e.stopPropagation();
-      this.copyStackToClipboard(stack);
-    });
+    copyButton.dataset.stackId = stack.id;
+    copyButton.dataset.categoryId = category.id;
+    copyButton.addEventListener('click', this.handleCopyButtonClick.bind(this));
 
     // Set initial count display
     this.updateDisplayedCount(stackElement, stack.counts);
@@ -1365,6 +1424,8 @@ export class StackTraceApp {
 
     // Set group-specific attributes
     groupSection.id = id;
+    groupSection.dataset.pinType = 'group';
+    groupSection.dataset.pinId = group.id;
 
     // Handle expand icon for groups with content
     const expandIcon = groupSection.querySelector('.expand-icon') as HTMLElement;
@@ -1385,29 +1446,11 @@ export class StackTraceApp {
       textSpan.textContent = 'Goroutines';
     }
 
-    // Setup pin button event handlers
+    // Setup pin button with bound method (no closure allocation)
     const pinButton = groupSection.querySelector('.pin-button') as HTMLButtonElement;
     pinButton.title = 'Pin/unpin this group';
-
-    pinButton.addEventListener('click', e => {
-      e.stopPropagation();
-      const pinned = this.profileCollection.toggleGroupPin(group.id);
-      groupSection.classList.toggle('pinned', pinned);
-      pinButton.classList.toggle('pinned', pinned);
-      this.setFilter(this.buildCurrentFilter());
-      this.updateVisibility();
-      this.updateStats();
-    });
-
-    pinButton.addEventListener('dblclick', e => {
-      e.stopPropagation();
-      this.profileCollection.toggleGroupPinWithChildren(group.id);
-      // Update UI for all affected elements
-      this.refreshPinStates();
-      this.setFilter(this.buildCurrentFilter());
-      this.updateVisibility();
-      this.updateStats();
-    });
+    pinButton.addEventListener('click', this.handlePinButtonClick.bind(this));
+    pinButton.addEventListener('dblclick', this.handlePinButtonDoubleClick.bind(this));
 
     // Add click handler for expand/collapse if group has content
     if (group.goroutines.length > 0) {
@@ -1499,22 +1542,13 @@ export class StackTraceApp {
 
     // Set goroutine-specific attributes
     goroutineElement.id = `goroutine-${goroutine.id}`;
+    goroutineElement.dataset.pinType = 'goroutine';
+    goroutineElement.dataset.pinId = goroutine.id;
 
-    // Setup pin button
+    // Setup pin button with bound method (no closure allocation)
     const pinButton = goroutineElement.querySelector('.pin-button') as HTMLButtonElement;
     pinButton.title = 'Pin/unpin this goroutine';
-    pinButton.addEventListener('click', e => {
-      e.stopPropagation();
-      const pinned = this.profileCollection.toggleGoroutinePin(goroutine.id);
-      goroutineElement.classList.toggle('pinned', pinned);
-      pinButton.classList.toggle('pinned', pinned);
-      // TODO: Fix this - shouldn't need to recalc entire filter just for pin state change
-      // A pin can only affect the pinned item and those on its path to the root;
-      // setFilter visits _every_ item which is a huge waste.
-      this.setFilter(this.buildCurrentFilter());
-      this.updateVisibility();
-      this.updateStats();
-    });
+    pinButton.addEventListener('click', this.handlePinButtonClick.bind(this));
 
     // Set header text
     const waitText = goroutine.waitMinutes > 0 ? ` (${goroutine.waitMinutes} minutes)` : '';
@@ -3058,21 +3092,30 @@ export class StackTraceApp {
     const collapsibleHeaders = document.querySelectorAll('.collapsible-header');
     
     collapsibleHeaders.forEach(header => {
-      header.addEventListener('click', () => {
+      // Check if this header already has event listener setup
+      if ((header as any).__collapsibleSetup) {
+        return;
+      }
+      
+      const clickHandler = () => {
         // Find the rule-editor container
         const ruleEditor = header.closest('.rules-editor');
         if (!ruleEditor) return;
         
-        const isCollapsed = ruleEditor.classList.contains('collapsed');
+        const isCollapsed = ruleEditor.classList.contains('collapsed-settings');
         
         if (isCollapsed) {
-          ruleEditor.classList.remove('collapsed');
-          header.classList.remove('collapsed');
+          ruleEditor.classList.remove('collapsed-settings');
+          header.classList.remove('collapsed-settings');
         } else {
-          ruleEditor.classList.add('collapsed');
-          header.classList.add('collapsed');
+          ruleEditor.classList.add('collapsed-settings');
+          header.classList.add('collapsed-settings');
         }
-      });
+      };
+      
+      header.addEventListener('click', clickHandler);
+      // Mark this header as having event listener setup
+      (header as any).__collapsibleSetup = true;
     });
   }
 
@@ -3140,6 +3183,11 @@ export class StackTraceApp {
       const toggle = document.getElementById(`useDefault${ruleType}Rules`) as HTMLInputElement;
       
       if (toggle) {
+        // Check if this toggle already has event listener setup
+        if ((toggle as any).__defaultRuleToggleSetup) {
+          return;
+        }
+        
         // Find the closest default-rules-section to this toggle
         const section = toggle.closest('.default-rules-section');
         if (section) {
@@ -3151,19 +3199,26 @@ export class StackTraceApp {
             this.updateDefaultRuleToggleState(toggle, header, content);
 
             // Add click handler to header for collapsing
-            header.addEventListener('click', (e) => {
+            const headerClickHandler = (e: Event) => {
               // Don't toggle if clicking on toggle switch or if rules are disabled
               if (e.target !== toggle && !toggle.contains(e.target as Node) && toggle.checked) {
-                content.classList.toggle('collapsed');
-                // Update section class for CSS fallback
-                section.classList.toggle('collapsed', content.classList.contains('collapsed'));
+                content.classList.toggle('collapsed-settings');
+                // Update section class using settings-specific class
+                section.classList.toggle('settings-collapsed', content.classList.contains('collapsed-settings'));
               }
-            });
+            };
+            
+            header.addEventListener('click', headerClickHandler);
 
             // Add change handler to toggle
-            toggle.addEventListener('change', () => {
+            const toggleChangeHandler = () => {
               this.updateDefaultRuleToggleState(toggle, header, content);
-            });
+            };
+            
+            toggle.addEventListener('change', toggleChangeHandler);
+            
+            // Mark this toggle as having event listener setup
+            (toggle as any).__defaultRuleToggleSetup = true;
           }
         }
       }
@@ -3195,9 +3250,9 @@ export class StackTraceApp {
       header.classList.add('disabled');
       content.style.opacity = '0.5';
       // Always collapse when disabled
-      content.classList.add('collapsed');
+      content.classList.add('collapsed-settings');
       if (section) {
-        section.classList.add('container-collapsed');
+        section.classList.add('settings-collapsed');
       }
     }
   }
@@ -3209,29 +3264,41 @@ export class StackTraceApp {
     const customRulesSections = document.querySelectorAll('.custom-rules-section');
     
     customRulesSections.forEach(section => {
+      // Check if this section already has event listener setup
+      if ((section as any).__customRulesSetup) {
+        return;
+      }
+      
       const header = section.querySelector('.custom-rules-header') as HTMLElement;
       const content = section.querySelector('.custom-rules-content') as HTMLElement;
       
       if (header && content) {
-        header.addEventListener('click', () => {
-          const isCollapsed = content.classList.contains('collapsed');
+        const headerClickHandler = () => {
+          const isCollapsed = content.classList.contains('collapsed-settings');
           
           if (isCollapsed) {
-            content.classList.remove('collapsed');
-            section.classList.remove('container-collapsed');
+            content.classList.remove('collapsed-settings');
+            section.classList.remove('settings-collapsed');
           } else {
-            content.classList.add('collapsed');
-            section.classList.add('container-collapsed');
+            content.classList.add('collapsed-settings');
+            section.classList.add('settings-collapsed');
           }
-        });
+        };
+        
+        header.addEventListener('click', headerClickHandler);
 
         // Add input event listener to textarea to update rule counts
         const textarea = content.querySelector('textarea') as HTMLTextAreaElement;
         if (textarea) {
-          textarea.addEventListener('input', () => {
+          const textareaInputHandler = () => {
             this.updateRuleCount(section, textarea);
-          });
+          };
+          
+          textarea.addEventListener('input', textareaInputHandler);
         }
+        
+        // Mark this section as having event listener setup
+        (section as any).__customRulesSetup = true;
       }
     });
   }
@@ -3254,10 +3321,10 @@ export class StackTraceApp {
   /**
    * Copy stack name and trace to clipboard
    */
-  private async copyStackToClipboard(stack: UniqueStack): Promise<void> {
+  private async copyStackToClipboard(stack: UniqueStack, category: Category): Promise<void> {
     try {
-      // Add markdown title with # prefix
-      const stackTitle = `# ${stack.name}`;
+      // Add markdown title with # prefix, including category
+      const stackTitle = `# ${category.name} → ${stack.name}`;
       
       // Group goroutines by file, then by state and wait time
       let goroutineInfo = '';

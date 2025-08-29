@@ -542,6 +542,15 @@ async function runTests() {
         });
       }
 
+      // Create mock category
+      const mockCategory = {
+        id: 'test-category',
+        name: 'Test Category',
+        stacks: [mockStack],
+        pinned: false,
+        counts: { total: 50, matches: 50, filterMatches: 50, pinned: 0 }
+      };
+
       // Access the StackTraceApp instance and call copyStackToClipboard
       const app = (window as any).debugApp || (window as any).stackTraceApp;
       if (!app || !app.copyStackToClipboard) {
@@ -558,7 +567,7 @@ async function runTests() {
 
       try {
         // Call the copy method
-        await app.copyStackToClipboard(mockStack);
+        await app.copyStackToClipboard(mockStack, mockCategory);
         
         // Restore original method
         navigator.clipboard.writeText = originalWriteText;
