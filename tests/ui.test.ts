@@ -4,7 +4,7 @@
  */
 
 import { chromium, Browser, Page } from 'playwright';
-import path from 'path';
+import * as path from 'path';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -522,25 +522,36 @@ async function runTests() {
       const mockStack = {
         id: 'test-stack',
         name: 'Test Stack with Many Goroutines',
-        trace: ['func1() at file1.go:10', 'func2() at file2.go:20'],
+        trace: [
+          { func: 'func1', file: 'file1.go', line: 10 },
+          { func: 'func2', file: 'file2.go', line: 20 }
+        ],
         files: [
           {
             id: 'test-file',
+            fileId: 'test-file',
             fileName: 'test.go',
             groups: [
               {
                 id: 'test-group',
                 labels: [],
-                goroutines: [],
+                goroutines: [] as any[],
+                pinned: false,
+                counts: { total: 50, matches: 50, filterMatches: 50, pinned: 0 },
               },
             ],
+            pinned: false,
+            counts: { total: 50, matches: 50, filterMatches: 50, pinned: 0 },
           },
         ],
+        searchableText: '',
+        pinned: false,
+        counts: { total: 50, matches: 50, filterMatches: 50, pinned: 0 },
       };
 
       // Add 50 goroutines with same state to trigger chunking
       for (let i = 1; i <= 50; i++) {
-        mockStack.files[0].groups[0].goroutines.push({
+        (mockStack.files[0].groups[0].goroutines as any[]).push({
           id: i.toString(),
           creator: '',
           creatorExists: false,
@@ -552,8 +563,10 @@ async function runTests() {
           stack: {
             id: 'test-stack',
             name: 'Test Stack',
-            trace: [],
+            trace: [{ func: 'testFunc', file: 'test.go', line: 1 }],
+            files: [],
             searchableText: '',
+            pinned: false,
             counts: { total: 1, matches: 1, filterMatches: 1, pinned: 0 },
           },
         });

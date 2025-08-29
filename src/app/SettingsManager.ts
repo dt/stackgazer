@@ -3,11 +3,7 @@
  */
 
 import type { TitleRule, CategoryRule } from './ProfileCollection.js';
-
-export interface NameExtractionPattern {
-  regex: string;
-  replacement: string;
-}
+import type { NameExtractionPattern } from './types.js';
 
 export interface AppSettings {
   // Parsing options
@@ -139,14 +135,17 @@ export class SettingsManager {
         {
           regex: 'pgwire\\.\\(\\*Server\\)\\.serveImpl.*?\\{0x1,\\s*0x2,\\s*\\{0x([0-9a-fA-F]+),',
           replacement: 'hex:n$1',
+          description: 'Extract connection ID from pgwire server (type 1)',
         },
         {
           regex: 'pgwire\\.\\(\\*Server\\)\\.serveImpl.*?\\{0x0,\\s*0x4,\\s*\\{0x([0-9a-fA-F]+),',
           replacement: 'hex:n$1',
+          description: 'Extract connection ID from pgwire server (type 2)',
         },
         {
           regex: '# labels:.*?"n":"([0-9]+)"',
           replacement: 'n$1',
+          description: 'Extract node ID from labels',
         },
       ],
 
