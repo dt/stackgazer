@@ -438,6 +438,7 @@ export class StackTraceApp {
     const sidebar = document.querySelector('.sidebar') as HTMLElement;
     const overlay = document.getElementById('sidebarOverlay') as HTMLElement;
     const menuBtn = document.getElementById('narrowMenuBtn') as HTMLElement;
+    const closeBtn = document.getElementById('narrowCloseBtn') as HTMLElement;
 
     if (sidebar && overlay && menuBtn) {
       const isOpen = sidebar.classList.contains('narrow-open');
@@ -449,6 +450,9 @@ export class StackTraceApp {
         sidebar.classList.add('narrow-open');
         overlay.classList.add('active');
         menuBtn.classList.add('active');
+        if (closeBtn) {
+          closeBtn.classList.add('visible');
+        }
       }
     }
   }
@@ -457,11 +461,15 @@ export class StackTraceApp {
     const sidebar = document.querySelector('.sidebar') as HTMLElement;
     const overlay = document.getElementById('sidebarOverlay') as HTMLElement;
     const menuBtn = document.getElementById('narrowMenuBtn') as HTMLElement;
+    const closeBtn = document.getElementById('narrowCloseBtn') as HTMLElement;
 
     if (sidebar && overlay && menuBtn) {
       sidebar.classList.remove('narrow-open');
       overlay.classList.remove('active');
       menuBtn.classList.remove('active');
+      if (closeBtn) {
+        closeBtn.classList.remove('visible');
+      }
     }
   }
 
