@@ -2512,6 +2512,9 @@ input:checked + .toggle-slider:before {
         z-index: 1000;
         transition: left 0.3s ease;
         box-shadow: 2px 0 10px rgba(0, 0, 0, 0.3);
+        overflow-y: auto; /* Allow scrolling if content is too tall */
+        padding: 20px 20px 80px 20px; /* Override desktop padding, extra bottom space */
+        box-sizing: border-box;
     }
     
     /* Show sidebar when active */
@@ -2702,31 +2705,42 @@ input:checked + .toggle-slider:before {
         border-color: var(--accent-primary);
     }
     
-    /* Hide button for narrow sidebar */
+    /* Hide button for narrow sidebar - positioned outside sidebar to avoid clipping */
     .narrow-close-btn {
-        position: absolute;
-        top: 15px;
-        right: 8px;
-        background: var(--bg-tertiary);
-        border: 1px solid var(--border-secondary);
-        border-radius: 4px;
+        position: fixed;
+        top: 20px;
+        left: -18px; /* Start hidden with sidebar */
+        background: var(--bg-primary);
+        border: 2px solid var(--border-secondary);
+        border-radius: 50%;
         color: var(--text-secondary);
-        font-size: 18px;
+        font-size: 20px;
         cursor: pointer;
-        width: 24px;
-        height: 24px;
+        width: 36px;
+        height: 36px;
         display: flex;
         align-items: center;
         justify-content: center;
-        z-index: 1001;
-        transition: all 0.2s ease;
+        z-index: 1002;
+        transition: left 0.3s ease, opacity 0.2s ease; /* Slide with sidebar */
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        opacity: 0;
+        visibility: hidden;
+    }
+    
+    /* Show and position button when visible */
+    .narrow-close-btn.visible {
+        opacity: 1;
+        visibility: visible;
+        left: 282px; /* 300px sidebar width - 18px (half button width) */
     }
     
     .narrow-close-btn:hover {
-        background: var(--bg-quaternary);
+        background: var(--bg-secondary);
         color: var(--text-primary);
         border-color: var(--accent-primary);
         transform: scale(1.1);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
     }
     
     /* Adjust main content padding */
@@ -2736,5 +2750,29 @@ input:checked + .toggle-slider:before {
     
     .drop-zone.has-content {
         padding: 10px;
+    }
+}
+
+/* Very narrow screens - wrap header content */
+@media (max-width: 400px) {
+    .header {
+        flex-wrap: wrap;
+        align-items: flex-start;
+        gap: 4px;
+    }
+    
+    .header-right {
+        width: 100%;
+        align-items: flex-start;
+        margin-top: 4px;
+    }
+    
+    .header .counts {
+        margin-right: 0;
+        font-size: 12px;
+    }
+    
+    .state-summary {
+        font-size: 11px;
     }
 }
