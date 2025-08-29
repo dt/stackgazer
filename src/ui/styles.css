@@ -368,8 +368,8 @@ body {
     color: white;
     padding: 12px 15px;
     font-weight: bold;
-    cursor: text;
-    user-select: text;
+    cursor: pointer;
+    user-select: none;
     font-size: 14px;
     display: flex;
     justify-content: space-between;
@@ -408,13 +408,15 @@ body {
 }
 
 .group-title,
-.stack-title {
+.stack-title,
+.category-title {
     cursor: text;
     user-select: text;
-    flex: 1;
+    flex: 0 1 auto;
     display: flex;
     align-items: center;
     gap: 12px;
+    min-width: 0;
 }
 
 /* Add downward arrow with rightward tip prefix to stack titles */
@@ -591,6 +593,8 @@ body {
 /* Consistent spacing to prevent text shifting */
 .header .counts {
     margin-right: 36px;
+    cursor: text;
+    user-select: text;
 }
 
 /* Header right container for count and stats */
@@ -609,6 +613,8 @@ body {
     white-space: nowrap;
     text-align: right;
     margin-right: 36px; /* Same as counts to avoid pin button overlap */
+    cursor: text;
+    user-select: text;
 }
 
 .category-stats:empty,
