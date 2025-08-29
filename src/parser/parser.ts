@@ -123,13 +123,7 @@ export class FileParser {
 
       const [, idStr, state, minutesStr] = match;
       const id = parseInt(idStr);
-      if (isNaN(id)) {
-        return { success: false, error: `Invalid goroutine ID: ${idStr} at line ${i + 1}` };
-      }
       const waitMinutes = minutesStr ? parseFloat(minutesStr) : 0;
-      if (minutesStr && isNaN(waitMinutes)) {
-        return { success: false, error: `Invalid wait time: ${minutesStr}` };
-      }
 
       // Parse stack trace
       i++;
@@ -173,9 +167,6 @@ export class FileParser {
             if (locationMatch) {
               const [, file, lineStr] = locationMatch;
               const lineNum = parseInt(lineStr);
-              if (isNaN(lineNum)) {
-                return { success: false, error: `Invalid line number: ${lineStr}` };
-              }
               trace.push({ func, file, line: lineNum });
             }
           }
@@ -271,9 +262,6 @@ export class FileParser {
     const totalMatch = firstLine?.match(/goroutine profile: total (\d+)/);
     if (totalMatch) {
       totalGoroutines = parseInt(totalMatch[1]);
-      if (isNaN(totalGoroutines)) {
-        return { success: false, error: `Invalid total goroutines: ${totalMatch[1]}` };
-      }
     }
 
     let i = 0;
@@ -293,9 +281,6 @@ export class FileParser {
       }
 
       const count = parseInt(countMatch[1]);
-      if (isNaN(count)) {
-        return { success: false, error: `Invalid goroutine count: ${countMatch[1]}` };
-      }
       i++;
 
       // Parse labels (look for lines starting with # labels:)
@@ -346,9 +331,6 @@ export class FileParser {
           func = func.replace(/\+0x[0-9a-fA-F]+$/, '');
 
           const lineNum = parseInt(lineStr);
-          if (isNaN(lineNum)) {
-            return { success: false, error: `Invalid line number in trace: ${lineStr}` };
-          }
           trace.push({ func, file, line: lineNum });
         }
         i++;
