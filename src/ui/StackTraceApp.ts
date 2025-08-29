@@ -1821,6 +1821,7 @@ export class StackTraceApp {
             'https://raw.githubusercontent.com/dt/crdb-stacks-examples/refs/heads/main/stacks/files/1/stacks.txt';
           await this.loadFromUrl(rawUrl, 'crdb-demo-single.txt');
         } catch (error) {
+          const msg = (error && (error as any).message) ? (error as any).message : String(error);
           console.error('Demo file load error:', error);
           alert(`Failed to load demo file. Please try again or check your internet connection (${msg}).`);
         }
@@ -1919,9 +1920,6 @@ export class StackTraceApp {
       } else {
         console.timeEnd(`🌐 URL File Import: ${fileName}`);
       }
-      catch (error) {
-      const msg = (error && (error as any).message) ? (error as any).message : String(error);
-  
       console.error('URL load error:', error);
       throw error;
     }
