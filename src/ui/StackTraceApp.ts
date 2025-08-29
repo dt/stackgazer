@@ -977,12 +977,12 @@ export class StackTraceApp {
   private collapseAllStacks(): void {
     const stacks = document.querySelectorAll('.stack-section');
     const hasExpandedStacks = Array.from(stacks).some(
-      stack => !stack.hasAttribute('data-collapsed')
+      stack => !stack.classList.contains('container-collapsed')
     );
 
     if (hasExpandedStacks) {
-      // FAST APPROACH: Direct style manipulation + data attributes
-      stacks.forEach((section, index) => {
+      // Collapse stacks using consistent CSS class approach
+      stacks.forEach(section => {
         const content = section.querySelector('.section-content') as HTMLElement;
         if (content) {
           content.style.display = 'none';
@@ -993,28 +993,24 @@ export class StackTraceApp {
           icon.textContent = '▶';
         }
         
-        // Use data attribute for state tracking (no CSS performance impact)
-        section.setAttribute('data-collapsed', 'true');
+        // Use consistent CSS class for all containers
+        section.classList.add('container-collapsed');
       });
     } else {
       const categories = document.querySelectorAll('.category-section');
       
-      categories.forEach((section, index) => {
-        // PERFORMANCE FIX: Bypass CSS cascade by setting styles directly
+      categories.forEach(section => {
         const content = section.querySelector('.section-content') as HTMLElement;
         if (content) {
           content.style.display = 'none';
         }
         
-        // Update icon directly
         const icon = section.querySelector('.expand-icon') as HTMLElement;
         if (icon) {
           icon.textContent = '▶';
         }
         
         section.classList.add('container-collapsed');
-        
-        // Skip aria updates for performance
       });
     }
   }
@@ -1025,7 +1021,36 @@ export class StackTraceApp {
                        container.classList.contains('stack-section');
     
     if (isContainer) {
-      container.classList.toggle('container-collapsed');
+      // Use consistent CSS class approach for all containers
+      const wasCollapsed = container.classList.contains('container-collapsed');
+      
+      if (wasCollapsed) {
+        // Expand: Remove collapse class and reset display
+        container.classList.remove('container-collapsed');
+        
+        const content = container.querySelector('.section-content') as HTMLElement;
+        if (content) {
+          content.style.display = '';
+        }
+        
+        const icon = container.querySelector('.expand-icon') as HTMLElement;
+        if (icon) {
+          icon.textContent = '▼';
+        }
+      } else {
+        // Collapse: Add CSS class and hide content
+        container.classList.add('container-collapsed');
+        
+        const content = container.querySelector('.section-content') as HTMLElement;
+        if (content) {
+          content.style.display = 'none';
+        }
+        
+        const icon = container.querySelector('.expand-icon') as HTMLElement;
+        if (icon) {
+          icon.textContent = '▶';
+        }
+      }
     } else {
       container.classList.toggle('section-collapsed');
     }
@@ -1148,49 +1173,69 @@ export class StackTraceApp {
     const header = container.querySelector('.header') as HTMLElement;
     if (!header) return;
 
-    header.addEventListener('click', e => {
-      // Check if there's a text selection - if so, allow it instead of toggling
-      const selection = window.getSelection();
-      if (selection && selection.toString().length > 0) {
-        return; // Don't interfere with text selection
-      }
+    // Store selection state on the header element
+    header.addEventListener('mousedown', this.handleHeaderMouseDown.bind(this));
+    header.addEventListener('mouseup', this.handleHeaderMouseUp.bind(this));
+  }
 
-      e.stopPropagation();
-      e.preventDefault();
+  private handleHeaderMouseDown(e: MouseEvent): void {
+    const header = e.currentTarget as HTMLElement;
+    const selection = window.getSelection();
+    // Store selection state on the header element
+    (header as any).__selectionAtMouseDown = selection ? selection.toString() : '';
+  }
 
-      const wasExpanded = !container.classList.contains('container-collapsed') || container.classList.contains('section-collapsed');
+  private handleHeaderMouseUp(e: MouseEvent): void {
+    const header = e.currentTarget as HTMLElement;
+    const container = header.closest('.section') as HTMLElement;
+    if (!container) return;
 
-      // Simply toggle the collapsed class
-      this.toggleContainerCollapse(container);
+    // Check if selection changed during the drag
+    const selection = window.getSelection();
+    const selectionAtMouseUp = selection ? selection.toString() : '';
+    const selectionAtMouseDown = (header as any).__selectionAtMouseDown || '';
+    
+    // If selection changed during drag, don't toggle
+    if (selectionAtMouseDown !== selectionAtMouseUp) {
+      return; // User was selecting text
+    }
 
-      // If we just collapsed and the header is above the viewport, scroll to it
-      if (wasExpanded) {
-        const headerRect = header.getBoundingClientRect();
-        if (headerRect.top < 0) {
-          header.scrollIntoView({ behavior: 'instant', block: 'start' });
-          // For stack headers that are above viewport, scrolling "into view"
-          // still leaves them behind the category header, so if that happens,
-          // we can scroll them again but this time with a scroll margin set to
-          // the height of the cat header (or just a tad less to avoid a gap),
-          // then restore its scroll margin.
-          if (container.classList.contains('stack-section')) {
-            const parentCategory = container.closest('.category-section');
-            const parentHeader = parentCategory
-              ? (parentCategory.querySelector('.header') as HTMLElement)
-              : null;
-            if (parentHeader) {
-              const headerHeight = parentHeader.clientHeight;
-              const tmp = header.style.scrollMarginTop;
-              header.style.scrollMarginTop = `${headerHeight - 2}px`;
-              header.scrollIntoView({ behavior: 'instant', block: 'start' });
-              header.style.scrollMarginTop = tmp;
-            }
+    // No selection change - proceed with toggle
+    e.stopPropagation();
+    e.preventDefault();
+
+    const wasExpanded = !container.classList.contains('container-collapsed') || container.classList.contains('section-collapsed');
+
+    // Simply toggle the collapsed class
+    this.toggleContainerCollapse(container);
+
+    // If we just collapsed and the header is above the viewport, scroll to it
+    if (wasExpanded) {
+      const headerRect = header.getBoundingClientRect();
+      if (headerRect.top < 0) {
+        header.scrollIntoView({ behavior: 'instant', block: 'start' });
+        // For stack headers that are above viewport, scrolling "into view"
+        // still leaves them behind the category header, so if that happens,
+        // we can scroll them again but this time with a scroll margin set to
+        // the height of the cat header (or just a tad less to avoid a gap),
+        // then restore its scroll margin.
+        if (container.classList.contains('stack-section')) {
+          const parentCategory = container.closest('.category-section');
+          const parentHeader = parentCategory
+            ? (parentCategory.querySelector('.header') as HTMLElement)
+            : null;
+          if (parentHeader) {
+            const headerHeight = parentHeader.clientHeight;
+            const tmp = header.style.scrollMarginTop;
+            header.style.scrollMarginTop = `${headerHeight - 2}px`;
+            header.scrollIntoView({ behavior: 'instant', block: 'start' });
+            header.style.scrollMarginTop = tmp;
           }
         }
       }
+    }
 
-      // Skip aria-expanded for performance
-    });
+    // Skip aria-expanded for performance
   }
 
   private renderFiles(): void {
