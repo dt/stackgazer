@@ -700,7 +700,7 @@ export class ProfileCollection {
           matches: group.count,
           priorMatches: group.count,
           filterMatches: group.count,
-          pinnedCount: 0,
+          pinned: 0,
           minWait: Infinity,
           maxWait: -Infinity,
           minMatchingWait: Infinity,

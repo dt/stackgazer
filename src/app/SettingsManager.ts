@@ -2,7 +2,7 @@
  * Manages application settings with localStorage persistence
  */
 
-import type { TitleRule } from './ProfileCollection.js';
+import type { TitleRule, CategoryRule } from './ProfileCollection.js';
 
 export interface NameExtractionPattern {
   regex: string;
@@ -644,4 +644,5 @@ export class SettingsManager {
     
     return combined;
   }
+
 }
