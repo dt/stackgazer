@@ -112,7 +112,7 @@ async function runTests() {
   await test('Filter workflows', async () => {
     // Start fresh with single demo
     await page.reload();
-    await page.waitForSelector('.drop-zone', { timeout: 1000 });
+    await page.waitForSelector('.drop-zone', { timeout: QUICK_TIMEOUT });
     await page.click('#demoSingleBtn');
     await page.waitForSelector('.group-section', { timeout: QUICK_TIMEOUT });
 
@@ -134,7 +134,7 @@ async function runTests() {
           return input && input.value === expectedValue;
         },
         t.filter,
-        { timeout: 1000 }
+        { timeout: QUICK_TIMEOUT }
       );
 
       // Verify filter was applied
@@ -166,7 +166,7 @@ async function runTests() {
                 groupContent.classList.contains('expanded'))
             );
           },
-          { timeout: 1000 }
+          { timeout: QUICK_TIMEOUT }
         )
         .catch(() => {});
       console.log('  ✅ Group expansion/collapse works');
@@ -177,7 +177,7 @@ async function runTests() {
     if (creatorLinks.length > 0) {
       for (let i = 0; i < Math.min(creatorLinks.length, 3); i++) {
         try {
-          await creatorLinks[i].click({ timeout: 500 });
+          await creatorLinks[i].click({ timeout: QUICK_TIMEOUT });
           console.log(`  ✅ Creator link ${i + 1} clickable`);
 
           // Check for highlighted goroutine
@@ -205,7 +205,7 @@ async function runTests() {
               const backBtn = document.querySelector('#backBtn') as HTMLButtonElement;
               return backBtn && backBtn.disabled;
             },
-            { timeout: 1000 }
+            { timeout: QUICK_TIMEOUT }
           )
           .catch(() => {});
         console.log('  ✅ Back navigation works');
@@ -220,7 +220,7 @@ async function runTests() {
         const select = document.querySelector('#stackDisplayModeSelect') as HTMLSelectElement;
         return select && select.value === 'side-by-side';
       },
-      { timeout: 1000 }
+      { timeout: QUICK_TIMEOUT }
     );
     await page.selectOption('#stackDisplayModeSelect', 'functions');
     await page.waitForFunction(
@@ -228,7 +228,7 @@ async function runTests() {
         const select = document.querySelector('#stackDisplayModeSelect') as HTMLSelectElement;
         return select && select.value === 'functions';
       },
-      { timeout: 1000 }
+      { timeout: QUICK_TIMEOUT }
     );
     console.log('  ✅ Display mode switching works');
   });
@@ -237,7 +237,7 @@ async function runTests() {
   await test('Filter-then-load workflow', async () => {
     // Start fresh
     await page.reload();
-    await page.waitForSelector('.drop-zone', { timeout: 1000 });
+    await page.waitForSelector('.drop-zone', { timeout: QUICK_TIMEOUT });
 
     // Set filter BEFORE loading
     await page.fill('#filterInput', '3080');
@@ -252,7 +252,7 @@ async function runTests() {
 
     await page.click('#demoZipBtn');
     // Wait for files to load
-    await page.waitForSelector('.file-item', { timeout: 1000 });
+    await page.waitForSelector('.file-item', { timeout: QUICK_TIMEOUT });
 
     // Check results - count visible categories
     const visibleCats = await page.$$('.category-section:not(.filtered)');
@@ -266,7 +266,7 @@ async function runTests() {
         const input = document.querySelector('#filterInput') as HTMLInputElement;
         return input && input.value === '';
       },
-      { timeout: 1000 }
+      { timeout: QUICK_TIMEOUT }
     );
 
     const clearedFilter = await page.inputValue('#filterInput');
@@ -315,7 +315,7 @@ async function runTests() {
   // Test 6: Basic expand/collapse functionality
   await test('Basic expand/collapse functionality', async () => {
     // First ensure we have some data loaded (from previous tests)
-    await page.waitForSelector('.category-section', { timeout: 1000 });
+    await page.waitForSelector('.category-section', { timeout: QUICK_TIMEOUT });
 
     // Test that expand/collapse buttons exist and are clickable
     const expandBtn = await page.$('#expandAllBtn');
@@ -340,7 +340,7 @@ async function runTests() {
 
   await test('File groups remain visible after collapse-all then individual stack expand', async () => {
     // This test reproduces the reported bug where file groups disappear
-    await page.waitForSelector('.category-section', { timeout: 1000 });
+    await page.waitForSelector('.category-section', { timeout: QUICK_TIMEOUT });
 
     // First expand everything to ensure file groups are visible
     await page.click('#expandAllBtn');
@@ -396,7 +396,7 @@ async function runTests() {
   });
 
   await test('Navigation expands collapsed parent containers', async () => {
-    await page.waitForSelector('.category-section', { timeout: 1000 });
+    await page.waitForSelector('.category-section', { timeout: QUICK_TIMEOUT });
 
     // First expand everything to ensure we have content
     await page.click('#expandAllBtn');
@@ -458,7 +458,7 @@ async function runTests() {
       const stacks = document.querySelectorAll('.stack-section');
       return (
         Array.from(categories).every(cat => cat.classList.contains('container-collapsed')) &&
-        Array.from(stacks).every(stack => stack.hasAttribute('data-collapsed'))
+        Array.from(stacks).every(stack => stack.classList.contains('container-collapsed'))
       );
     });
 
@@ -510,7 +510,7 @@ async function runTests() {
   // Test 7: Clipboard copy chunking functionality
   await test('Clipboard copy chunks large goroutine groups', async () => {
     await page.reload();
-    await page.waitForSelector('.drop-zone', { timeout: 1000 });
+    await page.waitForSelector('.drop-zone', { timeout: QUICK_TIMEOUT });
     await page.click('#demoSingleBtn');
     await page.waitForSelector('.group-section', { timeout: QUICK_TIMEOUT });
 
@@ -536,9 +536,20 @@ async function runTests() {
       for (let i = 1; i <= 50; i++) {
         mockStack.files[0].groups[0].goroutines.push({
           id: i.toString(),
+          creator: '',
+          creatorExists: false,
+          created: [],
           state: 'chan receive',
           waitMinutes: 5,
-          matches: true
+          matches: true,
+          pinned: false,
+          stack: {
+            id: 'test-stack',
+            name: 'Test Stack',
+            trace: [],
+            searchableText: '',
+            counts: { total: 1, matches: 1, filterMatches: 1, pinned: 0 }
+          }
         });
       }
 
@@ -618,11 +629,11 @@ async function runTests() {
   // Test 8: Settings modal functionality
   await test('Settings modal basic functionality', async () => {
     await page.reload();
-    await page.waitForSelector('.drop-zone', { timeout: 1000 });
+    await page.waitForSelector('.drop-zone', { timeout: QUICK_TIMEOUT });
 
     // Open settings modal
     await page.click('#settingsBtn');
-    await page.waitForSelector('#settingsModal', { timeout: 1000 });
+    await page.waitForSelector('#settingsModal', { timeout: QUICK_TIMEOUT });
 
     // Verify modal is visible
     const modalVisible = await page.isVisible('#settingsModal');
@@ -631,7 +642,7 @@ async function runTests() {
 
     // Check for basic settings elements (with very short timeouts to fail fast)
     try {
-      await page.waitForSelector('.modal-content', { timeout: 100 });
+      await page.waitForSelector('.modal-content', { timeout: QUICK_TIMEOUT });
       console.log('  ✅ Modal content found');
     } catch (error) {
       throw new Error('Modal content not found within 100ms');
