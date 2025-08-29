@@ -377,12 +377,12 @@ export class FileParser {
     if (state === 'sync.WaitGroup.Wait' || state === 'sync.Cond.Wait') {
       return 'wait';
     }
-    
+
     // Transform sync.Mutex.Lock to 'semacquire'
     if (state === 'sync.Mutex.Lock') {
       return 'semacquire';
     }
-    
+
     return state;
   }
 }

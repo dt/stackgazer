@@ -55,7 +55,6 @@ export class ZipHandler {
     const extractedFiles: ZipFile[] = [];
     let totalSize = 0;
 
-
     // Extract matching files
     for (const [path, file] of Object.entries(contents.files)) {
       if (!(file as any).dir && pattern.test(path)) {

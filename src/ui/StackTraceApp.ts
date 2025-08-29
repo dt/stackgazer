@@ -111,7 +111,7 @@ export class StackTraceApp {
 
   /**
    * Removes whitespace-only text nodes from template content to prevent layout issues.
-   * 
+   *
    * When HTML templates are formatted with indentation and newlines for readability,
    * the whitespace creates text nodes in the DOM. These can cause unexpected spacing
    * when cloning templates, as CSS may treat them as content. By normalizing templates
@@ -129,7 +129,7 @@ export class StackTraceApp {
         }
       }
     };
-    
+
     removeWhitespaceNodes(template.content);
   }
 
@@ -153,14 +153,14 @@ export class StackTraceApp {
       this.filterInputValue = savedFilter;
       const filterInput = document.getElementById('filterInput') as HTMLInputElement;
       const narrowFilterInput = document.getElementById('narrowFilterInput') as HTMLInputElement;
-      
+
       if (filterInput) {
         filterInput.value = savedFilter;
       }
       if (narrowFilterInput) {
         narrowFilterInput.value = savedFilter;
       }
-      
+
       this.setFilter({ filterString: savedFilter });
     }
 
@@ -181,7 +181,7 @@ export class StackTraceApp {
       const narrowStackDisplayModeSelect = document.getElementById(
         'narrowStackDisplayModeSelect'
       ) as HTMLSelectElement;
-      
+
       if (stackDisplayModeSelect) {
         stackDisplayModeSelect.value = savedStackMode;
       }
@@ -285,9 +285,11 @@ export class StackTraceApp {
         this.stackDisplayMode = mode;
         this.updateStackDisplayMode(mode);
         this.saveUIState();
-        
+
         // Sync with narrow select
-        const narrowStackDisplayModeSelect = document.getElementById('narrowStackDisplayModeSelect') as HTMLSelectElement;
+        const narrowStackDisplayModeSelect = document.getElementById(
+          'narrowStackDisplayModeSelect'
+        ) as HTMLSelectElement;
         if (narrowStackDisplayModeSelect) {
           narrowStackDisplayModeSelect.value = mode;
         }
@@ -405,7 +407,9 @@ export class StackTraceApp {
     }
 
     // Narrow screen stack display mode select
-    const narrowStackDisplayModeSelect = document.getElementById('narrowStackDisplayModeSelect') as HTMLSelectElement;
+    const narrowStackDisplayModeSelect = document.getElementById(
+      'narrowStackDisplayModeSelect'
+    ) as HTMLSelectElement;
     if (narrowStackDisplayModeSelect) {
       narrowStackDisplayModeSelect.addEventListener('change', e => {
         const mode = (e.target as HTMLSelectElement).value as
@@ -416,9 +420,11 @@ export class StackTraceApp {
         this.stackDisplayMode = mode;
         this.updateStackDisplayMode(mode);
         this.saveUIState();
-        
+
         // Sync with desktop select
-        const desktopStackDisplayModeSelect = document.getElementById('stackDisplayModeSelect') as HTMLSelectElement;
+        const desktopStackDisplayModeSelect = document.getElementById(
+          'stackDisplayModeSelect'
+        ) as HTMLSelectElement;
         if (desktopStackDisplayModeSelect) {
           desktopStackDisplayModeSelect.value = mode;
         }
@@ -430,7 +436,6 @@ export class StackTraceApp {
       this.handleResizeForNarrowMode();
     });
 
-
     // Settings modal
     this.setupSettingsModal();
   }
@@ -440,7 +445,7 @@ export class StackTraceApp {
     const button = e.currentTarget as HTMLElement;
     const stackId = button.dataset.stackId;
     const categoryId = button.dataset.categoryId;
-    
+
     if (!stackId || !categoryId) return;
 
     // Use O(n) lookup for now since we don't have category/stack maps in UI layer
@@ -508,7 +513,7 @@ export class StackTraceApp {
         this.refreshPinStates();
         break;
       case 'stack':
-        // Stack double-click uses special method that pins/unpins with children  
+        // Stack double-click uses special method that pins/unpins with children
         this.profileCollection.toggleStackPinWithChildren(pinId);
         // Update UI for all affected elements
         this.refreshPinStates();
@@ -544,7 +549,7 @@ export class StackTraceApp {
     const link = e.currentTarget as HTMLElement;
     const creatorId = link.dataset.creatorId;
     const secondLineId = link.dataset.secondLineId;
-    
+
     if (creatorId && secondLineId) {
       const goroutine = this.profileCollection.getGoroutineByID(creatorId);
       if (goroutine) {
@@ -577,21 +582,23 @@ export class StackTraceApp {
     e.stopPropagation();
     const showMoreLink = e.currentTarget as HTMLElement;
     const groupId = showMoreLink.dataset.groupId;
-    
+
     if (!groupId) return;
-    
+
     const groupContent = showMoreLink.parentElement as HTMLElement;
     if (!groupContent) return;
-    
+
     // Find the group in the data model
     const group = this.findGroupById(groupId);
     if (!group) return;
-    
+
     // Get currently visible goroutines to determine which ones to add
     const visibleGoroutineIds = new Set(
-      Array.from(groupContent.querySelectorAll('.goroutine-entry')).map(el => el.id.replace('goroutine-', ''))
+      Array.from(groupContent.querySelectorAll('.goroutine-entry')).map(el =>
+        el.id.replace('goroutine-', '')
+      )
     );
-    
+
     // Add remaining goroutines that aren't already visible
     group.goroutines.forEach(goroutine => {
       if (!visibleGoroutineIds.has(goroutine.id)) {
@@ -599,7 +606,7 @@ export class StackTraceApp {
         groupContent.appendChild(goroutineElement);
       }
     });
-    
+
     // Remove the show more link since all goroutines are now visible
     showMoreLink.remove();
     this.setFilter(this.buildCurrentFilter());
@@ -644,7 +651,7 @@ export class StackTraceApp {
     const removeBtn = e.currentTarget as HTMLElement;
     const ruleElement = removeBtn.closest('.rule-item') as HTMLElement;
     const listType = removeBtn.dataset.listType || 'rulesList';
-    
+
     if (ruleElement) {
       ruleElement.remove();
       // Update rule count after removal
@@ -664,7 +671,7 @@ export class StackTraceApp {
 
     if (sidebar && overlay && menuBtn) {
       const isOpen = sidebar.classList.contains('narrow-open');
-      
+
       if (isOpen) {
         this.closeNarrowSidebar();
       } else {
@@ -700,7 +707,7 @@ export class StackTraceApp {
     if (window.innerWidth > 900) {
       this.closeNarrowSidebar();
     }
-    
+
     // Sync filter values between narrow and desktop inputs
     this.syncFilterInputs();
   }
@@ -708,7 +715,7 @@ export class StackTraceApp {
   private syncFilterInputs(): void {
     const desktopFilter = document.getElementById('filterInput') as HTMLInputElement;
     const narrowFilter = document.getElementById('narrowFilterInput') as HTMLInputElement;
-    
+
     if (desktopFilter && narrowFilter) {
       // Always sync both inputs to the master filter value
       desktopFilter.value = this.filterInputValue;
@@ -809,7 +816,7 @@ export class StackTraceApp {
     // Immediate validation - show errors right away
     const parsed = this.parseFilterString(query);
     this.showFilterError(parsed.error);
-    
+
     // Only set filter if valid
     if (!parsed.error) {
       // Set a new timer to apply the filter after a short delay
@@ -820,7 +827,7 @@ export class StackTraceApp {
           this.setFilter({
             filterString: currentParsed.filterString,
             minWait: currentParsed.minWait,
-            maxWait: currentParsed.maxWait
+            maxWait: currentParsed.maxWait,
           });
         }
         this.saveUIState();
@@ -832,7 +839,7 @@ export class StackTraceApp {
   private showFilterError(error?: string): void {
     const filterInput = document.getElementById('filterInput') as HTMLInputElement;
     const filterError = document.getElementById('filterError') as HTMLElement;
-    
+
     if (error) {
       filterInput.classList.add('error');
       filterError.textContent = error;
@@ -858,28 +865,42 @@ export class StackTraceApp {
     return isNaN(parsed) ? null : parsed;
   }
 
-  private parseFilterString(input: string): { filterString: string; minWait?: number; maxWait?: number; error?: string } {
-    const parts = input.split(' ').map(p => p.trim()).filter(p => p.length > 0);
+  private parseFilterString(input: string): {
+    filterString: string;
+    minWait?: number;
+    maxWait?: number;
+    error?: string;
+  } {
+    const parts = input
+      .split(' ')
+      .map(p => p.trim())
+      .filter(p => p.length > 0);
     const waitParts: string[] = [];
     const textParts: string[] = [];
-    
+
     let minWait: number | undefined;
     let maxWait: number | undefined;
     let hasMinConstraint = false;
     let hasMaxConstraint = false;
     let hasExactConstraint = false;
-    
+
     for (const part of parts) {
       if (part.startsWith('wait:')) {
         waitParts.push(part);
         const waitSpec = part.substring(5); // Remove 'wait:' prefix
-        
+
         if (waitSpec.startsWith('>')) {
           if (hasMinConstraint) {
-            return { filterString: '', error: 'Multiple minimum wait constraints not allowed (e.g., wait:>5 wait:>10)' };
+            return {
+              filterString: '',
+              error: 'Multiple minimum wait constraints not allowed (e.g., wait:>5 wait:>10)',
+            };
           }
           if (hasExactConstraint) {
-            return { filterString: '', error: 'Exact wait time cannot be combined with other wait constraints' };
+            return {
+              filterString: '',
+              error: 'Exact wait time cannot be combined with other wait constraints',
+            };
           }
           const value = this.parseWaitValue(waitSpec.substring(1));
           if (value === null) {
@@ -889,10 +910,16 @@ export class StackTraceApp {
           hasMinConstraint = true;
         } else if (waitSpec.startsWith('<')) {
           if (hasMaxConstraint) {
-            return { filterString: '', error: 'Multiple maximum wait constraints not allowed (e.g., wait:<5 wait:<10)' };
+            return {
+              filterString: '',
+              error: 'Multiple maximum wait constraints not allowed (e.g., wait:<5 wait:<10)',
+            };
           }
           if (hasExactConstraint) {
-            return { filterString: '', error: 'Exact wait time cannot be combined with other wait constraints' };
+            return {
+              filterString: '',
+              error: 'Exact wait time cannot be combined with other wait constraints',
+            };
           }
           const value = this.parseWaitValue(waitSpec.substring(1));
           if (value === null) {
@@ -903,10 +930,16 @@ export class StackTraceApp {
         } else if (waitSpec.endsWith('+')) {
           // wait:5+ means >= 5 (same as wait:>4)
           if (hasMinConstraint) {
-            return { filterString: '', error: 'Multiple minimum wait constraints not allowed (e.g., wait:5+ wait:>10)' };
+            return {
+              filterString: '',
+              error: 'Multiple minimum wait constraints not allowed (e.g., wait:5+ wait:>10)',
+            };
           }
           if (hasExactConstraint) {
-            return { filterString: '', error: 'Exact wait time cannot be combined with other wait constraints' };
+            return {
+              filterString: '',
+              error: 'Exact wait time cannot be combined with other wait constraints',
+            };
           }
           const value = this.parseWaitValue(waitSpec.slice(0, -1));
           if (value === null) {
@@ -917,10 +950,16 @@ export class StackTraceApp {
         } else if (waitSpec.includes('-')) {
           // wait:4-9 means >= 4 and <= 9
           if (hasMinConstraint || hasMaxConstraint) {
-            return { filterString: '', error: 'Range wait constraint cannot be combined with other wait constraints' };
+            return {
+              filterString: '',
+              error: 'Range wait constraint cannot be combined with other wait constraints',
+            };
           }
           if (hasExactConstraint) {
-            return { filterString: '', error: 'Exact wait time cannot be combined with other wait constraints' };
+            return {
+              filterString: '',
+              error: 'Exact wait time cannot be combined with other wait constraints',
+            };
           }
           const parts = waitSpec.split('-');
           if (parts.length !== 2) {
@@ -932,7 +971,10 @@ export class StackTraceApp {
             return { filterString: '', error: `Invalid wait filter: ${part}` };
           }
           if (minValue > maxValue) {
-            return { filterString: '', error: `Invalid range: minimum (${minValue}) cannot be greater than maximum (${maxValue})` };
+            return {
+              filterString: '',
+              error: `Invalid range: minimum (${minValue}) cannot be greater than maximum (${maxValue})`,
+            };
           }
           minWait = minValue;
           maxWait = maxValue;
@@ -940,10 +982,16 @@ export class StackTraceApp {
           hasMaxConstraint = true;
         } else {
           if (hasExactConstraint) {
-            return { filterString: '', error: 'Multiple exact wait constraints not allowed (e.g., wait:5 wait:10)' };
+            return {
+              filterString: '',
+              error: 'Multiple exact wait constraints not allowed (e.g., wait:5 wait:10)',
+            };
           }
           if (hasMinConstraint || hasMaxConstraint) {
-            return { filterString: '', error: 'Exact wait time cannot be combined with other wait constraints' };
+            return {
+              filterString: '',
+              error: 'Exact wait time cannot be combined with other wait constraints',
+            };
           }
           const value = this.parseWaitValue(waitSpec);
           if (value === null) {
@@ -957,12 +1005,12 @@ export class StackTraceApp {
         textParts.push(part);
       }
     }
-    
+
     // Validation: only one non-wait string allowed
     if (textParts.length > 1) {
       return { filterString: '', error: 'Only one search term allowed (plus wait: filters)' };
     }
-    
+
     // Validation: 0 <= min <= max
     if (minWait !== undefined && minWait < 0) {
       return { filterString: '', error: 'Minimum wait time cannot be negative' };
@@ -973,11 +1021,11 @@ export class StackTraceApp {
     if (minWait !== undefined && maxWait !== undefined && minWait > maxWait) {
       return { filterString: '', error: 'Minimum wait time cannot be greater than maximum' };
     }
-    
+
     return {
       filterString: textParts.join(' '),
       minWait,
-      maxWait
+      maxWait,
     };
   }
 
@@ -987,7 +1035,7 @@ export class StackTraceApp {
       filterString: parsed.filterString,
       minWait: parsed.minWait,
       maxWait: parsed.maxWait,
-      ...overrides
+      ...overrides,
     };
   }
 
@@ -1070,11 +1118,11 @@ export class StackTraceApp {
         if (content) {
           content.style.display = '';
         }
-        
+
         // Icon is handled by CSS pseudo-elements based on collapsed classes
-        
+
         section.classList.remove('container-collapsed');
-        
+
         // Skip aria updates for performance
       });
     } else {
@@ -1085,11 +1133,11 @@ export class StackTraceApp {
         if (content) {
           content.style.display = '';
         }
-        
+
         // Icon is handled by CSS pseudo-elements based on collapsed classes
-        
+
         section.classList.remove('container-collapsed');
-        
+
         // Skip aria updates for performance
       });
     }
@@ -1108,23 +1156,23 @@ export class StackTraceApp {
         if (content) {
           content.style.display = 'none';
         }
-        
+
         // Icon is handled by CSS pseudo-elements based on collapsed classes
-        
+
         // Use consistent CSS class for all containers
         section.classList.add('container-collapsed');
       });
     } else {
       const categories = document.querySelectorAll('.category-section');
-      
+
       categories.forEach(section => {
         const content = section.querySelector('.section-content') as HTMLElement;
         if (content) {
           content.style.display = 'none';
         }
-        
+
         // Icon is handled by CSS pseudo-elements based on collapsed classes
-        
+
         section.classList.add('container-collapsed');
       });
     }
@@ -1132,32 +1180,33 @@ export class StackTraceApp {
 
   private toggleContainerCollapse(container: HTMLElement): void {
     // Determine if this is a container (category/stack) or section (file/group)
-    const isContainer = container.classList.contains('category-section') || 
-                       container.classList.contains('stack-section');
-    
+    const isContainer =
+      container.classList.contains('category-section') ||
+      container.classList.contains('stack-section');
+
     if (isContainer) {
       // Use consistent CSS class approach for all containers
       const wasCollapsed = container.classList.contains('container-collapsed');
-      
+
       if (wasCollapsed) {
         // Expand: Remove collapse class and reset display
         container.classList.remove('container-collapsed');
-        
+
         const content = container.querySelector('.section-content') as HTMLElement;
         if (content) {
           content.style.display = '';
         }
-        
+
         // Icon is handled by CSS pseudo-elements based on collapsed classes
       } else {
         // Collapse: Add CSS class and hide content
         container.classList.add('container-collapsed');
-        
+
         const content = container.querySelector('.section-content') as HTMLElement;
         if (content) {
           content.style.display = 'none';
         }
-        
+
         // Icon is handled by CSS pseudo-elements based on collapsed classes
       }
     } else {
@@ -1190,8 +1239,12 @@ export class StackTraceApp {
         for (const stack of category.stacks) {
           // Skip optimization when matches don't change, but only if both are > 0
           // If either is 0, we must update visibility since the element might be incorrectly shown/hidden
-          if (!force && stack.counts.matches === stack.counts.priorMatches && 
-              stack.counts.matches > 0 && stack.counts.priorMatches > 0) {
+          if (
+            !force &&
+            stack.counts.matches === stack.counts.priorMatches &&
+            stack.counts.matches > 0 &&
+            stack.counts.priorMatches > 0
+          ) {
             continue;
           }
           const stackElement = document.getElementById(stack.id) as HTMLElement;
@@ -1309,7 +1362,7 @@ export class StackTraceApp {
     const selection = window.getSelection();
     const selectionAtMouseUp = selection ? selection.toString() : '';
     const selectionAtMouseDown = (header as any).__selectionAtMouseDown || '';
-    
+
     // If selection changed during drag, don't toggle
     if (selectionAtMouseDown !== selectionAtMouseUp) {
       return; // User was selecting text
@@ -1319,7 +1372,9 @@ export class StackTraceApp {
     e.stopPropagation();
     e.preventDefault();
 
-    const wasExpanded = !container.classList.contains('container-collapsed') || container.classList.contains('section-collapsed');
+    const wasExpanded =
+      !container.classList.contains('container-collapsed') ||
+      container.classList.contains('section-collapsed');
 
     // Simply toggle the collapsed class
     this.toggleContainerCollapse(container);
@@ -1829,7 +1884,7 @@ export class StackTraceApp {
           }
         }
       });
-      
+
       if (pinnedStacks > 0) {
         stackCountsElement.textContent = `${stats.visible} (${pinnedStacks}📌) / ${stats.total}`;
       } else {
@@ -1856,10 +1911,10 @@ export class StackTraceApp {
   private updateStateStats(): void {
     // Update state stats in category and stack headers
     const categories = this.profileCollection.getCategories();
-    
+
     for (const category of categories) {
       this.updateCategoryStateStats(category);
-      
+
       for (const stack of category.stacks) {
         this.updateStackStateStats(stack);
       }
@@ -1887,8 +1942,13 @@ export class StackTraceApp {
     });
 
     // Add wait time range
-    const waitText = this.formatWaitTime(category.counts.minMatchingWait, category.counts.maxMatchingWait);
-    statsElement.textContent = waitText ? `${stateElements.join(', ')} • ${waitText}` : stateElements.join(', ');
+    const waitText = this.formatWaitTime(
+      category.counts.minMatchingWait,
+      category.counts.maxMatchingWait
+    );
+    statsElement.textContent = waitText
+      ? `${stateElements.join(', ')} • ${waitText}`
+      : stateElements.join(', ');
   }
 
   private updateStackStateStats(stack: UniqueStack): void {
@@ -1912,8 +1972,13 @@ export class StackTraceApp {
     });
 
     // Add wait time range
-    const waitText = this.formatWaitTime(stack.counts.minMatchingWait, stack.counts.maxMatchingWait);
-    statsElement.textContent = waitText ? `${stateElements.join(', ')} • ${waitText}` : stateElements.join(', ');
+    const waitText = this.formatWaitTime(
+      stack.counts.minMatchingWait,
+      stack.counts.maxMatchingWait
+    );
+    statsElement.textContent = waitText
+      ? `${stateElements.join(', ')} • ${waitText}`
+      : stateElements.join(', ');
   }
 
   private formatWaitTime(minWait: number, maxWait: number): string {
@@ -1928,7 +1993,7 @@ export class StackTraceApp {
 
     // Get aggregate state statistics from ProfileCollection
     const stateStats = this.profileCollection.getStateStatistics();
-    
+
     if (stateStats.size === 0) {
       sidebarStateStats.textContent = '';
       return;
@@ -2016,7 +2081,7 @@ export class StackTraceApp {
     const unpinAllBtn = document.getElementById('unpinAllBtn');
     const narrowUnpinAllBtn = document.getElementById('narrowUnpinAllBtn');
     const hasPinnedItems = this.profileCollection.hasAnyPinnedItems();
-    
+
     if (unpinAllBtn) {
       unpinAllBtn.classList.toggle('hidden', !hasPinnedItems);
     }
@@ -2209,9 +2274,11 @@ export class StackTraceApp {
             'https://raw.githubusercontent.com/dt/crdb-stacks-examples/refs/heads/main/stacks/files/1/stacks.txt';
           await this.loadFromUrl(rawUrl, 'crdb-demo-single.txt');
         } catch (error) {
-          const msg = (error && (error as any).message) ? (error as any).message : String(error);
+          const msg = error && (error as any).message ? (error as any).message : String(error);
           console.error('Demo file load error:', error);
-          alert(`Failed to load demo file. Please try again or check your internet connection (${msg}).`);
+          alert(
+            `Failed to load demo file. Please try again or check your internet connection (${msg}).`
+          );
         }
       });
     }
@@ -2382,7 +2449,7 @@ export class StackTraceApp {
     }
     // Always unforce any existing forced goroutine first
     this.setFilter(this.buildCurrentFilter({ forcedGoroutine: undefined }));
-    
+
     if (!g.matches) {
       // Now force this goroutine to be visible
       this.setFilter(this.buildCurrentFilter({ forcedGoroutine: goroutineId }));
@@ -2426,7 +2493,8 @@ export class StackTraceApp {
       // Look for parent sections with the expandable class and collapsed class
       if (
         currentElement.classList.contains('expandable') &&
-        (currentElement.classList.contains('container-collapsed') || currentElement.classList.contains('section-collapsed'))
+        (currentElement.classList.contains('container-collapsed') ||
+          currentElement.classList.contains('section-collapsed'))
       ) {
         // Remove the appropriate collapsed class to expand
         currentElement.classList.remove('container-collapsed');
@@ -2498,9 +2566,9 @@ export class StackTraceApp {
   private updateBackButtonState(canGoBack?: boolean): void {
     const backBtn = document.getElementById('backBtn') as HTMLButtonElement;
     const narrowBackBtn = document.getElementById('narrowBackBtn') as HTMLButtonElement;
-    
+
     const hasHistory = canGoBack !== undefined ? canGoBack : this.appState.canNavigateBack();
-    
+
     if (backBtn) {
       backBtn.disabled = !hasHistory;
     }
@@ -2583,7 +2651,11 @@ export class StackTraceApp {
 
     // Close modal with Escape key (cancel changes)
     document.addEventListener('keydown', e => {
-      if (e.key === 'Escape' && settingsModal && settingsModal.classList.contains('modal-visible')) {
+      if (
+        e.key === 'Escape' &&
+        settingsModal &&
+        settingsModal.classList.contains('modal-visible')
+      ) {
         // Cancel changes - reload original settings
         this.loadSettingsIntoModal();
         settingsModal.classList.add('modal-hidden');
@@ -2878,7 +2950,6 @@ export class StackTraceApp {
     // Setup add button if not already done
     this.setupRuleEditor();
 
-
     // Update rule count in header
     this.updateRuleListHeader('rulesList', rules.length);
   }
@@ -2908,14 +2979,16 @@ export class StackTraceApp {
       } else if (ruleItem.classList.contains('fold-rule')) {
         // For fold rules, get pattern, replacement, and optional while condition from separate inputs
         const patternInput = ruleItem.querySelector('.rule-pattern-input') as HTMLInputElement;
-        const replacementInput = ruleItem.querySelector('.rule-replacement-input') as HTMLInputElement;
+        const replacementInput = ruleItem.querySelector(
+          '.rule-replacement-input'
+        ) as HTMLInputElement;
         const whileInput = ruleItem.querySelector('.rule-while-input') as HTMLInputElement;
-        
+
         if (patternInput && patternInput.value.trim()) {
           const pattern = patternInput.value.trim();
           const replacement = replacementInput ? replacementInput.value.trim() : '';
           const whileCondition = whileInput ? whileInput.value.trim() : '';
-          
+
           const rule: any = { fold: pattern, to: replacement };
           if (whileCondition) {
             rule.while = whileCondition;
@@ -2925,14 +2998,16 @@ export class StackTraceApp {
       } else if (ruleItem.classList.contains('find-rule')) {
         // For find rules, get pattern, replacement, and optional while condition from separate inputs
         const patternInput = ruleItem.querySelector('.rule-pattern-input') as HTMLInputElement;
-        const replacementInput = ruleItem.querySelector('.rule-replacement-input') as HTMLInputElement;
+        const replacementInput = ruleItem.querySelector(
+          '.rule-replacement-input'
+        ) as HTMLInputElement;
         const whileInput = ruleItem.querySelector('.rule-while-input') as HTMLInputElement;
-        
+
         if (patternInput && patternInput.value.trim()) {
           const pattern = patternInput.value.trim();
           const replacement = replacementInput ? replacementInput.value.trim() : '';
           const whileCondition = whileInput ? whileInput.value.trim() : '';
-          
+
           const rule: any = { find: pattern, to: replacement };
           if (whileCondition) {
             rule.while = whileCondition;
@@ -2978,7 +3053,7 @@ export class StackTraceApp {
 
     const ruleItem = template.content.cloneNode(true) as DocumentFragment;
     const ruleElement = ruleItem.querySelector('.rule-item') as HTMLElement;
-    
+
     // Populate values based on rule type
     if (rule) {
       if ('skip' in rule) {
@@ -2989,14 +3064,18 @@ export class StackTraceApp {
         if (ruleInput) ruleInput.value = rule.trim;
       } else if ('fold' in rule) {
         const patternInput = ruleElement.querySelector('.rule-pattern-input') as HTMLInputElement;
-        const replacementInput = ruleElement.querySelector('.rule-replacement-input') as HTMLInputElement;
+        const replacementInput = ruleElement.querySelector(
+          '.rule-replacement-input'
+        ) as HTMLInputElement;
         const whileInput = ruleElement.querySelector('.rule-while-input') as HTMLInputElement;
         if (patternInput) patternInput.value = rule.fold;
         if (replacementInput) replacementInput.value = rule.to || '';
         if (whileInput && rule.while) whileInput.value = rule.while;
       } else if ('find' in rule) {
         const patternInput = ruleElement.querySelector('.rule-pattern-input') as HTMLInputElement;
-        const replacementInput = ruleElement.querySelector('.rule-replacement-input') as HTMLInputElement;
+        const replacementInput = ruleElement.querySelector(
+          '.rule-replacement-input'
+        ) as HTMLInputElement;
         const whileInput = ruleElement.querySelector('.rule-while-input') as HTMLInputElement;
         if (patternInput) patternInput.value = rule.find;
         if (replacementInput) replacementInput.value = rule.to || '';
@@ -3018,12 +3097,11 @@ export class StackTraceApp {
     } else {
       rulesList.appendChild(ruleItem);
     }
-    
+
     // Update rule count after addition
     const remainingRules = rulesList.querySelectorAll('.rule-item').length;
     this.updateRuleListHeader('rulesList', remainingRules);
   }
-
 
   /**
    * Setup the rule editor
@@ -3033,7 +3111,7 @@ export class StackTraceApp {
     const addTrimBtn = document.getElementById('addTrimBtn');
     const addFoldBtn = document.getElementById('addFoldBtn');
     const addFindBtn = document.getElementById('addFindBtn');
-    
+
     if (!addSkipBtn || !addTrimBtn || !addFoldBtn || !addFindBtn) return;
 
     // Remove existing listeners to prevent duplicates
@@ -3041,7 +3119,7 @@ export class StackTraceApp {
     addTrimBtn.replaceWith(addTrimBtn.cloneNode(true));
     addFoldBtn.replaceWith(addFoldBtn.cloneNode(true));
     addFindBtn.replaceWith(addFindBtn.cloneNode(true));
-    
+
     const newAddSkipBtn = document.getElementById('addSkipBtn');
     const newAddTrimBtn = document.getElementById('addTrimBtn');
     const newAddFoldBtn = document.getElementById('addFoldBtn');
@@ -3050,15 +3128,15 @@ export class StackTraceApp {
     newAddSkipBtn?.addEventListener('click', () => {
       this.addRuleToEditor(undefined, 'skip');
     });
-    
+
     newAddTrimBtn?.addEventListener('click', () => {
       this.addRuleToEditor(undefined, 'trim');
     });
-    
+
     newAddFoldBtn?.addEventListener('click', () => {
       this.addRuleToEditor(undefined, 'fold');
     });
-    
+
     newAddFindBtn?.addEventListener('click', () => {
       this.addRuleToEditor(undefined, 'find');
     });
@@ -3080,7 +3158,6 @@ export class StackTraceApp {
 
     // Setup add button if not already done
     this.setupCategoryRuleEditor();
-
 
     // Update rule count in header
     this.updateRuleListHeader('categoryRulesList', rules.length);
@@ -3153,7 +3230,7 @@ export class StackTraceApp {
 
     const ruleItem = template.content.cloneNode(true) as DocumentFragment;
     const ruleElement = ruleItem.querySelector('.rule-item') as HTMLElement;
-    
+
     // Populate values based on rule type
     if (rule) {
       if ('skip' in rule) {
@@ -3183,7 +3260,7 @@ export class StackTraceApp {
     } else {
       categoryRulesList.appendChild(ruleItem);
     }
-    
+
     // Update rule count after addition
     const categoryRulesList2 = document.getElementById('categoryRulesList');
     if (categoryRulesList2) {
@@ -3198,46 +3275,44 @@ export class StackTraceApp {
   private setupCategoryRuleEditor(): void {
     const addCategorySkipBtn = document.getElementById('addCategorySkipBtn');
     const addCategoryMatchBtn = document.getElementById('addCategoryMatchBtn');
-    
+
     if (!addCategorySkipBtn || !addCategoryMatchBtn) return;
 
     // Remove existing listeners to prevent duplicates
     addCategorySkipBtn.replaceWith(addCategorySkipBtn.cloneNode(true));
     addCategoryMatchBtn.replaceWith(addCategoryMatchBtn.cloneNode(true));
-    
+
     const newAddCategorySkipBtn = document.getElementById('addCategorySkipBtn');
     const newAddCategoryMatchBtn = document.getElementById('addCategoryMatchBtn');
 
     newAddCategorySkipBtn?.addEventListener('click', () => {
       this.addCategoryRuleToEditor(undefined, 'skip');
     });
-    
+
     newAddCategoryMatchBtn?.addEventListener('click', () => {
       this.addCategoryRuleToEditor(undefined, 'match');
     });
   }
-
-
 
   /**
    * Setup collapsible sections
    */
   private setupCollapsibleSections(): void {
     const collapsibleHeaders = document.querySelectorAll('.collapsible-header');
-    
+
     collapsibleHeaders.forEach(header => {
       // Check if this header already has event listener setup
       if ((header as any).__collapsibleSetup) {
         return;
       }
-      
+
       const clickHandler = () => {
         // Find the rule-editor container
         const ruleEditor = header.closest('.rules-editor');
         if (!ruleEditor) return;
-        
+
         const isCollapsed = ruleEditor.classList.contains('collapsed-settings');
-        
+
         if (isCollapsed) {
           ruleEditor.classList.remove('collapsed-settings');
           header.classList.remove('collapsed-settings');
@@ -3246,7 +3321,7 @@ export class StackTraceApp {
           header.classList.add('collapsed-settings');
         }
       };
-      
+
       header.addEventListener('click', clickHandler);
       // Mark this header as having event listener setup
       (header as any).__collapsibleSetup = true;
@@ -3272,37 +3347,49 @@ export class StackTraceApp {
    */
   private populateDefaultRuleTextareas(): void {
     // Category skip rules
-    const defaultCategorySkipRules = document.getElementById('defaultCategorySkipRules') as HTMLTextAreaElement;
+    const defaultCategorySkipRules = document.getElementById(
+      'defaultCategorySkipRules'
+    ) as HTMLTextAreaElement;
     if (defaultCategorySkipRules) {
       defaultCategorySkipRules.value = this.settingsManager.getDefaultCategorySkipRulesString();
     }
 
-    // Category match rules  
-    const defaultCategoryMatchRules = document.getElementById('defaultCategoryMatchRules') as HTMLTextAreaElement;
+    // Category match rules
+    const defaultCategoryMatchRules = document.getElementById(
+      'defaultCategoryMatchRules'
+    ) as HTMLTextAreaElement;
     if (defaultCategoryMatchRules) {
       defaultCategoryMatchRules.value = this.settingsManager.getDefaultCategoryMatchRulesString();
     }
 
     // Name skip rules
-    const defaultNameSkipRules = document.getElementById('defaultNameSkipRules') as HTMLTextAreaElement;
+    const defaultNameSkipRules = document.getElementById(
+      'defaultNameSkipRules'
+    ) as HTMLTextAreaElement;
     if (defaultNameSkipRules) {
       defaultNameSkipRules.value = this.settingsManager.getDefaultNameSkipRulesString();
     }
 
     // Name trim rules
-    const defaultNameTrimRules = document.getElementById('defaultNameTrimRules') as HTMLTextAreaElement;
+    const defaultNameTrimRules = document.getElementById(
+      'defaultNameTrimRules'
+    ) as HTMLTextAreaElement;
     if (defaultNameTrimRules) {
       defaultNameTrimRules.value = this.settingsManager.getDefaultNameTrimRulesString();
     }
 
     // Name fold rules
-    const defaultNameFoldRules = document.getElementById('defaultNameFoldRules') as HTMLTextAreaElement;
+    const defaultNameFoldRules = document.getElementById(
+      'defaultNameFoldRules'
+    ) as HTMLTextAreaElement;
     if (defaultNameFoldRules) {
       defaultNameFoldRules.value = this.settingsManager.getDefaultNameFoldRulesString();
     }
 
     // Name find rules
-    const defaultNameFindRules = document.getElementById('defaultNameFindRules') as HTMLTextAreaElement;
+    const defaultNameFindRules = document.getElementById(
+      'defaultNameFindRules'
+    ) as HTMLTextAreaElement;
     if (defaultNameFindRules) {
       defaultNameFindRules.value = this.settingsManager.getDefaultNameFindRulesString();
     }
@@ -3315,13 +3402,13 @@ export class StackTraceApp {
     // Helper function to setup toggle for a rule type
     const setupToggle = (ruleType: string) => {
       const toggle = document.getElementById(`useDefault${ruleType}Rules`) as HTMLInputElement;
-      
+
       if (toggle) {
         // Check if this toggle already has event listener setup
         if ((toggle as any).__defaultRuleToggleSetup) {
           return;
         }
-        
+
         // Find the closest default-rules-section to this toggle
         const section = toggle.closest('.default-rules-section');
         if (section) {
@@ -3338,19 +3425,22 @@ export class StackTraceApp {
               if (e.target !== toggle && !toggle.contains(e.target as Node) && toggle.checked) {
                 content.classList.toggle('collapsed-settings');
                 // Update section class using settings-specific class
-                section.classList.toggle('settings-collapsed', content.classList.contains('collapsed-settings'));
+                section.classList.toggle(
+                  'settings-collapsed',
+                  content.classList.contains('collapsed-settings')
+                );
               }
             };
-            
+
             header.addEventListener('click', headerClickHandler);
 
             // Add change handler to toggle
             const toggleChangeHandler = () => {
               this.updateDefaultRuleToggleState(toggle, header, content);
             };
-            
+
             toggle.addEventListener('change', toggleChangeHandler);
-            
+
             // Mark this toggle as having event listener setup
             (toggle as any).__defaultRuleToggleSetup = true;
           }
@@ -3374,9 +3464,13 @@ export class StackTraceApp {
   /**
    * Update the visual state of a default rule toggle
    */
-  private updateDefaultRuleToggleState(toggle: HTMLInputElement, header: HTMLElement, content: HTMLElement): void {
+  private updateDefaultRuleToggleState(
+    toggle: HTMLInputElement,
+    header: HTMLElement,
+    content: HTMLElement
+  ): void {
     const section = toggle.closest('.default-rules-section');
-    
+
     if (toggle.checked) {
       header.classList.remove('disabled');
       content.style.opacity = '1';
@@ -3396,20 +3490,20 @@ export class StackTraceApp {
    */
   private setupCustomRulesHandlers(): void {
     const customRulesSections = document.querySelectorAll('.custom-rules-section');
-    
+
     customRulesSections.forEach(section => {
       // Check if this section already has event listener setup
       if ((section as any).__customRulesSetup) {
         return;
       }
-      
+
       const header = section.querySelector('.custom-rules-header') as HTMLElement;
       const content = section.querySelector('.custom-rules-content') as HTMLElement;
-      
+
       if (header && content) {
         const headerClickHandler = () => {
           const isCollapsed = content.classList.contains('collapsed-settings');
-          
+
           if (isCollapsed) {
             content.classList.remove('collapsed-settings');
             section.classList.remove('settings-collapsed');
@@ -3418,7 +3512,7 @@ export class StackTraceApp {
             section.classList.add('settings-collapsed');
           }
         };
-        
+
         header.addEventListener('click', headerClickHandler);
 
         // Add input event listener to textarea to update rule counts
@@ -3427,10 +3521,10 @@ export class StackTraceApp {
           const textareaInputHandler = () => {
             this.updateRuleCount(section, textarea);
           };
-          
+
           textarea.addEventListener('input', textareaInputHandler);
         }
-        
+
         // Mark this section as having event listener setup
         (section as any).__customRulesSetup = true;
       }
@@ -3445,7 +3539,7 @@ export class StackTraceApp {
     if (titleElement) {
       const ruleText = textarea.value.trim();
       const ruleCount = ruleText ? ruleText.split('\n').filter(line => line.trim()).length : 0;
-      
+
       // Extract the base title (everything before the count)
       const baseTitle = titleElement.textContent?.replace(/\s*\(\d+\)$/, '') || 'Custom Rules';
       titleElement.textContent = `${baseTitle} (${ruleCount})`;
@@ -3459,54 +3553,56 @@ export class StackTraceApp {
     try {
       // Add markdown title with # prefix, including category
       const stackTitle = `# ${category.name} → ${stack.name}`;
-      
+
       // Group goroutines by file, then by state and wait time
       let goroutineInfo = '';
-      
+
       if (stack.files.length > 0) {
         const goroutineLines: string[] = [];
-        
+
         for (const fileSection of stack.files) {
           // Group goroutines within this file by state and wait
           const fileGroups = new Map<string, Goroutine[]>();
-          
+
           for (const group of fileSection.groups) {
             for (const goroutine of group.goroutines) {
               const waitText = goroutine.waitMinutes > 0 ? `, ${goroutine.waitMinutes}m` : '';
               const key = `${goroutine.state}${waitText}`;
-              
+
               if (!fileGroups.has(key)) {
                 fileGroups.set(key, []);
               }
               fileGroups.get(key)!.push(goroutine);
             }
           }
-          
+
           if (fileGroups.size > 0) {
             // Add file header if there are multiple files
             if (stack.files.length > 1) {
               goroutineLines.push(`# ${fileSection.fileName}`);
             }
-            
+
             // Sort groups by state then by wait time (ascending)
-            const sortedEntries = Array.from(fileGroups.entries()).sort(([keyA, goroutinesA], [keyB, goroutinesB]) => {
-              const stateA = goroutinesA[0].state;
-              const stateB = goroutinesB[0].state;
-              const waitA = goroutinesA[0].waitMinutes;
-              const waitB = goroutinesB[0].waitMinutes;
-              
-              // First sort by state
-              if (stateA !== stateB) {
-                return stateA.localeCompare(stateB);
+            const sortedEntries = Array.from(fileGroups.entries()).sort(
+              ([keyA, goroutinesA], [keyB, goroutinesB]) => {
+                const stateA = goroutinesA[0].state;
+                const stateB = goroutinesB[0].state;
+                const waitA = goroutinesA[0].waitMinutes;
+                const waitB = goroutinesB[0].waitMinutes;
+
+                // First sort by state
+                if (stateA !== stateB) {
+                  return stateA.localeCompare(stateB);
+                }
+
+                // Then sort by wait time (ascending)
+                return waitA - waitB;
               }
-              
-              // Then sort by wait time (ascending)
-              return waitA - waitB;
-            });
-            
+            );
+
             for (const [stateWait, goroutines] of sortedEntries) {
               const ids = goroutines.map(g => g.id);
-              
+
               // If more than 12 goroutines, chunk them
               if (ids.length > 12) {
                 for (let i = 0; i < ids.length; i += 12) {
@@ -3521,25 +3617,25 @@ export class StackTraceApp {
             }
           }
         }
-        
+
         goroutineInfo = goroutineLines.join('\n');
       }
-      
+
       // Format the stack trace
       const stackTrace = this.formatStackTraceForCopy(stack.trace);
-      
+
       // Combine all parts
       const parts = [stackTitle];
       if (goroutineInfo) {
         parts.push(goroutineInfo);
       }
       parts.push(stackTrace);
-      
+
       const combinedText = parts.join('\n\n');
-      
+
       // Copy to clipboard
       await navigator.clipboard.writeText(combinedText);
-      
+
       // Show brief visual feedback
       this.showCopyFeedback();
     } catch (error) {
@@ -3554,13 +3650,13 @@ export class StackTraceApp {
    */
   private groupGoroutinesByStateAndWait(stack: UniqueStack): Map<string, Goroutine[]> {
     const groups = new Map<string, Goroutine[]>();
-    
+
     for (const fileSection of stack.files) {
       for (const group of fileSection.groups) {
         for (const goroutine of group.goroutines) {
           const waitText = goroutine.waitMinutes > 0 ? `, ${goroutine.waitMinutes} minutes` : '';
           const key = `${goroutine.state}${waitText}`;
-          
+
           if (!groups.has(key)) {
             groups.set(key, []);
           }
@@ -3568,7 +3664,7 @@ export class StackTraceApp {
         }
       }
     }
-    
+
     return groups;
   }
 
@@ -3600,14 +3696,14 @@ export class StackTraceApp {
       opacity: 0;
       transition: opacity 0.3s ease;
     `;
-    
+
     document.body.appendChild(feedback);
-    
+
     // Trigger animation
     requestAnimationFrame(() => {
       feedback.style.opacity = '1';
     });
-    
+
     // Remove after 2 seconds
     setTimeout(() => {
       feedback.style.opacity = '0';
@@ -3621,56 +3717,58 @@ export class StackTraceApp {
   private fallbackCopyToClipboard(stack: UniqueStack): void {
     // Add markdown title with # prefix
     const stackTitle = `# ${stack.name}`;
-    
+
     // Group goroutines by state and wait time
     let goroutineInfo = '';
     const goroutineGroups = this.groupGoroutinesByStateAndWait(stack);
-    
+
     if (goroutineGroups.size > 0) {
       const goroutineLines: string[] = [];
-      
+
       // Sort groups by state then by wait time (ascending)
-      const sortedEntries = Array.from(goroutineGroups.entries()).sort(([keyA, goroutinesA], [keyB, goroutinesB]) => {
-        const stateA = goroutinesA[0].state;
-        const stateB = goroutinesB[0].state;
-        const waitA = goroutinesA[0].waitMinutes;
-        const waitB = goroutinesB[0].waitMinutes;
-        
-        // First sort by state
-        if (stateA !== stateB) {
-          return stateA.localeCompare(stateB);
+      const sortedEntries = Array.from(goroutineGroups.entries()).sort(
+        ([keyA, goroutinesA], [keyB, goroutinesB]) => {
+          const stateA = goroutinesA[0].state;
+          const stateB = goroutinesB[0].state;
+          const waitA = goroutinesA[0].waitMinutes;
+          const waitB = goroutinesB[0].waitMinutes;
+
+          // First sort by state
+          if (stateA !== stateB) {
+            return stateA.localeCompare(stateB);
+          }
+
+          // Then sort by wait time (ascending)
+          return waitA - waitB;
         }
-        
-        // Then sort by wait time (ascending)
-        return waitA - waitB;
-      });
-      
+      );
+
       for (const [stateWait, goroutines] of sortedEntries) {
         const ids = goroutines.map(g => g.id).join(',');
         goroutineLines.push(`goroutine ${ids} [${stateWait}]:`);
       }
       goroutineInfo = goroutineLines.join('\n');
     }
-    
+
     // Format the stack trace
     const stackTrace = this.formatStackTraceForCopy(stack.trace);
-    
+
     // Combine all parts
     const parts = [stackTitle];
     if (goroutineInfo) {
       parts.push(goroutineInfo);
     }
     parts.push(stackTrace);
-    
+
     const combinedText = parts.join('\n\n');
-    
+
     // Create a temporary textarea
     const textarea = document.createElement('textarea');
     textarea.value = combinedText;
     textarea.style.position = 'fixed';
     textarea.style.left = '-9999px';
     document.body.appendChild(textarea);
-    
+
     try {
       textarea.select();
       document.execCommand('copy');
@@ -3701,16 +3799,15 @@ export class StackTraceApp {
     defaultRulesSections.forEach(section => {
       const textarea = section.querySelector('.default-rules-textarea') as HTMLTextAreaElement;
       const titleElement = section.querySelector('.default-rules-title h5') as HTMLElement;
-      
+
       if (textarea && titleElement) {
         const ruleText = textarea.value.trim();
         const ruleCount = ruleText ? ruleText.split('\n').filter(line => line.trim()).length : 0;
-        
+
         // Extract the base title (everything before the count)
         const baseTitle = titleElement.textContent?.replace(/\s*\(\d+\)$/, '') || 'Default Rules';
         titleElement.textContent = `${baseTitle} (${ruleCount})`;
       }
     });
   }
-
 }
