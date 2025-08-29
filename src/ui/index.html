@@ -104,7 +104,17 @@
 
 <body>
     <div class="container">
+        <!-- Floating back button for narrow screens (hidden by default) -->
+        <button class="narrow-back-btn" id="narrowBackBtn" style="display: none;" disabled 
+                title="Go back to previous goroutine (Alt+← or Backspace)">←</button>
+        
+        <!-- Sidebar overlay for narrow screens -->
+        <div class="sidebar-overlay" id="sidebarOverlay"></div>
+        
         <div class="sidebar">
+            <!-- Hide button for narrow mode (hidden on desktop) -->
+            <button class="narrow-close-btn" id="narrowCloseBtn" style="display: none;" title="Hide sidebar">‹</button>
+            
             <div class="filter-section file-section">
                 <div class="files-header">
                     <div class="files-title">
@@ -134,6 +144,26 @@
                     <div class="state-stats" id="stateStats"></div>
                 </div>
             </div>
+            
+            <!-- Narrow screen controls (hidden on desktop) -->
+            <h3 class="narrow-controls-header" style="display: none;">Controls</h3>
+            <div class="narrow-controls" style="display: none;">
+                <div class="narrow-controls-row">
+                    <button id="narrowExpandAllBtn" class="control-btn">Expand All</button>
+                    <button id="narrowCollapseAllBtn" class="control-btn">Collapse All</button>
+                </div>
+                <div class="narrow-controls-row">
+                    <button id="narrowUnpinAllBtn" class="control-btn">Unpin All</button>
+                </div>
+                <div class="narrow-controls-row">
+                    <select id="narrowStackDisplayModeSelect" class="narrow-select" title="Choose how to display stack traces">
+                        <option value="combined">Combined View</option>
+                        <option value="side-by-side">Side by Side</option>
+                        <option value="functions">Functions Only</option>
+                        <option value="locations">Locations Only</option>
+                    </select>
+                </div>
+            </div>
 
             <!-- Settings gear icon in bottom left -->
             <div class="settings-container">
@@ -151,9 +181,15 @@
 
         <div class="main-content">
             <div class="view-controls-bar">
+                <!-- Narrow screen: menu button + filter input (hidden on desktop) -->
+                <div class="narrow-filter-container" style="display: none;">
+                    <button class="narrow-menu-btn" id="narrowMenuBtn">☰</button>
+                    <input type="text" class="narrow-filter-input" id="narrowFilterInput" placeholder="Filter stacks (e.g. flush wait:>5)">
+                </div>
+                
                 <div class="left-controls">
                     <button id="backBtn" class="control-btn" disabled
-                        title="Go back to previous goroutine (Alt+← or Backspace)">← Back</button>
+                        title="Go back to previous goroutine (Alt+← or Backspace)"><span class="back-text">← Back</span></button>
                 </div>
                 <div class="right-controls">
                     <select id="stackDisplayModeSelect" title="Choose how to display stack traces">
