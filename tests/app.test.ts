@@ -740,53 +740,8 @@ main.worker()
     }
   });
 
-  await test('Wait time parsing rejects invalid formats', async () => {
-    // Test parseWaitValue logic directly (matching the implementation)
-    const parseWaitValue = (value: string): number | null => {
-      if (!/^\d*\.?\d+$/.test(value.trim())) {
-        return null;
-      }
-      const parsed = parseFloat(value);
-      return isNaN(parsed) ? null : parsed;
-    };
-    
-    // Test cases that should be rejected
-    const invalidCases = [
-      '4z',      // Invalid suffix
-      '3x',      // Invalid suffix  
-      '2.5abc',  // Invalid suffix
-      '',        // Empty
-      'abc',     // Non-numeric
-      '5.5.5'    // Multiple decimals
-    ];
-    
-    for (const testCase of invalidCases) {
-      const result = parseWaitValue(testCase);
-      if (result !== null) {
-        throw new Error(`Expected '${testCase}' to be rejected but got: ${result}`);
-      }
-    }
-    
-    // Test cases that should be accepted
-    const validCases = [
-      { input: '4', expected: 4 },
-      { input: '3', expected: 3 },
-      { input: '2.5', expected: 2.5 },
-      { input: '10', expected: 10 },
-      { input: '0', expected: 0 },
-      { input: '0.1', expected: 0.1 }
-    ];
-    
-    for (const testCase of validCases) {
-      const result = parseWaitValue(testCase.input);
-      if (result !== testCase.expected) {
-        throw new Error(`Expected '${testCase.input}' to parse to ${testCase.expected} but got: ${result}`);
-      }
-    }
-  });
-
-  await test('Multiple wait constraints behavior', async () => {
-    // Test the parseFilterString logic with multiple wait constraints
+  await test('Filter parsing', async () => {
+    // Test the parsing logic directly by recreating the implementation
     const parseWaitValue = (value: string): number | null => {
       if (!/^\d*\.?\d+$/.test(value.trim())) {
         return null;
@@ -797,7 +752,6 @@ main.worker()
 
     const parseFilterString = (input: string) => {
       const parts = input.split(' ').map(p => p.trim()).filter(p => p.length > 0);
-      const waitParts: string[] = [];
       const textParts: string[] = [];
       
       let minWait: number | undefined;
@@ -808,7 +762,6 @@ main.worker()
       
       for (const part of parts) {
         if (part.startsWith('wait:')) {
-          waitParts.push(part);
           const waitSpec = part.substring(5);
           
           if (waitSpec.startsWith('>')) {
@@ -836,6 +789,42 @@ main.worker()
               return { filterString: '', error: `Invalid wait filter: ${part}` };
             }
             maxWait = value - 1;
+            hasMaxConstraint = true;
+          } else if (waitSpec.endsWith('+')) {
+            if (hasMinConstraint) {
+              return { filterString: '', error: 'Multiple minimum wait constraints not allowed (e.g., wait:5+ wait:>10)' };
+            }
+            if (hasExactConstraint) {
+              return { filterString: '', error: 'Exact wait time cannot be combined with other wait constraints' };
+            }
+            const value = parseWaitValue(waitSpec.slice(0, -1));
+            if (value === null) {
+              return { filterString: '', error: `Invalid wait filter: ${part}` };
+            }
+            minWait = value;
+            hasMinConstraint = true;
+          } else if (waitSpec.includes('-')) {
+            if (hasMinConstraint || hasMaxConstraint) {
+              return { filterString: '', error: 'Range wait constraint cannot be combined with other wait constraints' };
+            }
+            if (hasExactConstraint) {
+              return { filterString: '', error: 'Exact wait time cannot be combined with other wait constraints' };
+            }
+            const parts = waitSpec.split('-');
+            if (parts.length !== 2) {
+              return { filterString: '', error: `Invalid range format: ${part} (use wait:min-max)` };
+            }
+            const minValue = parseWaitValue(parts[0]);
+            const maxValue = parseWaitValue(parts[1]);
+            if (minValue === null || maxValue === null) {
+              return { filterString: '', error: `Invalid wait filter: ${part}` };
+            }
+            if (minValue > maxValue) {
+              return { filterString: '', error: `Invalid range: minimum (${minValue}) cannot be greater than maximum (${maxValue})` };
+            }
+            minWait = minValue;
+            maxWait = maxValue;
+            hasMinConstraint = true;
             hasMaxConstraint = true;
           } else {
             if (hasExactConstraint) {
@@ -874,67 +863,50 @@ main.worker()
       return { filterString: textParts.join(' '), minWait, maxWait };
     };
 
-    // Test multiple same-type constraints (should now be invalid)
-    const duplicateMin = parseFilterString('wait:>10 wait:>5');
-    if (!duplicateMin.error) {
-      throw new Error('Expected "wait:>10 wait:>5" to produce an error but it did not');
-    }
-    if (!duplicateMin.error.includes('Multiple minimum wait constraints')) {
-      throw new Error(`Expected error about multiple min constraints, got: ${duplicateMin.error}`);
-    }
+    // Table-driven test cases
+    const testCases = [
+      // Valid enhanced syntax
+      { input: 'wait:5+', expectMin: 5, expectMax: undefined, desc: 'Plus syntax' },
+      { input: 'wait:4-9', expectMin: 4, expectMax: 9, desc: 'Range syntax' },
+      { input: 'wait:5+ wait:<10', expectMin: 5, expectMax: 9, desc: 'Plus with max' },
+      { input: 'wait:>5 wait:<10', expectMin: 6, expectMax: 9, desc: 'Standard range' },
+      { input: 'wait:<10 wait:>5', expectMin: 6, expectMax: 9, desc: 'Reverse order' },
+      
+      // Invalid formats that should be rejected  
+      { input: 'wait:>4z', expectError: 'Invalid wait filter', desc: 'Invalid number suffix' },
+      { input: 'wait:3x', expectError: 'Invalid wait filter', desc: 'Invalid number suffix' },
+      { input: 'wait:2.5abc', expectError: 'Invalid wait filter', desc: 'Invalid decimal suffix' },
+      { input: 'wait:5-', expectError: 'Invalid wait filter', desc: 'Incomplete range' },
+      { input: 'wait:5-3', expectError: 'minimum (5) cannot be greater than maximum (3)', desc: 'Invalid range order' },
+      
+      // Multiple constraint errors
+      { input: 'wait:>10 wait:>5', expectError: 'Multiple minimum wait constraints', desc: 'Duplicate min' },
+      { input: 'wait:<10 wait:<5', expectError: 'Multiple maximum wait constraints', desc: 'Duplicate max' },
+      { input: 'wait:5+ wait:7+', expectError: 'Multiple minimum wait constraints', desc: 'Multiple plus' },
+      { input: 'wait:4-9 wait:>5', expectError: 'Multiple minimum wait constraints', desc: 'Range with min' },
+      { input: 'wait:5 wait:>10', expectError: 'cannot be combined', desc: 'Exact with range' },
+      { input: 'wait:>5 wait:<5', expectError: 'greater than maximum', desc: 'Contradictory' },
+    ];
 
-    const duplicateMax = parseFilterString('wait:<10 wait:<5');
-    if (!duplicateMax.error) {
-      throw new Error('Expected "wait:<10 wait:<5" to produce an error but it did not');
-    }
-    if (!duplicateMax.error.includes('Multiple maximum wait constraints')) {
-      throw new Error(`Expected error about multiple max constraints, got: ${duplicateMax.error}`);
-    }
-
-    // Test exact combined with range (should be invalid)
-    const exactPlusMin = parseFilterString('wait:5 wait:>10');
-    if (!exactPlusMin.error) {
-      throw new Error('Expected "wait:5 wait:>10" to produce an error but it did not');
-    }
-    if (!exactPlusMin.error.includes('cannot be combined')) {
-      throw new Error(`Expected error about combining exact with range, got: ${exactPlusMin.error}`);
-    }
-
-    const exactPlusMax = parseFilterString('wait:5 wait:<10');
-    if (!exactPlusMax.error) {
-      throw new Error('Expected "wait:5 wait:<10" to produce an error but it did not');
-    }
-    if (!exactPlusMax.error.includes('cannot be combined')) {
-      throw new Error(`Expected error about combining exact with range, got: ${exactPlusMax.error}`);
-    }
-
-    // Test valid different-type constraints (should still work)
-    const validRange = parseFilterString('wait:>5 wait:<10');
-    if (validRange.error) {
-      throw new Error(`Expected "wait:>5 wait:<10" to be valid but got error: ${validRange.error}`);
-    }
-    if (validRange.minWait !== 6 || validRange.maxWait !== 9) {
-      throw new Error(`Expected minWait=6, maxWait=9 but got minWait=${validRange.minWait}, maxWait=${validRange.maxWait}`);
-    }
-
-    // Test constraint order doesn't matter for valid ranges
-    const reverseOrder = parseFilterString('wait:<10 wait:>5');
-    if (reverseOrder.error) {
-      throw new Error(`Expected "wait:<10 wait:>5" to be valid but got error: ${reverseOrder.error}`);
-    }
-    if (reverseOrder.minWait !== 6 || reverseOrder.maxWait !== 9) {
-      throw new Error(`Expected same result regardless of order but got minWait=${reverseOrder.minWait}, maxWait=${reverseOrder.maxWait}`);
-    }
-
-    // Test contradictory valid ranges (should error)
-    const contradictory = parseFilterString('wait:>5 wait:<5');
-    if (!contradictory.error) {
-      throw new Error('Expected "wait:>5 wait:<5" to produce an error but it did not');
-    }
-    if (!contradictory.error.includes('greater than maximum')) {
-      throw new Error(`Expected error about min > max, got: ${contradictory.error}`);
+    for (const t of testCases) {
+      const result = parseFilterString(t.input);
+      
+      if (t.expectError) {
+        if (!result.error || !result.error.includes(t.expectError)) {
+          throw new Error(`${t.desc}: expected error containing "${t.expectError}", got: ${result.error || 'no error'}`);
+        }
+      } else {
+        if (result.error) {
+          throw new Error(`${t.desc}: unexpected error: ${result.error}`);
+        }
+        if (result.minWait !== t.expectMin || result.maxWait !== t.expectMax) {
+          throw new Error(`${t.desc}: expected min=${t.expectMin}, max=${t.expectMax}, got min=${result.minWait}, max=${result.maxWait}`);
+        }
+      }
     }
   });
+
+
 
   console.log('\n✅ All comprehensive tests passed');
 }

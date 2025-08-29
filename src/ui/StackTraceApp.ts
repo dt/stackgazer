@@ -152,10 +152,16 @@ export class StackTraceApp {
     if (savedFilter) {
       this.filterInputValue = savedFilter;
       const filterInput = document.getElementById('filterInput') as HTMLInputElement;
+      const narrowFilterInput = document.getElementById('narrowFilterInput') as HTMLInputElement;
+      
       if (filterInput) {
         filterInput.value = savedFilter;
-        this.setFilter({ filterString: savedFilter });
       }
+      if (narrowFilterInput) {
+        narrowFilterInput.value = savedFilter;
+      }
+      
+      this.setFilter({ filterString: savedFilter });
     }
 
     // Load stack display mode from localStorage
@@ -172,8 +178,15 @@ export class StackTraceApp {
       const stackDisplayModeSelect = document.getElementById(
         'stackDisplayModeSelect'
       ) as HTMLSelectElement;
+      const narrowStackDisplayModeSelect = document.getElementById(
+        'narrowStackDisplayModeSelect'
+      ) as HTMLSelectElement;
+      
       if (stackDisplayModeSelect) {
         stackDisplayModeSelect.value = savedStackMode;
+      }
+      if (narrowStackDisplayModeSelect) {
+        narrowStackDisplayModeSelect.value = savedStackMode;
       }
       this.updateStackDisplayMode(this.stackDisplayMode);
     }
@@ -206,6 +219,7 @@ export class StackTraceApp {
         const value = (e.target as HTMLInputElement).value;
         this.filterInputValue = value;
         this.debouncedSetFilter(value);
+        this.syncFilterInputs();
       });
     }
 
@@ -271,6 +285,12 @@ export class StackTraceApp {
         this.stackDisplayMode = mode;
         this.updateStackDisplayMode(mode);
         this.saveUIState();
+        
+        // Sync with narrow select
+        const narrowStackDisplayModeSelect = document.getElementById('narrowStackDisplayModeSelect') as HTMLSelectElement;
+        if (narrowStackDisplayModeSelect) {
+          narrowStackDisplayModeSelect.value = mode;
+        }
       });
     }
 
@@ -319,8 +339,151 @@ export class StackTraceApp {
       }
     });
 
+    // Narrow screen menu toggle
+    const narrowMenuBtn = document.getElementById('narrowMenuBtn');
+    if (narrowMenuBtn) {
+      narrowMenuBtn.addEventListener('click', () => {
+        this.toggleNarrowSidebar();
+      });
+    }
+
+    // Sidebar overlay click to close
+    const sidebarOverlay = document.getElementById('sidebarOverlay');
+    if (sidebarOverlay) {
+      sidebarOverlay.addEventListener('click', () => {
+        this.closeNarrowSidebar();
+      });
+    }
+
+    // Narrow sidebar close button
+    const narrowCloseBtn = document.getElementById('narrowCloseBtn');
+    if (narrowCloseBtn) {
+      narrowCloseBtn.addEventListener('click', () => {
+        this.closeNarrowSidebar();
+      });
+    }
+
+    // Narrow screen filter input
+    const narrowFilterInput = document.getElementById('narrowFilterInput') as HTMLInputElement;
+    if (narrowFilterInput) {
+      narrowFilterInput.addEventListener('input', e => {
+        const value = (e.target as HTMLInputElement).value;
+        this.filterInputValue = value;
+        this.debouncedSetFilter(value);
+        this.syncFilterInputs();
+      });
+    }
+
+    // Narrow screen control buttons in sidebar
+    const narrowExpandAllBtn = document.getElementById('narrowExpandAllBtn');
+    if (narrowExpandAllBtn) {
+      narrowExpandAllBtn.addEventListener('click', () => {
+        this.expandAllStacks();
+      });
+    }
+
+    const narrowCollapseAllBtn = document.getElementById('narrowCollapseAllBtn');
+    if (narrowCollapseAllBtn) {
+      narrowCollapseAllBtn.addEventListener('click', () => {
+        this.collapseAllStacks();
+      });
+    }
+
+    const narrowUnpinAllBtn = document.getElementById('narrowUnpinAllBtn');
+    if (narrowUnpinAllBtn) {
+      narrowUnpinAllBtn.addEventListener('click', () => {
+        this.unpinAllItems();
+      });
+    }
+
+    // Narrow screen floating back button
+    const narrowBackBtn = document.getElementById('narrowBackBtn');
+    if (narrowBackBtn) {
+      narrowBackBtn.addEventListener('click', () => {
+        this.navigateBack();
+      });
+    }
+
+    // Narrow screen stack display mode select
+    const narrowStackDisplayModeSelect = document.getElementById('narrowStackDisplayModeSelect') as HTMLSelectElement;
+    if (narrowStackDisplayModeSelect) {
+      narrowStackDisplayModeSelect.addEventListener('change', e => {
+        const mode = (e.target as HTMLSelectElement).value as
+          | 'combined'
+          | 'side-by-side'
+          | 'functions'
+          | 'locations';
+        this.stackDisplayMode = mode;
+        this.updateStackDisplayMode(mode);
+        this.saveUIState();
+        
+        // Sync with desktop select
+        const desktopStackDisplayModeSelect = document.getElementById('stackDisplayModeSelect') as HTMLSelectElement;
+        if (desktopStackDisplayModeSelect) {
+          desktopStackDisplayModeSelect.value = mode;
+        }
+      });
+    }
+
+    // Handle window resize for responsive layout
+    window.addEventListener('resize', () => {
+      this.handleResizeForNarrowMode();
+    });
+
     // Settings modal
     this.setupSettingsModal();
+  }
+
+  private toggleNarrowSidebar(): void {
+    const sidebar = document.querySelector('.sidebar') as HTMLElement;
+    const overlay = document.getElementById('sidebarOverlay') as HTMLElement;
+    const menuBtn = document.getElementById('narrowMenuBtn') as HTMLElement;
+
+    if (sidebar && overlay && menuBtn) {
+      const isOpen = sidebar.classList.contains('narrow-open');
+      
+      if (isOpen) {
+        this.closeNarrowSidebar();
+      } else {
+        // Open sidebar
+        sidebar.classList.add('narrow-open');
+        overlay.classList.add('active');
+        menuBtn.classList.add('active');
+      }
+    }
+  }
+
+  private closeNarrowSidebar(): void {
+    const sidebar = document.querySelector('.sidebar') as HTMLElement;
+    const overlay = document.getElementById('sidebarOverlay') as HTMLElement;
+    const menuBtn = document.getElementById('narrowMenuBtn') as HTMLElement;
+
+    if (sidebar && overlay && menuBtn) {
+      sidebar.classList.remove('narrow-open');
+      overlay.classList.remove('active');
+      menuBtn.classList.remove('active');
+    }
+  }
+
+  private handleResizeForNarrowMode(): void {
+    // If we're switching from narrow to wide, make sure sidebar is closed
+    if (window.innerWidth > 900) {
+      this.closeNarrowSidebar();
+    }
+    
+    // Sync filter values between narrow and desktop inputs
+    this.syncFilterInputs();
+  }
+
+  private syncFilterInputs(): void {
+    const desktopFilter = document.getElementById('filterInput') as HTMLInputElement;
+    const narrowFilter = document.getElementById('narrowFilterInput') as HTMLInputElement;
+    
+    if (desktopFilter && narrowFilter) {
+      // Always sync both inputs to the master filter value
+      desktopFilter.value = this.filterInputValue;
+      narrowFilter.value = this.filterInputValue;
+    }
   }
 
   private async handleFiles(files: File[]): Promise<void> {
@@ -507,6 +670,44 @@ export class StackTraceApp {
           }
           maxWait = value - 1;
           hasMaxConstraint = true;
+        } else if (waitSpec.endsWith('+')) {
+          // wait:5+ means >= 5 (same as wait:>4)
+          if (hasMinConstraint) {
+            return { filterString: '', error: 'Multiple minimum wait constraints not allowed (e.g., wait:5+ wait:>10)' };
+          }
+          if (hasExactConstraint) {
+            return { filterString: '', error: 'Exact wait time cannot be combined with other wait constraints' };
+          }
+          const value = this.parseWaitValue(waitSpec.slice(0, -1));
+          if (value === null) {
+            return { filterString: '', error: `Invalid wait filter: ${part}` };
+          }
+          minWait = value;
+          hasMinConstraint = true;
+        } else if (waitSpec.includes('-')) {
+          // wait:4-9 means >= 4 and <= 9
+          if (hasMinConstraint || hasMaxConstraint) {
+            return { filterString: '', error: 'Range wait constraint cannot be combined with other wait constraints' };
+          }
+          if (hasExactConstraint) {
+            return { filterString: '', error: 'Exact wait time cannot be combined with other wait constraints' };
+          }
+          const parts = waitSpec.split('-');
+          if (parts.length !== 2) {
+            return { filterString: '', error: `Invalid range format: ${part} (use wait:min-max)` };
+          }
+          const minValue = this.parseWaitValue(parts[0]);
+          const maxValue = this.parseWaitValue(parts[1]);
+          if (minValue === null || maxValue === null) {
+            return { filterString: '', error: `Invalid wait filter: ${part}` };
+          }
+          if (minValue > maxValue) {
+            return { filterString: '', error: `Invalid range: minimum (${minValue}) cannot be greater than maximum (${maxValue})` };
+          }
+          minWait = minValue;
+          maxWait = maxValue;
+          hasMinConstraint = true;
+          hasMaxConstraint = true;
         } else {
           if (hasExactConstraint) {
             return { filterString: '', error: 'Multiple exact wait constraints not allowed (e.g., wait:5 wait:10)' };
@@ -568,11 +769,7 @@ export class StackTraceApp {
     }
 
     this.filterInputValue = '';
-    
-    const filterInput = document.getElementById('filterInput') as HTMLInputElement;
-    if (filterInput) {
-      filterInput.value = '';
-    }
+    this.syncFilterInputs();
 
     this.showFilterError(); // Clear any error display
     this.profileCollection.clearFilter();
@@ -1631,9 +1828,14 @@ export class StackTraceApp {
 
   private updateUnpinButtonVisibility(): void {
     const unpinAllBtn = document.getElementById('unpinAllBtn');
+    const narrowUnpinAllBtn = document.getElementById('narrowUnpinAllBtn');
+    const hasPinnedItems = this.profileCollection.hasAnyPinnedItems();
+    
     if (unpinAllBtn) {
-      const hasPinnedItems = this.profileCollection.hasAnyPinnedItems();
       unpinAllBtn.classList.toggle('hidden', !hasPinnedItems);
+    }
+    if (narrowUnpinAllBtn) {
+      narrowUnpinAllBtn.classList.toggle('hidden', !hasPinnedItems);
     }
   }
 
@@ -2099,9 +2301,15 @@ export class StackTraceApp {
 
   private updateBackButtonState(canGoBack?: boolean): void {
     const backBtn = document.getElementById('backBtn') as HTMLButtonElement;
+    const narrowBackBtn = document.getElementById('narrowBackBtn') as HTMLButtonElement;
+    
+    const hasHistory = canGoBack !== undefined ? canGoBack : this.appState.canNavigateBack();
+    
     if (backBtn) {
-      const hasHistory = canGoBack !== undefined ? canGoBack : this.appState.canNavigateBack();
       backBtn.disabled = !hasHistory;
+    }
+    if (narrowBackBtn) {
+      narrowBackBtn.disabled = !hasHistory;
     }
   }
 
