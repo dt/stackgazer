@@ -10,6 +10,7 @@ import {
   Filter,
   Category,
   Counts,
+  sortStateEntries,
 } from '../app/types.js';
 import { SettingsManager, AppSettings } from '../app/SettingsManager.js';
 import { getJSZip } from '../parser/zip.js';
@@ -491,62 +492,124 @@ export class StackTraceApp {
   }
 
   private expandAllStacks(): void {
-    // Progressive expand: if any categories are collapsed, expand all categories
-    // Otherwise, expand all stacks
+    console.time('expandAllStacks TOTAL');
+    
     const categories = document.querySelectorAll('.category-section');
     const hasCollapsedCategories = Array.from(categories).some(cat =>
-      cat.classList.contains('collapsed')
+      cat.classList.contains('container-collapsed')
     );
 
     if (hasCollapsedCategories) {
-      // Expand all categories
+      console.log(`=== FAST Expanding ${categories.length} categories ===`);
+      console.time('forEach categories DIRECT STYLE');
       categories.forEach(section => {
-        section.classList.remove('collapsed');
-        const header = section.querySelector('.header');
-        if (header) {
-          header.setAttribute('aria-expanded', 'true');
+        // PERFORMANCE FIX: Set styles directly to avoid CSS cascade
+        const content = section.querySelector('.section-content') as HTMLElement;
+        if (content) {
+          content.style.display = '';
         }
+        
+        // Update icon directly
+        const icon = section.querySelector('.expand-icon') as HTMLElement;
+        if (icon) {
+          icon.textContent = '▼';
+        }
+        
+        section.classList.remove('container-collapsed');
+        
+        // Skip aria updates for performance
       });
+      console.timeEnd('forEach categories DIRECT STYLE');
     } else {
-      // Expand all stacks only (not file sections or group sections)
       const stacks = document.querySelectorAll('.stack-section');
+      console.log(`=== FAST Expanding ${stacks.length} stacks ===`);
+      console.time('forEach stacks DIRECT STYLE');
       stacks.forEach(section => {
-        section.classList.remove('collapsed');
-        const header = section.querySelector('.header');
-        if (header) {
-          header.setAttribute('aria-expanded', 'true');
+        // PERFORMANCE FIX: Set styles directly to avoid CSS cascade
+        const content = section.querySelector('.section-content') as HTMLElement;
+        if (content) {
+          content.style.display = '';
         }
+        
+        // Update icon directly
+        const icon = section.querySelector('.expand-icon') as HTMLElement;
+        if (icon) {
+          icon.textContent = '▼';
+        }
+        
+        section.classList.remove('container-collapsed');
+        
+        // Skip aria updates for performance
       });
+      console.timeEnd('forEach stacks DIRECT STYLE');
     }
+    console.timeEnd('expandAllStacks TOTAL');
   }
 
   private collapseAllStacks(): void {
-    // Progressive collapse: if any stacks are expanded, collapse all stacks
-    // Otherwise, collapse all categories
     const stacks = document.querySelectorAll('.stack-section');
     const hasExpandedStacks = Array.from(stacks).some(
-      stack => !stack.classList.contains('collapsed')
+      stack => !stack.hasAttribute('data-collapsed')
     );
 
     if (hasExpandedStacks) {
-      // Collapse all stacks only (not file sections or group sections)
-      stacks.forEach(section => {
-        section.classList.add('collapsed');
-        const header = section.querySelector('.header');
-        if (header) {
-          header.setAttribute('aria-expanded', 'false');
+      // FAST APPROACH: Direct style manipulation + data attributes
+      stacks.forEach((section, index) => {
+        const content = section.querySelector('.section-content') as HTMLElement;
+        if (content) {
+          content.style.display = 'none';
         }
+        
+        const icon = section.querySelector('.expand-icon') as HTMLElement;
+        if (icon) {
+          icon.textContent = '▶';
+        }
+        
+        // Use data attribute for state tracking (no CSS performance impact)
+        section.setAttribute('data-collapsed', 'true');
       });
     } else {
-      // Collapse all categories
       const categories = document.querySelectorAll('.category-section');
-      categories.forEach(section => {
-        section.classList.add('collapsed');
-        const header = section.querySelector('.header');
-        if (header) {
-          header.setAttribute('aria-expanded', 'false');
+      console.log(`=== FAST Collapsing ${categories.length} categories ===`);
+      console.time('forEach categories DIRECT STYLE');
+      
+      categories.forEach((section, index) => {
+        if (index % 10 === 0) {
+          console.log(`Progress: ${index}/${categories.length} categories`);
         }
+        
+        // PERFORMANCE FIX: Bypass CSS cascade by setting styles directly
+        const content = section.querySelector('.section-content') as HTMLElement;
+        if (content) {
+          content.style.display = 'none';
+        }
+        
+        // Update icon directly
+        const icon = section.querySelector('.expand-icon') as HTMLElement;
+        if (icon) {
+          icon.textContent = '▶';
+        }
+        
+        section.classList.add('container-collapsed');
+        
+        // Skip aria updates for performance
       });
+      
+      console.timeEnd('forEach categories DIRECT STYLE');
+    }
+    
+    console.timeEnd('collapseAllStacks TOTAL');
+  }
+
+  private toggleContainerCollapse(container: HTMLElement): void {
+    // Determine if this is a container (category/stack) or section (file/group)
+    const isContainer = container.classList.contains('category-section') || 
+                       container.classList.contains('stack-section');
+    
+    if (isContainer) {
+      container.classList.toggle('container-collapsed');
+    } else {
+      container.classList.toggle('section-collapsed');
     }
   }
 
@@ -648,8 +711,7 @@ export class StackTraceApp {
   }
 
   updateDisplayedCount(element: HTMLElement, counts: Counts): void {
-    const countElement =
-      element.querySelector(':scope > .header .counts') || element.querySelector('.header .counts');
+    const countElement = element.querySelector('.counts');
 
     if (countElement) {
       if (counts.total === counts.filterMatches) {
@@ -683,10 +745,10 @@ export class StackTraceApp {
       e.stopPropagation();
       e.preventDefault();
 
-      const wasExpanded = !container.classList.contains('collapsed');
+      const wasExpanded = !container.classList.contains('container-collapsed') || container.classList.contains('section-collapsed');
 
       // Simply toggle the collapsed class
-      container.classList.toggle('collapsed');
+      this.toggleContainerCollapse(container);
 
       // If we just collapsed and the header is above the viewport, scroll to it
       if (wasExpanded) {
@@ -715,9 +777,7 @@ export class StackTraceApp {
         }
       }
 
-      // Update aria-expanded for accessibility
-      const isExpanded = !container.classList.contains('collapsed');
-      header.setAttribute('aria-expanded', isExpanded.toString());
+      // Skip aria-expanded for performance
     });
   }
 
@@ -855,6 +915,9 @@ export class StackTraceApp {
       this.updateVisibility();
       this.updateStats();
     });
+
+    // Set initial count display
+    this.updateDisplayedCount(categoryElement, category.counts);
 
     // Get content area and add stacks
     const content = categoryElement.querySelector('.category-content') as HTMLElement;
@@ -1265,9 +1328,99 @@ export class StackTraceApp {
     if (visibleGoroutinesElement)
       visibleGoroutinesElement.textContent = stats.visibleGoroutines.toString();
 
+    // Update state statistics in headers and sidebar
+    this.updateStateStats();
+    this.updateSidebarStateStats();
+
     // Also update file stats and unpin button visibility
     this.updateFileStats();
     this.updateUnpinButtonVisibility();
+  }
+
+  private updateStateStats(): void {
+    // Update state stats in category and stack headers
+    const categories = this.profileCollection.getCategories();
+    
+    for (const category of categories) {
+      this.updateCategoryStateStats(category);
+      
+      for (const stack of category.stacks) {
+        this.updateStackStateStats(stack);
+      }
+    }
+  }
+
+  private updateCategoryStateStats(category: Category): void {
+    const categoryElement = document.getElementById(category.id);
+    if (!categoryElement) return;
+
+    const statsElement = categoryElement.querySelector('.category-stats') as HTMLElement;
+    if (!statsElement) return;
+
+    // Get state counts from category
+    const stateEntries = Array.from(category.counts.matchingStates.entries());
+    const sortedEntries = sortStateEntries(stateEntries);
+
+    if (sortedEntries.length === 0) {
+      statsElement.textContent = '';
+      return;
+    }
+
+    const stateElements = sortedEntries.map(([state, count]) => {
+      return `${count} ${state}`;
+    });
+
+    // Add wait time range
+    const waitRange = `${category.counts.minMatchingWait}-${category.counts.maxMatchingWait}mins`;
+    statsElement.textContent = `${stateElements.join(', ')} • ${waitRange}`;
+  }
+
+  private updateStackStateStats(stack: UniqueStack): void {
+    const stackElement = document.getElementById(stack.id);
+    if (!stackElement) return;
+
+    const statsElement = stackElement.querySelector('.stack-stats') as HTMLElement;
+    if (!statsElement) return;
+
+    // Get state counts from stack
+    const stateEntries = Array.from(stack.counts.matchingStates.entries());
+    const sortedEntries = sortStateEntries(stateEntries);
+
+    if (sortedEntries.length === 0) {
+      statsElement.textContent = '';
+      return;
+    }
+
+    const stateElements = sortedEntries.map(([state, count]) => {
+      return `${count} ${state}`;
+    });
+
+    // Add wait time range
+    const waitRange = `${stack.counts.minMatchingWait}-${stack.counts.maxMatchingWait}mins`;
+    statsElement.textContent = `${stateElements.join(', ')} • ${waitRange}`;
+  }
+
+  private updateSidebarStateStats(): void {
+    const sidebarStateStats = document.getElementById('stateStats');
+    if (!sidebarStateStats) return;
+
+    // Get aggregate state statistics from ProfileCollection
+    const stateStats = this.profileCollection.getStateStatistics();
+    
+    if (stateStats.size === 0) {
+      sidebarStateStats.textContent = '';
+      return;
+    }
+
+    // Convert to sorted array using the sortStateEntries function from types
+    const sortedStates = Array.from(stateStats.entries());
+    const sortedEntries = sortStateEntries(sortedStates);
+
+    const stateElements = sortedEntries.map(([state, counts]) => {
+      return `<div>${counts.visible}/${counts.total} ${state}</div>`;
+    });
+
+    sidebarStateStats.innerHTML = stateElements.join('');
   }
 
   /**
@@ -1735,16 +1888,13 @@ export class StackTraceApp {
       // Look for parent sections with the expandable class and collapsed class
       if (
         currentElement.classList.contains('expandable') &&
-        currentElement.classList.contains('collapsed')
+        (currentElement.classList.contains('container-collapsed') || currentElement.classList.contains('section-collapsed'))
       ) {
-        // Remove the collapsed class to expand
-        currentElement.classList.remove('collapsed');
+        // Remove the appropriate collapsed class to expand
+        currentElement.classList.remove('container-collapsed');
+        currentElement.classList.remove('section-collapsed');
 
-        // Update aria-expanded for accessibility
-        const header = currentElement.querySelector('.header');
-        if (header) {
-          header.setAttribute('aria-expanded', 'true');
-        }
+        // Skip aria-expanded for performance
       }
 
       // Move to parent element
@@ -2683,7 +2833,7 @@ export class StackTraceApp {
       // Always collapse when disabled
       content.classList.add('collapsed');
       if (section) {
-        section.classList.add('collapsed');
+        section.classList.add('container-collapsed');
       }
     }
   }
@@ -2704,10 +2854,10 @@ export class StackTraceApp {
           
           if (isCollapsed) {
             content.classList.remove('collapsed');
-            section.classList.remove('collapsed');
+            section.classList.remove('container-collapsed');
           } else {
             content.classList.add('collapsed');
-            section.classList.add('collapsed');
+            section.classList.add('container-collapsed');
           }
         });
 

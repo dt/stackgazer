@@ -18,6 +18,7 @@
     "format:check": "prettier --check 'src/**/*.ts' 'tests/**/*.ts'"
   },
   "devDependencies": {
+    "@playwright/test": "^1.55.0",
     "@types/jszip": "^3.4.0",
     "@types/node": "^24.3.0",
     "c8": "^10.1.3",

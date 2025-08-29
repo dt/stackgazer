@@ -57,6 +57,40 @@ async function runParseTests() {
       }
     }
   });
+
+  await test('State transformations', async () => {
+    const testContent = `goroutine 1 [sync.Mutex.Lock]:
+main.worker()
+	/main.go:10 +0x10
+
+goroutine 2 [sync.WaitGroup.Wait]:
+main.worker()
+	/main.go:10 +0x10
+
+goroutine 3 [sync.Cond.Wait]:
+main.worker()
+	/main.go:10 +0x10`;
+
+    const r = await parser.parseFile(testContent, 'state_test.txt');
+    if (!r.success) throw new Error('State transformation test parse failed');
+
+    const goroutines = r.data.groups.flatMap((g: any) => g.goroutines);
+    const stateTests = [
+      { id: '1', expectState: 'semacquire' },
+      { id: '2', expectState: 'wait' },
+      { id: '3', expectState: 'wait' },
+    ];
+
+    for (const t of stateTests) {
+      const g = goroutines.find((g: any) => g.id === t.id);
+      if (!g) throw new Error(`Goroutine ${t.id} not found`);
+      if (g.state !== t.expectState) {
+        throw new Error(
+          `Goroutine ${t.id}: expected state="${t.expectState}", got state="${g.state}"`
+        );
+      }
+    }
+  });
 }
 
 await runParseTests();

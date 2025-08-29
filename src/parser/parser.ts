@@ -183,11 +183,14 @@ export class FileParser {
         i++;
       }
 
+      // Transform common sync states to simpler names
+      const transformedState = this.transformState(state);
+
       // Create goroutine record
       const goroutineId = String(id);
       const goroutine: Goroutine = {
         id: goroutineId,
-        state,
+        state: transformedState,
         waitMinutes,
         creator: creatorId,
         creatorExists: false, // updated later.
@@ -359,5 +362,22 @@ export class FileParser {
       result.extractedName = extractedName;
     }
     return { success: true, data: result };
+  }
+
+  /**
+   * Transform common sync states to simpler, more readable names
+   */
+  private transformState(state: string): string {
+    // Transform sync.WaitGroup.Wait and sync.Cond.Wait to just 'wait'
+    if (state === 'sync.WaitGroup.Wait' || state === 'sync.Cond.Wait') {
+      return 'wait';
+    }
+    
+    // Transform sync.Mutex.Lock to 'semacquire'
+    if (state === 'sync.Mutex.Lock') {
+      return 'semacquire';
+    }
+    
+    return state;
   }
 }

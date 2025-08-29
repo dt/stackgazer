@@ -132,6 +132,7 @@
                     <div class="stats-item">Visible stacks: <span id="visibleStacks">0</span></div>
                     <div class="stats-item">Total goroutines: <span id="totalGoroutines">0</span></div>
                     <div class="stats-item">Visible goroutines: <span id="visibleGoroutines">0</span></div>
+                    <div class="state-stats" id="stateStats"></div>
                 </div>
             </div>
 
@@ -529,7 +530,10 @@
         <div class="section expandable category-section">
             <div class="header">
                 <div class="category-title"></div>
-                <div class="category-count counts"></div>
+                <div class="header-right">
+                    <div class="category-count counts"></div>
+                    <div class="category-stats"></div>
+                </div>
                 <button class="pin-button size-large">📌</button>
             </div>
             <div class="section-content category-content"></div>
@@ -540,7 +544,10 @@
         <div class="section expandable stack-section">
             <div class="header">
                 <div class="stack-title"></div>
-                <div class="stack-count counts"></div>
+                <div class="header-right">
+                    <div class="stack-count counts"></div>
+                    <div class="stack-stats"></div>
+                </div>
                 <button class="pin-button size-large">📌</button>
                 <button class="copy-button size-large">📋</button>
             </div>

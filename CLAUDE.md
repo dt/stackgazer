@@ -1,29 +1,5 @@
 # StackGazer - Go Stack Trace Analyzer
 
-Interactive tool for analyzing Go collections of stack dumps with filtering, navigation, and visualization.
-
-## Application Structure
-
-Three-layer architecture: **Parser** (`/src/parser/`) → **App Layer** (`/src/app/`) → **UI Layer** (`/src/ui/`)
-
-- **ProfileCollection.ts** - Core data management, filtering, grouping  
-- **StackTraceApp.ts** - DOM manipulation and user interactions
-- **AppState.ts** - Navigation history, **SettingsManager.ts** - Configuration
-
-## Key Features
-
-- Performance: Fast, responsive filtering even with large numbers of stacks
-- Multi-file support with zip extraction
-- Interactive navigation between creator/created goroutines
-- Multiple display modes
-
-## Filter Logic
-
-Hierarchical visibility: **Stack** → **File** → **Group** → **Goroutine**
-- Stack visible if ANY file section has visible goroutines
-- Group visible if ANY goroutine matches filter
-- Goroutine matches: `(stack_content OR group_labels OR goroutine_id)`
-
 ## Build Process
 ```bash
 npm run build:bundle       # REQUIRED after changes - creates standalone HTML
