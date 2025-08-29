@@ -649,6 +649,7 @@ export class ProfileCollection {
             matches: 0,
             priorMatches: 0,
             filterMatches: 0,
+            pinned: 0,
             minWait: Infinity,
             maxWait: -Infinity,
             minMatchingWait: Infinity,
@@ -673,6 +674,7 @@ export class ProfileCollection {
               matches: 0,
               priorMatches: 0,
               filterMatches: 0,
+              pinned: 0,
               minWait: Infinity,
               maxWait: -Infinity,
               minMatchingWait: Infinity,
@@ -697,6 +699,7 @@ export class ProfileCollection {
           matches: group.count,
           priorMatches: group.count,
           filterMatches: group.count,
+          pinnedCount: 0,
           minWait: Infinity,
           maxWait: -Infinity,
           minMatchingWait: Infinity,
@@ -764,6 +767,7 @@ export class ProfileCollection {
             matches: g.counts.matches,
             priorMatches: g.counts.priorMatches,
             filterMatches: g.counts.filterMatches,
+            pinned: 0,
             minWait: g.counts.minWait,
             maxWait: g.counts.maxWait,
             minMatchingWait: g.counts.minMatchingWait,
@@ -1112,6 +1116,38 @@ export class ProfileCollection {
               }
             }
           }
+          
+          // Calculate pinned counts - if stack is pinned, everything is pinned
+          if (stack.pinned) {
+            stack.counts.pinned = stack.counts.total;
+            for (const fileSection of stack.files) {
+              fileSection.counts.pinned = fileSection.counts.total;
+              for (const group of fileSection.groups) {
+                group.counts.pinned = group.counts.total;
+              }
+            }
+          } else {
+            stack.counts.pinned = 0;
+            for (const fileSection of stack.files) {
+              if (fileSection.pinned) {
+                fileSection.counts.pinned = fileSection.counts.total;
+                for (const group of fileSection.groups) {
+                  group.counts.pinned = group.counts.total;
+                }
+              } else {
+                fileSection.counts.pinned = 0;
+                for (const group of fileSection.groups) {
+                  if (group.pinned) {
+                    group.counts.pinned = group.counts.total;
+                  } else {
+                    group.counts.pinned = group.goroutines.filter(g => g.pinned).length;
+                  }
+                  fileSection.counts.pinned += group.counts.pinned;
+                }
+              }
+              stack.counts.pinned += fileSection.counts.pinned;
+            }
+          }
         } else {
           stack.counts.matches = 0;
           stack.counts.filterMatches = 0;
@@ -1195,6 +1231,13 @@ export class ProfileCollection {
                   group.counts.maxMatchingWait = group.counts.maxWait;
                   group.counts.matchingStates = new Map(group.counts.states);
                 }
+
+                // Calculate pinned count for group
+                if (group.pinned) {
+                  group.counts.pinned = group.counts.total;
+                } else {
+                  group.counts.pinned = group.goroutines.filter(g => g.pinned).length;
+                }
               }
 
               // Aggregate group matching statistics up to file section
@@ -1214,6 +1257,7 @@ export class ProfileCollection {
               fileSection.counts.matches += group.counts.matches;
               fileSection.counts.filterMatches += group.counts.filterMatches;
             }
+
 
             // Aggregate file section matching statistics up to stack
             if (fileSection.counts.matches > 0) {
@@ -1247,6 +1291,38 @@ export class ProfileCollection {
             stack.counts.maxMatchingWait = stack.counts.maxWait;
             stack.counts.matchingStates = new Map(stack.counts.states);
           }
+
+          // Calculate pinned counts - copy the pattern from matches logic above
+          if (stack.pinned) {
+            stack.counts.pinned = stack.counts.total;
+            for (const fileSection of stack.files) {
+              fileSection.counts.pinned = fileSection.counts.total;
+              for (const group of fileSection.groups) {
+                group.counts.pinned = group.counts.total;
+              }
+            }
+          } else {
+            stack.counts.pinned = 0;
+            for (const fileSection of stack.files) {
+              if (fileSection.pinned) {
+                fileSection.counts.pinned = fileSection.counts.total;
+                for (const group of fileSection.groups) {
+                  group.counts.pinned = group.counts.total;
+                }
+              } else {
+                fileSection.counts.pinned = 0;
+                for (const group of fileSection.groups) {
+                  if (group.pinned) {
+                    group.counts.pinned = group.counts.total;
+                  } else {
+                    group.counts.pinned = group.goroutines.filter(g => g.pinned).length;
+                  }
+                  fileSection.counts.pinned += group.counts.pinned;
+                }
+              }
+              stack.counts.pinned += fileSection.counts.pinned;
+            }
+          }
         }
 
         // Aggregate stack matching statistics up to category
@@ -1275,7 +1351,25 @@ export class ProfileCollection {
         (sum, x) => sum + x.counts.filterMatches,
         0
       );
+
+      // Calculate pinned count for category - propagate down like matches logic
+      if (category.pinned) {
+        category.counts.pinned = category.counts.total;
+        // When category is pinned, all stacks within it are pinned too
+        for (const stack of category.stacks) {
+          stack.counts.pinned = stack.counts.total;
+          for (const fileSection of stack.files) {
+            fileSection.counts.pinned = fileSection.counts.total;
+            for (const group of fileSection.groups) {
+              group.counts.pinned = group.counts.total;
+            }
+          }
+        }
+      } else {
+        category.counts.pinned = category.stacks.reduce((sum, x) => sum + x.counts.pinned, 0);
+      }
     }
+
   }
 
   /**
@@ -1484,11 +1578,13 @@ export class ProfileCollection {
     visible: number;
     totalGoroutines: number;
     visibleGoroutines: number;
+    pinnedGoroutines: number;
   } {
     let total = 0;
     let visible = 0;
     let totalGoroutines = 0;
     let visibleGoroutines = 0;
+    let pinnedGoroutines = 0;
 
     // Filter stacks that have visible goroutines and count goroutines
     this.categories.forEach(cat => {
@@ -1496,9 +1592,12 @@ export class ProfileCollection {
       visibleGoroutines += cat.counts.matches;
       total += cat.stacks.length;
       visible += cat.stacks.filter(stack => stack.counts.matches > 0).length;
+      
+      // Count goroutines visible due to pinning
+      pinnedGoroutines += cat.counts.pinned;
     });
 
-    return { total, visible, totalGoroutines, visibleGoroutines };
+    return { total, visible, totalGoroutines, visibleGoroutines, pinnedGoroutines };
   }
 
   /**
