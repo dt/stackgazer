@@ -526,12 +526,13 @@ body {
     width: var(--pin-hover-size);
     height: var(--pin-hover-size);
     font-size: var(--pin-hover-font);
-    top: var(--pin-hover-offset, var(--pin-hover-offset));
-    right: var(--pin-hover-offset, var(--pin-hover-offset));
+    top: calc(var(--pin-top) - (var(--pin-hover-size) - var(--pin-size)) / 2);
+    right: calc(var(--pin-right) - (var(--pin-hover-size) - var(--pin-size)) / 2);
 }
 
 .pin-button.size-small:hover {
-    top: var(--pin-hover-top, var(--pin-hover-offset));
+    top: calc(var(--pin-top) - (var(--pin-hover-size) - var(--pin-size)) / 2);
+    right: calc(var(--pin-right) - (var(--pin-hover-size) - var(--pin-size)) / 2);
 }
 
 /* Pinned states */
@@ -543,12 +544,12 @@ body {
     width: var(--pin-pinned-size);
     height: var(--pin-pinned-size);
     font-size: var(--pin-pinned-font);
-    top: var(--pin-pinned-offset);
-    right: var(--pin-pinned-offset);
+    top: var(--pin-top);
+    right: var(--pin-right);
 }
 
 .pin-button.size-small.pinned {
-    top: var(--pin-pinned-top, var(--pin-pinned-offset));
+    top: var(--pin-top);
 }
 
 /* Pinned hover states */
@@ -558,13 +559,13 @@ body {
     width: var(--pin-hover-size);
     height: var(--pin-hover-size);
     font-size: var(--pin-hover-font);
-    top: var(--pin-hover-offset);
-    right: var(--pin-hover-offset);
+    top: calc(var(--pin-top) - (var(--pin-hover-size) - var(--pin-pinned-size)) / 2);
+    right: calc(var(--pin-right) - (var(--pin-hover-size) - var(--pin-pinned-size)) / 2);
 }
 
 .pin-button.size-small.pinned:hover {
-    top: var(--pin-hover-top, var(--pin-hover-offset));
-    right: var(--pin-hover-offset);
+    top: calc(var(--pin-top) - (var(--pin-hover-size) - var(--pin-pinned-size)) / 2);
+    right: calc(var(--pin-right) - (var(--pin-hover-size) - var(--pin-pinned-size)) / 2);
 }
 
 /* Consistent spacing to prevent text shifting */
@@ -584,7 +585,7 @@ body {
 .category-stats,
 .stack-stats {
     font-size: 9px;
-    color: rgba(255, 255, 255, 0.6);
+    color: color-mix(in srgb, white 60%, transparent);
     white-space: nowrap;
     text-align: right;
     margin-right: 36px; /* Same as counts to avoid pin button overlap */
@@ -883,14 +884,13 @@ body {
 .category-section > .header .pin-button {
     --pin-top: 5px; /* Move pin buttons down when header is sticky */
     --pin-hover-offset: -21px; /* Adjust hover state accordingly */
-    --pin-pinned-offset: -21px; /* Adjust pinned state accordingly */
 }
 
 .stack-section > .header .pin-button {
     --pin-top: 5px; /* Move pin buttons down when header is sticky */
     --pin-hover-offset: -21px; /* Adjust hover state accordingly */
-    --pin-pinned-offset: -21px; /* Adjust pinned state accordingly */
 }
+
 
 .section-content {
     padding: 10px;
@@ -1043,12 +1043,22 @@ body {
 
 .stats-item {
     margin-bottom: 5px;
+    display: flex;
+    justify-content: space-between;
 }
 
 .state-stats {
     margin-top: 10px;
     padding-top: 10px;
     border-top: 1px solid var(--border-light);
+}
+
+.state-stats div {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 2px;
+    font-size: 11px;
+    color: var(--text-secondary);
 }
 
 .state-stat-item {
@@ -1437,7 +1447,7 @@ body {
 .side-by-side-headers .column-header {
     flex: 1;
     background: var(--bg-quaternary);
-    color: white;
+    color: var(--text-primary);
     padding: 6px 10px;
     font-weight: bold;
     font-size: 11px;
@@ -2349,7 +2359,7 @@ body {
     width: 14px;
     left: 2px;
     bottom: 2px;
-    background-color: white;
+    background-color: var(--bg-primary);
     transition: 0.2s;
     border-radius: 50%;
 }
