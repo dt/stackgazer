@@ -5,10 +5,33 @@
 import { File, Result, Group, Frame, Goroutine } from './types.js';
 
 /**
- * Calculate a SHA-256 fingerprint from frames
+ * Simple FNV-1a hash implementation as fallback when crypto.subtle is unavailable
+ */
+function fnvHash(str: string): string {
+  let hash = 2166136261; // FNV offset basis
+  for (let i = 0; i < str.length; i++) {
+    hash ^= str.charCodeAt(i);
+    hash *= 16777619; // FNV prime
+    hash = hash >>> 0; // Convert to unsigned 32-bit
+  }
+  return hash.toString(16).padStart(8, '0');
+}
+
+/**
+ * Calculate a fingerprint from frames, using SHA-256 if available with FNV fallback.
  */
 async function fingerprint(frames: Frame[]): Promise<string> {
   const traceString = frames.map(frame => `${frame.func} ${frame.file}:${frame.line}`).join('\n');
+
+  // Fallback to FNV hash if crypto.subtle is unavailable. The simpler hash ends
+  // up slower than the cryptographic hash as the latter is backed by native
+  // and often hardware accelerated implementations.
+  if (!globalThis.crypto?.subtle) {
+    const hash = fnvHash(traceString);
+    // Repeat to reach desired length
+    const FINGERPRINT_LENGTH = 24;
+    return (hash + hash + hash).slice(0, FINGERPRINT_LENGTH);
+  }
 
   const encoder = new TextEncoder();
   const data = encoder.encode(traceString);
