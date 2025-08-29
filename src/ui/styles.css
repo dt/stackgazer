@@ -423,7 +423,6 @@ body {
 .group-count,
 .stack-count {
     font-weight: normal;
-    color: color-mix(in srgb, var(--text-primary) 80%, transparent);
     font-size: 13px;
     text-align: right;
 }
@@ -471,7 +470,7 @@ body {
     cursor: pointer;
     font-family: inherit;
     transition: all 0.2s ease;
-    opacity: 0.3; /* Dim by default */
+    opacity: 0; /* Hidden by default */
     display: flex;
     align-items: center;
     justify-content: center;
@@ -573,14 +572,37 @@ body {
     margin-right: 36px;
 }
 
+/* Header right container for count and stats */
+.header-right {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+}
+
+/* Stats display below counts in headers */
+.category-stats,
+.stack-stats {
+    font-size: 9px;
+    color: rgba(255, 255, 255, 0.6);
+    white-space: nowrap;
+    text-align: right;
+    margin-right: 36px; /* Same as counts to avoid pin button overlap */
+}
+
+.category-stats:empty,
+.stack-stats:empty {
+    display: none;
+}
+
 .group-content,
 .stack-content {
     background: var(--bg-tertiary);
     padding-bottom: 1px;
 }
 
-.group-content.collapsed,
-.stack-content.collapsed {
+.group-content.collapsed-container,
+.stack-content.collapsed-container {
     display: none;
 }
 
@@ -639,7 +661,7 @@ body {
     display: block;
 }
 
-.state-group-content.collapsed {
+.state-group-content.collapsed-section {
     display: none;
 }
 
@@ -647,7 +669,7 @@ body {
     display: block;
 }
 
-.remaining-goroutines.collapsed {
+.remaining-goroutines.collapsed-section {
     display: none;
 }
 
@@ -880,8 +902,13 @@ body {
     padding: 0;
 }
 
-/* Expandable container states - works for any content type */
-.expandable.collapsed .section-content {
+/* Expandable container states - specific for categories and stacks */
+.expandable.container-collapsed > .section-content {
+    display: none;
+}
+
+/* Expandable section states - specific for files and groups */  
+.expandable.section-collapsed > .section-content {
     display: none;
 }
 
@@ -891,7 +918,8 @@ body {
     margin-right: 6px;
 }
 
-.expandable.collapsed .expand-icon::before {
+.expandable.container-collapsed > .header .expand-icon::before,
+.expandable.section-collapsed > .header .expand-icon::before {
     content: '▶';
 }
 
@@ -1016,6 +1044,19 @@ body {
 .stats-item {
     margin-bottom: 5px;
 }
+
+.state-stats {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--border-light);
+}
+
+.state-stat-item {
+    margin-bottom: 3px;
+    font-size: 11px;
+    color: var(--text-secondary);
+}
+
 
 .state-item {
     cursor: pointer;
@@ -2344,7 +2385,7 @@ input:checked + .toggle-slider:before {
     font-size: var(--copy-font);
     color: var(--text-muted);
     cursor: pointer;
-    opacity: 0.3; /* Dim by default */
+    opacity: 0; /* Hidden by default */
     transition: all 0.2s ease;
     display: flex;
     align-items: center;
@@ -2367,8 +2408,14 @@ input:checked + .toggle-slider:before {
     --copy-hover-right: -29px;
 }
 
+/* Hide copy buttons when containers are collapsed - use direct child selector to avoid deep traversal */
+.section.container-collapsed > .header > .copy-button {
+    display: none;
+}
+
 /* Hover reveal for copy buttons */
-.section:hover > .header > .copy-button {
+.section:hover > .header > .copy-button:not(.pinned),
+.goroutine-entry:hover > .copy-button:not(.pinned) {
     opacity: 0.7; /* Less dim on hover, matching pin button */
 }
 

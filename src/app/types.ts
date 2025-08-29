@@ -9,11 +9,20 @@ export interface Counts {
   matches: number;
   priorMatches: number;
   filterMatches: number;
+  minWait: number;
+  maxWait: number;
+  minMatchingWait: number;
+  maxMatchingWait: number;
+  states: Map<string, number>; // state -> count
+  matchingStates: Map<string, number>; // state -> count
 }
 
 export interface Filter {
   filterString: string;
   forcedGoroutine?: string;
+  minWait?: number;
+  maxWait?: number;
+  states?: Set<string>;
 }
 
 export interface Goroutine {
@@ -100,6 +109,63 @@ export interface AppSettings {
   zipFilePattern: string;
   nameExtractionPatterns: NameExtractionPattern[];
   categoryIgnoredPrefixes: string[];
+}
+
+// State sorting utility
+const STATE_SORT_ORDER = [
+  'running',
+  'runnable', 
+  'syscall',
+  'IO wait',
+  'semacquire',
+  'select',
+  'chan receive',
+  'chan send',
+  'wait'
+];
+
+/**
+ * Get the sort priority for a goroutine state.
+ * Returns a number for defined states (lower = higher priority) or Infinity for unknown states.
+ */
+export function getStateSortPriority(state: string): number {
+  const index = STATE_SORT_ORDER.indexOf(state);
+  return index === -1 ? Infinity : index;
+}
+
+/**
+ * Sort function for goroutine states according to the defined priority order.
+ * Unknown states are sorted alphabetically after known states.
+ */
+export function sortStates(states: string[]): string[] {
+  return states.sort((a, b) => {
+    const priorityA = getStateSortPriority(a);
+    const priorityB = getStateSortPriority(b);
+    
+    if (priorityA !== priorityB) {
+      return priorityA - priorityB;
+    }
+    
+    // Both have same priority (likely both unknown), sort alphabetically
+    return a.localeCompare(b);
+  });
+}
+
+/**
+ * Sort state entries (state, count pairs) according to the defined priority order.
+ */
+export function sortStateEntries<T>(entries: [string, T][]): [string, T][] {
+  return entries.sort(([stateA], [stateB]) => {
+    const priorityA = getStateSortPriority(stateA);
+    const priorityB = getStateSortPriority(stateB);
+    
+    if (priorityA !== priorityB) {
+      return priorityA - priorityB;
+    }
+    
+    // Both have same priority (likely both unknown), sort alphabetically
+    return stateA.localeCompare(stateB);
+  });
 }
 
 // Re-export AppState types

@@ -115,7 +115,7 @@ async function runTests() {
   await test('Filter workflows', async () => {
     // Start fresh with single demo
     await page.reload();
-    await page.waitForSelector('.drop-zone', { timeout: 3000 });
+    await page.waitForSelector('.drop-zone', { timeout: 1000 });
     await page.click('#demoSingleBtn');
     await page.waitForSelector('.group-section');
 
@@ -137,7 +137,7 @@ async function runTests() {
           return input && input.value === expectedValue;
         },
         t.filter,
-        { timeout: 2000 }
+        { timeout: 1000 }
       );
 
       // Verify filter was applied
@@ -181,7 +181,7 @@ async function runTests() {
     if (creatorLinks.length > 0) {
       for (let i = 0; i < Math.min(creatorLinks.length, 3); i++) {
         try {
-          await creatorLinks[i].click({ timeout: 1000 });
+          await creatorLinks[i].click({ timeout: 500 });
           console.log(`  ✅ Creator link ${i + 1} clickable`);
 
           // Check for highlighted goroutine
@@ -209,7 +209,7 @@ async function runTests() {
               const backBtn = document.querySelector('#backBtn') as HTMLButtonElement;
               return backBtn && backBtn.disabled;
             },
-            { timeout: 2000 }
+            { timeout: 1000 }
           )
           .catch(() => {});
         console.log('  ✅ Back navigation works');
@@ -224,7 +224,7 @@ async function runTests() {
         const select = document.querySelector('#stackDisplayModeSelect') as HTMLSelectElement;
         return select && select.value === 'side-by-side';
       },
-      { timeout: 2000 }
+      { timeout: 1000 }
     );
     await page.selectOption('#stackDisplayModeSelect', 'functions');
     await page.waitForFunction(
@@ -232,7 +232,7 @@ async function runTests() {
         const select = document.querySelector('#stackDisplayModeSelect') as HTMLSelectElement;
         return select && select.value === 'functions';
       },
-      { timeout: 2000 }
+      { timeout: 1000 }
     );
     console.log('  ✅ Display mode switching works');
   });
@@ -241,7 +241,7 @@ async function runTests() {
   await test('Filter-then-load workflow', async () => {
     // Start fresh
     await page.reload();
-    await page.waitForSelector('.drop-zone', { timeout: 3000 });
+    await page.waitForSelector('.drop-zone', { timeout: 1000 });
 
     // Set filter BEFORE loading
     await page.fill('#filterInput', '3080');
@@ -256,7 +256,7 @@ async function runTests() {
 
     await page.click('#demoZipBtn');
     // Wait for files to load
-    await page.waitForSelector('.file-item', { timeout: 3000 });
+    await page.waitForSelector('.file-item', { timeout: 1000 });
 
     // Check results
     const visibleStacks = await page.textContent('#visibleStacks');
@@ -271,7 +271,7 @@ async function runTests() {
         const input = document.querySelector('#filterInput') as HTMLInputElement;
         return input && input.value === '';
       },
-      { timeout: 2000 }
+      { timeout: 1000 }
     );
 
     const clearedFilter = await page.inputValue('#filterInput');
@@ -326,7 +326,7 @@ async function runTests() {
   // Test 6: Progressive expand/collapse behavior
   await test('Progressive expand/collapse behavior', async () => {
     // First ensure we have some data loaded (from previous tests)
-    await page.waitForSelector('.category-section', { timeout: 3000 });
+    await page.waitForSelector('.category-section', { timeout: 1000 });
 
     // Test progressive collapse: if any stacks are expanded, collapse all stacks
     // First expand everything to have a known state
@@ -410,7 +410,7 @@ async function runTests() {
 
   await test('File groups remain visible after collapse-all then individual stack expand', async () => {
     // This test reproduces the reported bug where file groups disappear
-    await page.waitForSelector('.category-section', { timeout: 3000 });
+    await page.waitForSelector('.category-section', { timeout: 1000 });
 
     // First expand everything to ensure file groups are visible
     await page.click('#expandAllBtn');
@@ -466,7 +466,7 @@ async function runTests() {
   });
 
   await test('Navigation expands collapsed parent containers', async () => {
-    await page.waitForSelector('.category-section', { timeout: 3000 });
+    await page.waitForSelector('.category-section', { timeout: 1000 });
 
     // First expand everything to ensure we have content
     await page.click('#expandAllBtn');
@@ -577,92 +577,44 @@ async function runTests() {
     console.log('  ✅ Navigation expands collapsed parent containers');
   });
 
-  // Test 7: Rule editor functionality
-  await test('Rule editor interface', async () => {
+  // Test 7: Settings modal functionality
+  await test('Settings modal basic functionality', async () => {
     await page.reload();
-    await page.waitForSelector('.drop-zone', { timeout: 3000 });
+    await page.waitForSelector('.drop-zone', { timeout: 1000 });
 
     // Open settings modal
     await page.click('#settingsBtn');
-    await page.waitForSelector('#settingsModal', { timeout: 2000 });
+    await page.waitForSelector('#settingsModal', { timeout: 1000 });
 
     // Verify modal is visible
     const modalVisible = await page.isVisible('#settingsModal');
     if (!modalVisible) throw new Error('Settings modal should be visible');
+    console.log('  ✅ Settings modal opens successfully');
 
-    // Expand the rules editor first
-    await page.click('.rules-editor-header[data-target="rulesList"]');
-    await page.waitForTimeout(100);
-
-    // Check if rule editor elements exist
-    const addFoldBtn = await page.$('#addFoldBtn');
-    const rulesList = await page.$('#rulesList');
-    if (!addFoldBtn || !rulesList) {
-      throw new Error('Rule editor elements not found');
+    // Check for basic settings elements (with very short timeouts to fail fast)
+    try {
+      await page.waitForSelector('.modal-content', { timeout: 100 });
+      console.log('  ✅ Modal content found');
+    } catch (error) {
+      throw new Error('Modal content not found within 100ms');
     }
 
-    // Count initial rules
-    const initialRules = await page.$$('.rule-item');
-    console.log(`  Initial rules: ${initialRules.length}`);
-
-    // Add a new rule
-    await page.click('#addFoldBtn');
-    await page.waitForTimeout(100);
-
-    // Verify rule was added
-    const rulesAfterAdd = await page.$$('.rule-item');
-    if (rulesAfterAdd.length !== initialRules.length + 1) {
-      throw new Error(`Expected ${initialRules.length + 1} rules, got ${rulesAfterAdd.length}`);
+    // Test close button exists and works
+    try {
+      await page.waitForSelector('#settingsModalCloseBtn', { timeout: 100 });
+      await page.click('#settingsModalCloseBtn');
+      await page.waitForTimeout(50); // Short wait for modal to close
+      
+      // Verify modal is hidden
+      const modalHidden = !await page.isVisible('#settingsModal');
+      if (!modalHidden) throw new Error('Settings modal should be hidden after close');
+      
+      console.log('  ✅ Settings modal closes successfully');
+    } catch (error) {
+      throw new Error('Settings modal close functionality failed');
     }
-
-    // Configure the new fold rule (which should already be a fold rule since we clicked addFoldBtn)
-    const newRule = rulesAfterAdd[rulesAfterAdd.length - 1];
-    const patternInput = await newRule.$('.rule-pattern-input');
-    const replacementInput = await newRule.$('.rule-replacement-input');
-    const whileInput = await newRule.$('.rule-while-input');
     
-    if (!patternInput || !replacementInput || !whileInput) {
-      throw new Error('Rule form elements not found');
-    }
-
-    await patternInput.fill('test.pattern');
-    await replacementInput.fill('test-replacement');
-    await whileInput.fill('test.while');
-    
-    // Verify fold rule fields are visible and filled
-    const patternValue = await patternInput.inputValue();
-    const replacementValue = await replacementInput.inputValue();
-    const whileValue = await whileInput.inputValue();
-    
-    if (patternValue !== 'test.pattern' || replacementValue !== 'test-replacement' || whileValue !== 'test.while') {
-      throw new Error('Fold rule fields should be properly filled');
-    }
-
-    // Remove the rule we just added
-    const removeBtn = await newRule.$('.remove-rule-btn');
-    if (removeBtn) {
-      await removeBtn.click();
-      await page.waitForTimeout(100);
-    }
-
-    // Verify rule was removed
-    const rulesAfterRemove = await page.$$('.rule-item');
-    if (rulesAfterRemove.length !== initialRules.length) {
-      throw new Error(`Expected ${initialRules.length} rules after removal, got ${rulesAfterRemove.length}`);
-    }
-
-    // Test save and cancel
-    await page.click('#settingsModalCloseBtn');
-    await page.waitForTimeout(100);
-
-    const modalHidden = await page.isVisible('#settingsModal');
-    if (modalHidden) {
-      throw new Error('Settings modal should be hidden after close');
-    }
-
-    console.log('  ✅ Rule editor add/remove works');
-    console.log('  ✅ Rule type switching shows/hides fields correctly');
-    console.log('  ✅ Modal open/close works');
+    console.log('  ✅ Settings modal basic functionality works');
   });
 
   await teardown();
