@@ -15,7 +15,7 @@ const STANDALONE_HTML_URL = `file://${STANDALONE_HTML_PATH}`;
 
 // Global timeout settings
 const DEFAULT_TIMEOUT = 5000; // 5 seconds instead of 10-15
-const QUICK_TIMEOUT = 2000; // For fast operations
+const QUICK_TIMEOUT = 5000; // For operations including network fetches
 
 let browser: Browser;
 let page: Page;
