@@ -437,6 +437,7 @@ export class ProfileCollection {
   private nextFileId: number = 1;
   private nextCategoryId: number = 1;
   private goroutinesByID: Map<string, Goroutine> = new Map();
+  private goroutineToCategory: Map<string, Category> = new Map();
 
   constructor(settings: ProfileCollectionSettings) {
     this.settings = settings;
@@ -726,6 +727,7 @@ export class ProfileCollection {
           goroutine.created = goroutine.created.map(created => `${fileName}.${created}`);
         }
         this.goroutinesByID.set(goroutine.id, goroutine);
+        this.goroutineToCategory.set(goroutine.id, category);
       }
 
       // Populate initial statistics from goroutines
@@ -946,6 +948,7 @@ export class ProfileCollection {
             file.groups.forEach(group => {
               group.goroutines.forEach(goroutine => {
                 this.goroutinesByID.delete(goroutine.id);
+                this.goroutineToCategory.delete(goroutine.id);
               });
             });
             return false;
@@ -1043,6 +1046,7 @@ export class ProfileCollection {
     this.categories = [];
     this.parsedFiles.clear();
     this.goroutinesByID.clear();
+    this.goroutineToCategory.clear();
     this.stackForTraceId.clear();
     this.nextGroupId = 1;
     this.nextFileId = 1;
@@ -1722,6 +1726,7 @@ export class ProfileCollection {
     this.categories = [];
     this.parsedFiles.clear();
     this.goroutinesByID.clear();
+    this.goroutineToCategory.clear();
     this.stackForTraceId.clear();
     this.currentFilter = '';
     this.nextGroupId = 1;
@@ -1777,6 +1782,13 @@ export class ProfileCollection {
     }
 
     return stats;
+  }
+
+  /**
+   * Get the category that contains a given goroutine
+   */
+  getCategoryForGoroutine(goroutineId: string): Category | undefined {
+    return this.goroutineToCategory.get(goroutineId);
   }
 }
 
