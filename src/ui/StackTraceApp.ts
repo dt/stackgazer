@@ -1217,9 +1217,53 @@ export class StackTraceApp {
   private updateVisibility(force: boolean = false): void {
     const categories = this.profileCollection.getCategories();
 
+    // Smart propagation: Only check if any groups are dirty first
+    let hasAnyDirtyGroups = false;
+    for (const category of categories) {
+      for (const stack of category.stacks) {
+        for (const fileSection of stack.files) {
+          for (const group of fileSection.groups) {
+            if (group.counts.visibilityChanged) {
+              hasAnyDirtyGroups = true;
+              break;
+            }
+          }
+          if (hasAnyDirtyGroups) break;
+        }
+        if (hasAnyDirtyGroups) break;
+      }
+      if (hasAnyDirtyGroups) break;
+    }
+
+    // Only do expensive propagation if needed
+    if (hasAnyDirtyGroups) {
+      for (const category of categories) {
+        for (const stack of category.stacks) {
+          for (const fileSection of stack.files) {
+            // Propagate dirty state from groups to file section
+            fileSection.counts.visibilityChanged = fileSection.groups.reduce(
+              (dirty, group) => dirty || group.counts.visibilityChanged,
+              false
+            );
+          }
+          // Propagate dirty state from file sections to stack
+          stack.counts.visibilityChanged = stack.files.reduce(
+            (dirty, fileSection) => dirty || fileSection.counts.visibilityChanged,
+            false
+          );
+        }
+        // Propagate dirty state from stacks to category
+        category.counts.visibilityChanged = category.stacks.reduce(
+          (dirty, stack) => dirty || stack.counts.visibilityChanged,
+          false
+        );
+      }
+    }
+
     // Process each category with hierarchical change detection
     for (const category of categories) {
-      if (!force && category.counts.matches === category.counts.priorMatches) {
+      // Use new visibilityChanged approach
+      if (!force && !category.counts.visibilityChanged) {
         continue;
       }
       const categoryElement = document.getElementById(category.id) as HTMLElement;
@@ -1237,14 +1281,8 @@ export class StackTraceApp {
 
         // Process each stack in the category
         for (const stack of category.stacks) {
-          // Skip optimization when matches don't change, but only if both are > 0
-          // If either is 0, we must update visibility since the element might be incorrectly shown/hidden
-          if (
-            !force &&
-            stack.counts.matches === stack.counts.priorMatches &&
-            stack.counts.matches > 0 &&
-            stack.counts.priorMatches > 0
-          ) {
+          // Use new visibilityChanged approach
+          if (!force && !stack.counts.visibilityChanged) {
             continue;
           }
           const stackElement = document.getElementById(stack.id) as HTMLElement;
@@ -1261,7 +1299,7 @@ export class StackTraceApp {
             this.updateDisplayedCount(stackElement, stack.counts);
 
             for (const fileSection of stack.files) {
-              if (!force && fileSection.counts.matches == fileSection.counts.priorMatches) {
+              if (!force && !fileSection.counts.visibilityChanged) {
                 continue;
               }
               const fileSectionElement = document.getElementById(fileSection.id) as HTMLElement;
@@ -1277,7 +1315,7 @@ export class StackTraceApp {
                 this.updateDisplayedCount(fileSectionElement, fileSection.counts);
 
                 for (const group of fileSection.groups) {
-                  if (!force && group.counts.matches === group.counts.priorMatches) {
+                  if (!force && !group.counts.visibilityChanged) {
                     continue;
                   }
                   const groupElement = document.getElementById(group.id) as HTMLElement;
@@ -1300,14 +1338,21 @@ export class StackTraceApp {
                       }
                     }
                   }
+                  // Reset group dirty flag after processing
+                  group.counts.visibilityChanged = false;
                 }
+                // Reset file section dirty flag after processing
+                fileSection.counts.visibilityChanged = false;
               }
             }
+            // Reset stack dirty flag after processing
+            stack.counts.visibilityChanged = false;
           }
         }
+        // Reset category dirty flag after processing
+        category.counts.visibilityChanged = false;
       }
     }
-    this.profileCollection.clearFilterChanges();
   }
 
   updateDisplayedCount(element: HTMLElement, counts: Counts): void {

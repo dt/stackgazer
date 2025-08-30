@@ -4,9 +4,10 @@
   "type": "module",
   "description": "A single-page app for viewing Go stack traces",
   "scripts": {
-    "build": "vite build --config build/vite.config.js",
-    "build:bundle": "vite build --config build/vite.standalone.config.js",
-    "build:lite": "vite build --config build/vite.lite.config.js",
+    "build": "npm run typecheck && vite build --config build/vite.config.js",
+    "build:bundle": "npm run typecheck && vite build --config build/vite.standalone.config.js",
+    "build:lite": "npm run typecheck && vite build --config build/vite.lite.config.js",
+    "typecheck": "tsc --noEmit",
     "watch": "tsc --watch",
     "serve": "python3 -m http.server 8000",
     "pretest": "npm run build:bundle",
