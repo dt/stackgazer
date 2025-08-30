@@ -3,7 +3,8 @@
  */
 
 import { FileParser, ZipHandler } from '../src/parser/index.js';
-import JSZip from 'jszip';
+// Compression functions removed - they were causing memory usage to double
+import { zip } from 'fflate';
 import { TEST_DATA, parser, test } from './shared-test-data.js';
 
 // Test table
@@ -195,13 +196,21 @@ await test('JSON parsing error in format1', async () => {
 });
 
 await test('Zip extraction', async () => {
-  const zip = new JSZip();
-  zip.file('stacks.txt', TEST_DATA.exampleStacks2);
-  zip.file('subdir/stacks.txt', TEST_DATA.exampleStacks2);
-  zip.file('other.txt', 'not a stack file');
+  // Create zip using fflate
+  const files = {
+    'stacks.txt': new TextEncoder().encode(TEST_DATA.exampleStacks2),
+    'subdir/stacks.txt': new TextEncoder().encode(TEST_DATA.exampleStacks2),
+    'other.txt': new TextEncoder().encode('not a stack file'),
+  };
 
-  const zipBuffer = await zip.generateAsync({ type: 'arraybuffer' });
-  const mockFile = new File([zipBuffer], 'test.zip', { type: 'application/zip' });
+  const zipData = await new Promise<Uint8Array>((resolve, reject) => {
+    zip(files, (err, data) => {
+      if (err) reject(err);
+      else resolve(data);
+    });
+  });
+
+  const mockFile = new File([zipData], 'test.zip', { type: 'application/zip' });
 
   const result = await ZipHandler.extractFiles(mockFile);
   if (result.files.length !== 2) {

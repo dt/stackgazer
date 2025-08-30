@@ -10,12 +10,12 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const STANDALONE_HTML_PATH = path.join(__dirname, '..', 'dist', 'index-standalone.html');
+const STANDALONE_HTML_PATH = path.join(__dirname, '..', 'dist', 'index.html');
 const STANDALONE_HTML_URL = `file://${STANDALONE_HTML_PATH}`;
 
 // Global timeout settings
-const DEFAULT_TIMEOUT = 5000; // 5 seconds instead of 10-15
-const QUICK_TIMEOUT = 5000; // For operations including network fetches
+const DEFAULT_TIMEOUT = 3000; // 3 seconds
+const QUICK_TIMEOUT = 2000; // For quick operations
 
 let browser: Browser;
 let page: Page;
@@ -39,7 +39,17 @@ async function setup() {
     console.log(`  ❌ Page Error: ${error.message}`);
   });
 
-  await page.goto(STANDALONE_HTML_URL);
+  try {
+    // Check if file exists first for faster failure
+    const fs = await import('fs');
+    if (!fs.existsSync(STANDALONE_HTML_PATH)) {
+      throw new Error(`HTML file does not exist: ${STANDALONE_HTML_PATH}`);
+    }
+    
+    await page.goto(STANDALONE_HTML_URL, { timeout: QUICK_TIMEOUT });
+  } catch (error) {
+    throw new Error(`Failed to load ${STANDALONE_HTML_URL}: ${error.message}`);
+  }
   await page.waitForSelector('.drop-zone', { timeout: QUICK_TIMEOUT });
 }
 

@@ -7,7 +7,7 @@ import { ProfileCollection } from '../src/app/ProfileCollection.ts';
 import { SettingsManager } from '../src/app/SettingsManager.ts';
 import { FileParser, ZipHandler } from '../src/parser/index.js';
 import { StackTraceApp } from '../src/ui/StackTraceApp.ts';
-import JSZip from 'jszip';
+import { zip } from 'fflate';
 import { TEST_DATA, DEFAULT_SETTINGS, test, addFile } from './shared-test-data.js';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
@@ -456,13 +456,21 @@ ${t.func}()
 
   // Zip extraction
   await test('Zip extraction', async () => {
-    const zip = new JSZip();
-    zip.file('stacks.txt', TEST_DATA.format2);
-    zip.file('subdir/stacks.txt', TEST_DATA.format2);
-    zip.file('other.txt', 'not a stack file');
+    // Create zip using fflate
+    const files = {
+      'stacks.txt': new TextEncoder().encode(TEST_DATA.format2),
+      'subdir/stacks.txt': new TextEncoder().encode(TEST_DATA.format2),
+      'other.txt': new TextEncoder().encode('not a stack file'),
+    };
 
-    const zipBuffer = await zip.generateAsync({ type: 'arraybuffer' });
-    const mockFile = new File([zipBuffer], 'test.zip', { type: 'application/zip' });
+    const zipData = await new Promise<Uint8Array>((resolve, reject) => {
+      zip(files, (err, data) => {
+        if (err) reject(err);
+        else resolve(data);
+      });
+    });
+
+    const mockFile = new File([zipData], 'test.zip', { type: 'application/zip' });
 
     const result = await ZipHandler.extractFiles(mockFile);
     if (result.files.length !== 2) {

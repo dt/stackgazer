@@ -4,7 +4,6 @@ import { FileParser } from '../parser/index.js';
 import {
   UniqueStack,
   Group,
-  FilterChanges,
   AppState,
   Goroutine,
   Filter,
@@ -13,7 +12,7 @@ import {
   sortStateEntries,
 } from '../app/types.js';
 import { SettingsManager, AppSettings } from '../app/SettingsManager.js';
-import { getJSZip } from '../parser/zip.js';
+import { ZipHandler } from '../parser/zip.js';
 
 export interface StackTraceAppOptions extends Partial<AppSettings> {
   initialTheme?: 'dark' | 'light';
@@ -760,42 +759,27 @@ export class StackTraceApp {
   private async handleZipFile(file: File): Promise<void> {
     try {
       console.time(`🗜 Zip Import: ${file.name}`);
-      const arrayBuffer = await file.arrayBuffer();
-      const JSZipClass = await getJSZip();
-      if (!JSZipClass) {
-        throw new Error(
-          'JSZip failed to load from CDN. Please check your internet connection and try again.'
-        );
-      }
-      const zip = new JSZipClass();
-      const zipContent = await zip.loadAsync(arrayBuffer);
 
-      // Find stack trace files in the zip (using settings pattern)
+      // Extract files using ZipHandler with settings pattern
       const pattern = this.settingsManager.getZipFilePatternRegex();
-      const files = Object.keys(zipContent.files).filter(fileName => {
-        return pattern.test(fileName);
-      });
+      const extractResult = await ZipHandler.extractFiles(file, pattern);
 
-      for (const zipFileName of files) {
-        const zipFile = zipContent.files[zipFileName];
-        if (!zipFile.dir) {
-          const baseName = zipFileName.split('/').pop() || zipFileName;
-          console.time(`  📄 Zip Entry: ${baseName}`);
-          const content = await zipFile.async('text');
-          const result = await this.parser.parseFile(content, baseName);
+      for (const zipFile of extractResult.files) {
+        const baseName = zipFile.path.split('/').pop() || zipFile.path;
+        console.time(`  📄 Zip Entry: ${baseName}`);
+        const result = await this.parser.parseFile(zipFile.content, baseName);
 
-          if (result.success) {
-            this.profileCollection.addFile(result.data);
-            console.timeEnd(`  📄 Zip Entry: ${baseName}`);
-          } else {
-            console.timeEnd(`  📄 Zip Entry: ${baseName}`);
-            console.error(`Failed to parse ${baseName} from zip:`, result.error);
-            alert(`Failed to parse ${baseName} from zip: ${result.error}`);
-          }
+        if (result.success) {
+          this.profileCollection.addFile(result.data);
+          console.timeEnd(`  📄 Zip Entry: ${baseName}`);
+        } else {
+          console.timeEnd(`  📄 Zip Entry: ${baseName}`);
+          console.error(`Failed to parse ${baseName} from zip:`, result.error);
+          alert(`Failed to parse ${baseName} from zip: ${result.error}`);
         }
       }
 
-      if (files.length === 0) {
+      if (extractResult.files.length === 0) {
         console.warn(`No stack trace files found in zip matching pattern: ${pattern}`);
         alert(`No stack trace files found in zip file. Looking for files matching: ${pattern}`);
       }
@@ -2356,40 +2340,27 @@ export class StackTraceApp {
         // Handle zip files
         console.time(`🌐 URL Zip Import: ${fileName}`);
         const arrayBuffer = await response.arrayBuffer();
-        const JSZipClass = await getJSZip();
-        if (!JSZipClass) {
-          throw new Error(
-            'JSZip failed to load from CDN. Please check your internet connection and try again.'
-          );
-        }
-        const zip = new JSZipClass();
-        const zipContent = await zip.loadAsync(arrayBuffer);
 
-        // Find stack trace files in the zip (using settings pattern)
+        // Create a File object from the arrayBuffer to use with ZipHandler
+        const file = new File([arrayBuffer], fileName, { type: 'application/zip' });
         const pattern = this.settingsManager.getZipFilePatternRegex();
-        const files = Object.keys(zipContent.files).filter(fileName => {
-          return pattern.test(fileName);
-        });
+        const extractResult = await ZipHandler.extractFiles(file, pattern);
 
-        for (const zipFileName of files) {
-          const file = zipContent.files[zipFileName];
-          if (!file.dir) {
-            const baseName = zipFileName.split('/').pop() || zipFileName;
-            console.time(`  📄 URL Zip Entry: ${baseName}`);
-            const content = await file.async('text');
-            const result = await this.parser.parseFile(content, baseName);
+        for (const zipFile of extractResult.files) {
+          const baseName = zipFile.path.split('/').pop() || zipFile.path;
+          console.time(`  📄 URL Zip Entry: ${baseName}`);
+          const result = await this.parser.parseFile(zipFile.content, baseName);
 
-            if (result.success) {
-              this.profileCollection.addFile(result.data); // Let extractedName take precedence
-              console.timeEnd(`  📄 URL Zip Entry: ${baseName}`);
-            } else {
-              console.timeEnd(`  📄 URL Zip Entry: ${baseName}`);
-              console.error(`URL zip - Failed to parse ${baseName}:`, result.error);
-            }
+          if (result.success) {
+            this.profileCollection.addFile(result.data); // Let extractedName take precedence
+            console.timeEnd(`  📄 URL Zip Entry: ${baseName}`);
+          } else {
+            console.timeEnd(`  📄 URL Zip Entry: ${baseName}`);
+            console.error(`URL zip - Failed to parse ${baseName}:`, result.error);
           }
         }
 
-        if (files.length === 0) {
+        if (extractResult.files.length === 0) {
           console.warn(`URL zip - No stack trace files found matching pattern: ${pattern}`);
         }
         console.timeEnd(`🌐 URL Zip Import: ${fileName}`);
