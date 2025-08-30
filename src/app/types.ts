@@ -7,7 +7,7 @@
 export interface Counts {
   total: number;
   matches: number;
-  priorMatches: number;
+  visibilityChanged: boolean;
   filterMatches: number;
   pinned: number;
   minWait: number;

@@ -31,6 +31,7 @@ import {
   UniqueStack,
   Frame,
   Group,
+  FileSection,
   NameExtractionPattern,
   Filter,
   Goroutine,
@@ -656,7 +657,7 @@ export class ProfileCollection {
           counts: {
             total: 0,
             matches: 0,
-            priorMatches: 0,
+            visibilityChanged: false,
             filterMatches: 0,
             pinned: 0,
             minWait: Infinity,
@@ -681,7 +682,7 @@ export class ProfileCollection {
             counts: {
               total: 0,
               matches: 0,
-              priorMatches: 0,
+              visibilityChanged: false,
               filterMatches: 0,
               pinned: 0,
               minWait: Infinity,
@@ -706,7 +707,7 @@ export class ProfileCollection {
         counts: {
           total: group.count,
           matches: group.count,
-          priorMatches: group.count,
+          visibilityChanged: false,
           filterMatches: group.count,
           pinned: 0,
           minWait: Infinity,
@@ -775,7 +776,7 @@ export class ProfileCollection {
           counts: {
             total: g.counts.total,
             matches: g.counts.matches,
-            priorMatches: g.counts.priorMatches,
+            visibilityChanged: false,
             filterMatches: g.counts.filterMatches,
             pinned: 0,
             minWait: g.counts.minWait,
@@ -791,7 +792,6 @@ export class ProfileCollection {
         fileSection.groups.push(g);
         fileSection.counts.total += g.counts.total;
         fileSection.counts.matches += g.counts.matches;
-        fileSection.counts.priorMatches += g.counts.priorMatches;
         fileSection.counts.filterMatches += g.counts.filterMatches;
 
         // Update wait time bounds
@@ -820,7 +820,6 @@ export class ProfileCollection {
       }
       stack.counts.total += g.counts.total;
       stack.counts.matches += g.counts.matches;
-      stack.counts.priorMatches += g.counts.priorMatches;
       stack.counts.filterMatches += g.counts.filterMatches;
 
       // Update stack wait time bounds
@@ -849,7 +848,6 @@ export class ProfileCollection {
 
       category.counts.total += g.counts.total;
       category.counts.matches += g.counts.matches;
-      category.counts.priorMatches += g.counts.priorMatches;
       category.counts.filterMatches += g.counts.filterMatches;
 
       // Update category wait time bounds
@@ -969,7 +967,6 @@ export class ProfileCollection {
         }
         stack.counts.matches = stack.files.reduce((sum, x) => sum + x.counts.matches, 0);
         stack.counts.total = stack.files.reduce((sum, x) => sum + x.counts.total, 0);
-        stack.counts.priorMatches = stack.files.reduce((sum, x) => sum + x.counts.priorMatches, 0);
         stack.counts.filterMatches = stack.files.reduce(
           (sum, x) => sum + x.counts.filterMatches,
           0
@@ -981,7 +978,6 @@ export class ProfileCollection {
       }
       cat.counts.matches = cat.stacks.reduce((sum, x) => sum + x.counts.matches, 0);
       cat.counts.total = cat.stacks.reduce((sum, x) => sum + x.counts.total, 0);
-      cat.counts.priorMatches = cat.stacks.reduce((sum, x) => sum + x.counts.priorMatches, 0);
       cat.counts.filterMatches = cat.stacks.reduce((sum, x) => sum + x.counts.filterMatches, 0);
       return true;
     });
@@ -1066,21 +1062,6 @@ export class ProfileCollection {
     }
   }
 
-  clearFilterChanges(): void {
-    for (const category of this.categories) {
-      category.counts.priorMatches = category.counts.matches;
-      for (const stack of category.stacks) {
-        stack.counts.priorMatches = stack.counts.matches;
-        for (const fileSection of stack.files) {
-          fileSection.counts.priorMatches = fileSection.counts.matches;
-          for (const group of fileSection.groups) {
-            group.counts.priorMatches = group.counts.matches;
-          }
-        }
-      }
-    }
-  }
-
   setFilter(filterObj: Filter) {
     this.currentFilter = filterObj.filterString.trim().toLowerCase();
 
@@ -1131,7 +1112,7 @@ export class ProfileCollection {
                 group.counts.matchingStates = new Map(group.counts.states);
 
                 for (const goroutine of group.goroutines) {
-                  goroutine.matches = true;
+                  this.setGoroutineVisibility(goroutine, true, group, fileSection, stack, category);
                 }
               }
             }
@@ -1151,7 +1132,7 @@ export class ProfileCollection {
               fileSection.counts.matchingStates.clear();
 
               for (const group of fileSection.groups) {
-                group.counts.matches = 0;
+                this.setGroupVisibility(group, 0, fileSection, stack, category);
                 group.counts.filterMatches = 0;
                 group.counts.minMatchingWait = Infinity;
                 group.counts.maxMatchingWait = -Infinity;
@@ -1166,7 +1147,14 @@ export class ProfileCollection {
                   let stateMatches =
                     filterObj.states === undefined || filterObj.states.has(goroutine.state);
 
-                  goroutine.matches = waitMatches && stateMatches;
+                  this.setGoroutineVisibility(
+                    goroutine,
+                    waitMatches && stateMatches,
+                    group,
+                    fileSection,
+                    stack,
+                    category
+                  );
                   if (goroutine.matches) {
                     group.counts.matches++;
                     group.counts.filterMatches++;
@@ -1284,11 +1272,18 @@ export class ProfileCollection {
                   group.counts.matchingStates = new Map(group.counts.states);
 
                   for (const goroutine of group.goroutines) {
-                    goroutine.matches = true;
+                    this.setGoroutineVisibility(
+                      goroutine,
+                      true,
+                      group,
+                      fileSection,
+                      stack,
+                      category
+                    );
                   }
                 } else {
                   // Group matches text but still need to check wait/state constraints
-                  group.counts.matches = 0;
+                  this.setGroupVisibility(group, 0, fileSection, stack, category);
                   group.counts.filterMatches = 0;
                   group.counts.minMatchingWait = Infinity;
                   group.counts.maxMatchingWait = -Infinity;
@@ -1304,7 +1299,14 @@ export class ProfileCollection {
                     let stateMatches =
                       filterObj.states === undefined || filterObj.states.has(goroutine.state);
 
-                    goroutine.matches = waitMatches && stateMatches;
+                    this.setGoroutineVisibility(
+                      goroutine,
+                      waitMatches && stateMatches,
+                      group,
+                      fileSection,
+                      stack,
+                      category
+                    );
                     if (goroutine.matches) {
                       group.counts.matches++;
                       group.counts.filterMatches++;
@@ -1332,7 +1334,7 @@ export class ProfileCollection {
                   group.pinned || fileSection.pinned || stack.pinned || category.pinned;
 
                 // Reset group matching statistics
-                group.counts.matches = 0;
+                this.setGroupVisibility(group, 0, fileSection, stack, category);
                 group.counts.filterMatches = 0;
                 group.counts.minMatchingWait = Infinity;
                 group.counts.maxMatchingWait = -Infinity;
@@ -1348,7 +1350,14 @@ export class ProfileCollection {
                   let stateMatches =
                     filterObj.states === undefined || filterObj.states.has(goroutine.state);
 
-                  goroutine.matches = textMatches && waitMatches && stateMatches;
+                  this.setGoroutineVisibility(
+                    goroutine,
+                    textMatches && waitMatches && stateMatches,
+                    group,
+                    fileSection,
+                    stack,
+                    category
+                  );
                   if (goroutine.matches) {
                     group.counts.filterMatches++;
                     group.counts.matches++;
@@ -1358,7 +1367,14 @@ export class ProfileCollection {
                     (filterObj.forcedGoroutine && goroutine.id === filterObj.forcedGoroutine)
                   ) {
                     // Matches, but not due to filter.
-                    goroutine.matches = true;
+                    this.setGoroutineVisibility(
+                      goroutine,
+                      true,
+                      group,
+                      fileSection,
+                      stack,
+                      category
+                    );
                     group.counts.matches++;
                   }
 
@@ -1386,7 +1402,7 @@ export class ProfileCollection {
 
                 // If we don't have individual goroutines we need to set matches directly.
                 if (group.goroutines.length === 0 && isPinned) {
-                  group.counts.matches = group.counts.total;
+                  this.setGroupVisibility(group, group.counts.total, fileSection, stack, category);
                   // Copy statistics since all are matching
                   group.counts.minMatchingWait = group.counts.minWait;
                   group.counts.maxMatchingWait = group.counts.maxWait;
@@ -1532,6 +1548,53 @@ export class ProfileCollection {
   }
 
   /**
+   * Set goroutine visibility and track if it changed
+   */
+  private setGoroutineVisibility(
+    goroutine: Goroutine,
+    newMatches: boolean,
+    group: Group,
+    fileSection: FileSection,
+    stack: UniqueStack,
+    category: Category
+  ) {
+    const wasMatches = goroutine.matches;
+    goroutine.matches = newMatches;
+
+    // If visibility changed, mark the hierarchy as changed
+    if (wasMatches !== newMatches) {
+      group.counts.visibilityChanged = true;
+      fileSection.counts.visibilityChanged = true;
+      stack.counts.visibilityChanged = true;
+      category.counts.visibilityChanged = true;
+    }
+  }
+
+  /**
+   * Set group visibility and track if it changed
+   */
+  private setGroupVisibility(
+    group: Group,
+    newMatches: number,
+    fileSection: FileSection,
+    stack: UniqueStack,
+    category: Category
+  ) {
+    const wasMatches = group.counts.matches;
+    group.counts.matches = newMatches;
+
+    // If visibility changed (visible to invisible or vice versa), mark the hierarchy as changed
+    const wasVisible = wasMatches > 0;
+    const isVisible = newMatches > 0;
+    if (wasVisible !== isVisible) {
+      group.counts.visibilityChanged = true;
+      fileSection.counts.visibilityChanged = true;
+      stack.counts.visibilityChanged = true;
+      category.counts.visibilityChanged = true;
+    }
+  }
+
+  /**
    * Clear filter and make all groups visible
    */
   clearFilter() {
@@ -1574,6 +1637,7 @@ export class ProfileCollection {
           const group = fileSection.groups.find(g => g.id === groupId);
           if (group) {
             group.pinned = !group.pinned;
+            // Pin state changed - visibility will be recalculated on next setFilter()
             return group.pinned;
           }
         }

@@ -524,7 +524,7 @@ async function runTests() {
         name: 'Test Stack with Many Goroutines',
         trace: [
           { func: 'func1', file: 'file1.go', line: 10 },
-          { func: 'func2', file: 'file2.go', line: 20 }
+          { func: 'func2', file: 'file2.go', line: 20 },
         ],
         files: [
           {
@@ -537,16 +537,52 @@ async function runTests() {
                 labels: [],
                 goroutines: [] as any[],
                 pinned: false,
-                counts: { total: 50, matches: 50, filterMatches: 50, pinned: 0 },
+                counts: {
+                  total: 50,
+                  matches: 50,
+                  visibilityChanged: false,
+                  filterMatches: 50,
+                  pinned: 0,
+                  minWait: Infinity,
+                  maxWait: -Infinity,
+                  minMatchingWait: Infinity,
+                  maxMatchingWait: -Infinity,
+                  states: new Map(),
+                  matchingStates: new Map(),
+                },
               },
             ],
             pinned: false,
-            counts: { total: 50, matches: 50, filterMatches: 50, pinned: 0 },
+            counts: {
+              total: 50,
+              matches: 50,
+              visibilityChanged: false,
+              filterMatches: 50,
+              pinned: 0,
+              minWait: Infinity,
+              maxWait: -Infinity,
+              minMatchingWait: Infinity,
+              maxMatchingWait: -Infinity,
+              states: new Map(),
+              matchingStates: new Map(),
+            },
           },
         ],
         searchableText: '',
         pinned: false,
-        counts: { total: 50, matches: 50, filterMatches: 50, pinned: 0 },
+        counts: {
+          total: 50,
+          matches: 50,
+          visibilityChanged: false,
+          filterMatches: 50,
+          pinned: 0,
+          minWait: Infinity,
+          maxWait: -Infinity,
+          minMatchingWait: Infinity,
+          maxMatchingWait: -Infinity,
+          states: new Map(),
+          matchingStates: new Map(),
+        },
       };
 
       // Add 50 goroutines with same state to trigger chunking
@@ -567,7 +603,19 @@ async function runTests() {
             files: [],
             searchableText: '',
             pinned: false,
-            counts: { total: 1, matches: 1, filterMatches: 1, pinned: 0 },
+            counts: {
+              total: 1,
+              matches: 1,
+              visibilityChanged: false,
+              filterMatches: 1,
+              pinned: 0,
+              minWait: Infinity,
+              maxWait: -Infinity,
+              minMatchingWait: Infinity,
+              maxMatchingWait: -Infinity,
+              states: new Map(),
+              matchingStates: new Map(),
+            },
           },
         });
       }
@@ -578,7 +626,19 @@ async function runTests() {
         name: 'Test Category',
         stacks: [mockStack],
         pinned: false,
-        counts: { total: 50, matches: 50, filterMatches: 50, pinned: 0 },
+        counts: {
+          total: 50,
+          matches: 50,
+          visibilityChanged: false,
+          filterMatches: 50,
+          pinned: 0,
+          minWait: Infinity,
+          maxWait: -Infinity,
+          minMatchingWait: Infinity,
+          maxMatchingWait: -Infinity,
+          states: new Map(),
+          matchingStates: new Map(),
+        },
       };
 
       // Access the StackTraceApp instance and call copyStackToClipboard
