@@ -481,7 +481,7 @@ async function runTests() {
     // Manually call the navigation method by directly calling it on the app instance
     await page.evaluate(goroutineId => {
       // Access the app instance and call the navigation method directly
-      const app = (window as any).stackTraceApp;
+      const app = (window as any).StackgazerApp;
       if (app && app.navigateToGoroutine) {
         app.navigateToGoroutine(goroutineId);
       } else {

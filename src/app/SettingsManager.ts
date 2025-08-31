@@ -5,32 +5,89 @@
 import type { TitleRule, CategoryRule } from './ProfileCollection.js';
 import type { NameExtractionPattern } from './types.js';
 
+
+export const DEFAULT_SETTINGS: AppSettings = {
+  // Parsing options
+  functionTrimPrefixes: [],
+  fileTrimPrefixes: [],
+  // Category rules
+  categorySkipRules: [
+    // Skip basic Go utilities that launch goroutines.
+    'sync.', 'internal/', 'golang.org/x/sync/errgroup',
+    // Skip gRPC infra to find the server it is actually starting.
+    'google.golang.org/grpc',
+  ],
+  categoryMatchRules: [
+    's|^((([^\/.]*\\.[^\/]*)*\/)?[^\/.]+(\/[^\/.]+)?)|$1|'
+  ],
+  // Title manipulation rules
+  nameSkipRules: [
+    // Skip common low-level runtime frames.
+    'sync.runtime_notifyListWait', 'sync.runtime_Semacquire', 
+    'golang.org/x/sync/errgroup.(*Group).Wait',
+  ],
+  nameTrimRules: [
+    's|\\.func\\d+(\\.\\d+)?$||',
+    'util/',
+    's|^server.\\(\\*Node\\).Batch$|batch|'
+  ],
+  nameFoldRules: [
+    's|sync.(*Cond).Wait,|condwait|',
+    's|sync.(*WaitGroup).Wait,|waitgroup|',
+    's|net/http,stdlib|net/http|',
+    's|syscall.Syscall,stdlib|syscall|',
+    's|internal/poll.runtime_pollWait,stdlib|netpoll|',
+    's|google.golang.org/grpc/internal/transport.(*Stream).waitOnHeader,google.golang.org/grpc|grpc|',
+    's|google.golang.org/grpc/internal/transport.(*recvBufferReader).read,(google.golang.org/grpc.*|io.Read)|recv|',
+  ],
+  nameFindRules: [],
+
+  useDefaultCategorySkipRules: true,
+  customCategorySkipRules: [],
+  useDefaultCategoryMatchRules: true,
+  customCategoryMatchRules: [],
+  useDefaultNameSkipRules: true,
+  customNameSkipRules: [],
+  useDefaultNameTrimRules: true,
+  customNameTrimRules: [],
+  useDefaultNameFoldRules: true,
+  customNameFoldRules: [],
+  useDefaultNameFindRules: true,
+  customNameFindRules: [],
+
+  // Zip file handling
+  zipFilePattern: '^(.*\/)?stacks\.txt$',
+
+  // Name extraction patterns
+  nameExtractionPatterns: [],
+};
+
 export interface AppSettings {
   // Parsing options
-  functionTrimPrefixes: string;
-  fileTrimPrefixes: string;
+  functionTrimPrefixes: string[];
+  fileTrimPrefixes: string[];
 
   // Text-based rule format - legacy (for backward compatibility)
-  categorySkipRules: string;
-  categoryMatchRules: string;
-  nameSkipRules: string;
-  nameTrimRules: string;
-  nameFoldRules: string;
-  nameFindRules: string;
+  categorySkipRules: string[];
+  categoryMatchRules: string[];
+  nameSkipRules: string[];
+  nameTrimRules: string[];
+  nameFoldRules: string[];
+  nameFindRules: string[];
 
   // New custom/default rule system
   useDefaultCategorySkipRules: boolean;
-  customCategorySkipRules: string;
+  customCategorySkipRules: string[];
   useDefaultCategoryMatchRules: boolean;
-  customCategoryMatchRules: string;
+  customCategoryMatchRules: string[];
   useDefaultNameSkipRules: boolean;
-  customNameSkipRules: string;
+  customNameSkipRules: string[];
   useDefaultNameTrimRules: boolean;
-  customNameTrimRules: string;
+  customNameTrimRules: string[];
   useDefaultNameFoldRules: boolean;
-  customNameFoldRules: string;
+  customNameFoldRules: string[];
   useDefaultNameFindRules: boolean;
-  customNameFindRules: string;
+  customNameFindRules: string[];
 
   // Name extraction patterns (still used by FileParser)
   nameExtractionPatterns: NameExtractionPattern[];
@@ -45,8 +102,14 @@ export class SettingsManager {
   private changeCallback: ((settings: AppSettings) => void) | null = null;
   private defaultSettings: AppSettings;
 
-  constructor(customDefaults?: Partial<AppSettings>) {
-    this.defaultSettings = { ...this.getBuiltinDefaults(), ...customDefaults };
+  constructor(customizer?: (settings: AppSettings) => AppSettings) {
+    const builtinDefaults = this.getBuiltinDefaults();
+    const customizedDefaults = customizer ? customizer(builtinDefaults) : builtinDefaults;
+    
+    // Validate that customizer didn't break our types
+    this.validateAppSettings(customizedDefaults, 'customizer');
+    
+    this.defaultSettings = customizedDefaults;
     this.settings = { ...this.defaultSettings };
     this.loadSettings();
   }
@@ -55,103 +118,105 @@ export class SettingsManager {
    * Get built-in default settings values
    */
   private getBuiltinDefaults(): AppSettings {
-    const defaultCategorySkipRules = [
-      'sync.',
-      'internal/',
-      'golang.org/x/sync/errgroup',
-      'util/stop',
-      'util/ctxgroup',
-      'jobs.',
-      'kv/kvclient/rangefeed',
-      'kv/kvpb._',
-      'google.golang.org/grpc',
-      'rpc.NewServerEx',
-      'rpc.internalClientAdapter',
-      'rpc.serverStreamInterceptorsChain',
-      'rpc.kvAuth',
-      'sql/flowinfra.(*FlowBase).StartInternal.func',
-      'sql/execinfra.(*ProcessorBaseNoHelper).Run',
-      'sql/execinfra.Run',
-    ].join('\n');
+    return { ...DEFAULT_SETTINGS };
+  }
 
-    return {
-      // Parsing options
-      functionTrimPrefixes: '',
-      fileTrimPrefixes: '',
+  /**
+   * Validate AppSettings object has correct types by comparing against builtin defaults
+   */
+  private validateAppSettings(settings: any, source: string): void {
+    if (!settings || typeof settings !== 'object') {
+      throw new Error(`${source} must return an object, got ${typeof settings}`);
+    }
 
-      // Legacy rule format (for backward compatibility)
-      categorySkipRules: defaultCategorySkipRules,
+    const builtinDefaults = this.getBuiltinDefaults();
 
-      categoryMatchRules: 's|^((([^\\/.]*\\\\.[^\\/]*)*\\/)?[^\\/.]+(\\/[^\\/.]+)?)|$1|',
+    // Check each field that exists in the settings
+    for (const key in settings) {
+      if (!(key in builtinDefaults)) {
+        continue; // Allow extra fields
+      }
 
-      nameSkipRules: [
-        'sync.runtime_notifyListWait',
-        'sync.runtime_Semacquire',
-        'golang.org/x/sync/errgroup.(*Group).Wait',
-        'rpc.NewContext.ClientInterceptor.func8',
-        'util/cidr.metricsConn.Read',
-        'server.(*Node).batchInternal',
-      ].join('\n'),
+      const expectedValue = (builtinDefaults as any)[key];
+      const actualValue = settings[key];
+      if (!this.typesMatch(expectedValue, actualValue)) {
+        const expectedType = this.getTypeDescription(expectedValue);
+        const actualType = this.getTypeDescription(actualValue);
+        let helpText = '';
+        if (expectedType.includes('[]') && actualType === 'string') {
+          helpText = ` If you're migrating from the old string format, convert "rule1\\nrule2" to ["rule1", "rule2"]`;
+        }
+        throw new Error(`${source}: '${key}' must be ${expectedType}, got ${actualType}${helpText}`);
+      }
 
-      nameTrimRules: [
-        's|\\.func\\d+(\\.\\d+)?$||',
-        'util/',
-        's|^server\\.\\(\\*Node\\)\\.Batch$|batch|',
-      ].join('\n'),
+      // Additional validation for string arrays
+      if (Array.isArray(expectedValue) && Array.isArray(actualValue)) {
+        if (expectedValue.length > 0 && typeof expectedValue[0] === 'string') {
+          if (!actualValue.every(item => typeof item === 'string')) {
+            throw new Error(`${source}: '${key}' must be string[], but contains non-string items`);
+          }
+        }
+      }
 
-      nameFoldRules: [
-        's|sync.(*Cond).Wait,|condwait|',
-        's|sync.(*WaitGroup).Wait,|waitgroup|',
-        's|util/ctxgroup.Group.Wait,|waitgroup|',
-        's|util/ctxgroup.GroupWorkers,|waitgroup|',
-        's|util/ctxgroup.GoAndWait,|waitgroup|',
-        's|net/http,stdlib|net/http|',
-        's|syscall.Syscall,stdlib|syscall|',
-        's|internal/poll.runtime_pollWait,stdlib|netpoll|',
-        's|google.golang.org/grpc/internal/transport.(*Stream).waitOnHeader,google.golang.org/grpc|grpc|',
-        's|util/admission.(*WorkQueue).Admit,^(util/admission|kv/kvserver/kvadmission)|AC|',
-      ].join('\n'),
+      // Additional validation for nameExtractionPatterns
+      if (key === 'nameExtractionPatterns' && Array.isArray(actualValue)) {
+        actualValue.forEach((pattern: any, index: number) => {
+          if (!pattern || typeof pattern !== 'object' || typeof pattern.regex !== 'string' || typeof pattern.replacement !== 'string') {
+            throw new Error(`${source}: 'nameExtractionPatterns[${index}]' must have {regex: string, replacement: string}`);
+          }
+        });
+      }
+    }
+  }
 
-      nameFindRules: [
-        's|kv/kvclient/kvcoord.(*DistSender).Send,^(kv/kvclient/kvcoord|kv\\.)|DistSender|',
-      ].join('\n'),
+  /**
+   * Check if two values have compatible types
+   */
+  private typesMatch(expected: any, actual: any): boolean {
+    // Handle null/undefined
+    if (expected === null || expected === undefined) {
+      return actual === null || actual === undefined;
+    }
+    
+    // Both must be arrays or both must not be arrays
+    if (Array.isArray(expected) !== Array.isArray(actual)) {
+      return false;
+    }
+    
+    // If arrays, check element types
+    if (Array.isArray(expected) && Array.isArray(actual)) {
+      // Empty arrays are compatible with any array
+      if (expected.length === 0 || actual.length === 0) {
+        return true;
+      }
+      // Check if all elements have compatible types
+      const expectedElementType = typeof expected[0];
+      return actual.every(item => typeof item === expectedElementType);
+    }
+    
+    // For objects, do a basic structure check
+    if (typeof expected === 'object' && typeof actual === 'object') {
+      return true; // Basic compatibility for now
+    }
+    
+    // For primitives, check exact type match
+    return typeof expected === typeof actual;
+  }
 
-      // New custom/default rule system - all enabled by default with empty custom rules
-      useDefaultCategorySkipRules: true,
-      customCategorySkipRules: '',
-      useDefaultCategoryMatchRules: true,
-      customCategoryMatchRules: '',
-      useDefaultNameSkipRules: true,
-      customNameSkipRules: '',
-      useDefaultNameTrimRules: true,
-      customNameTrimRules: '',
-      useDefaultNameFoldRules: true,
-      customNameFoldRules: '',
-      useDefaultNameFindRules: true,
-      customNameFindRules: '',
-
-      // Name extraction patterns (still used by FileParser)
-      nameExtractionPatterns: [
-        {
-          regex: 'pgwire\\.\\(\\*Server\\)\\.serveImpl.*?\\{0x1,\\s*0x2,\\s*\\{0x([0-9a-fA-F]+),',
-          replacement: 'hex:n$1',
-          description: 'Extract connection ID from pgwire server (type 1)',
-        },
-        {
-          regex: 'pgwire\\.\\(\\*Server\\)\\.serveImpl.*?\\{0x0,\\s*0x4,\\s*\\{0x([0-9a-fA-F]+),',
-          replacement: 'hex:n$1',
-          description: 'Extract connection ID from pgwire server (type 2)',
-        },
-        {
-          regex: '# labels:.*?"n":"([0-9]+)"',
-          replacement: 'n$1',
-          description: 'Extract node ID from labels',
-        },
-      ],
-
-      // Zip file handling
-      zipFilePattern: '^(.*\/)?stacks\.txt$',
-    };
+  /**
+   * Get a type description for validation error messages
+   */
+  private getTypeDescription(value: any): string {
+    if (value === null) return 'null';
+    if (Array.isArray(value)) {
+      if (value.length === 0) return 'array (empty)';
+      const firstType = typeof value[0];
+      if (value.every(item => typeof item === firstType)) {
+        return `${firstType}[]`;
+      }
+      return 'mixed[]';
+    }
+    return typeof value;
   }
 
   /**
@@ -219,6 +284,9 @@ export class SettingsManager {
    * Update multiple settings at once
    */
   updateSettings(updates: Partial<AppSettings>): void {
+    // Validate the updates before applying them
+    this.validateAppSettings(updates, 'updateSettings');
+    
     Object.assign(this.settings, updates);
     this.saveSettings();
     this.notifyChange();
@@ -348,12 +416,11 @@ export class SettingsManager {
    */
   getCategorySkipRules(): string[] {
     const combined = this.getCombinedCategorySkipRules();
-    if (!combined) {
+    if (!combined || combined.length === 0) {
       return [];
     }
 
     return combined
-      .split('\n')
       .map(rule => rule.trim())
       .filter(rule => rule.length > 0);
   }
@@ -372,9 +439,8 @@ export class SettingsManager {
 
     // Add match rules
     const combinedMatchRules = this.getCombinedCategoryMatchRules();
-    if (combinedMatchRules) {
+    if (combinedMatchRules && combinedMatchRules.length > 0) {
       const matchLines = combinedMatchRules
-        .split('\n')
         .map(line => line.trim())
         .filter(line => line.length > 0);
 
@@ -398,13 +464,12 @@ export class SettingsManager {
   /**
    * Parse comma-separated regex patterns into compiled RegExp objects
    */
-  parseRegexPrefixes(prefixString: string): RegExp[] {
-    if (!prefixString || typeof prefixString !== 'string') {
+  parseRegexPrefixes(prefixArray: string[]): RegExp[] {
+    if (!prefixArray || !Array.isArray(prefixArray)) {
       return [];
     }
 
-    return prefixString
-      .split(',')
+    return prefixArray
       .map(pattern => pattern.trim())
       .filter(pattern => pattern.length > 0)
       .map(pattern => {
@@ -424,13 +489,12 @@ export class SettingsManager {
   /**
    * Parse text-based rule lines into TitleRule objects
    */
-  parseTextRules(ruleText: string, ruleType: 'skip' | 'trim' | 'fold' | 'find'): TitleRule[] {
-    if (!ruleText || typeof ruleText !== 'string') {
+  parseTextRules(ruleArray: string[], ruleType: 'skip' | 'trim' | 'fold' | 'find'): TitleRule[] {
+    if (!ruleArray || !Array.isArray(ruleArray)) {
       return [];
     }
 
-    const lines = ruleText
-      .split('\n')
+    const lines = ruleArray
       .map(line => line.trim())
       .filter(line => line.length > 0);
 
@@ -512,43 +576,42 @@ export class SettingsManager {
   /**
    * Get default rule values from current defaults (including custom defaults from HTML)
    */
-  getDefaultCategorySkipRulesString(): string {
+  getDefaultCategorySkipRulesArray(): string[] {
     return this.defaultSettings.categorySkipRules;
   }
 
-  getDefaultCategoryMatchRulesString(): string {
+  getDefaultCategoryMatchRulesArray(): string[] {
     return this.defaultSettings.categoryMatchRules;
   }
 
-  getDefaultNameSkipRulesString(): string {
+  getDefaultNameSkipRulesArray(): string[] {
     return this.defaultSettings.nameSkipRules;
   }
 
-  getDefaultNameTrimRulesString(): string {
+  getDefaultNameTrimRulesArray(): string[] {
     return this.defaultSettings.nameTrimRules;
   }
 
-  getDefaultNameFoldRulesString(): string {
+  getDefaultNameFoldRulesArray(): string[] {
     return this.defaultSettings.nameFoldRules;
   }
 
-  getDefaultNameFindRulesString(): string {
+  getDefaultNameFindRulesArray(): string[] {
     return this.defaultSettings.nameFindRules;
   }
 
   /**
    * Get merged category skip rules (defaults + custom)
    */
-  getCombinedCategorySkipRules(): string {
-    let combined = '';
+  getCombinedCategorySkipRules(): string[] {
+    let combined: string[] = [];
 
     if (this.settings.useDefaultCategorySkipRules) {
-      combined += this.getDefaultCategorySkipRulesString();
+      combined.push(...this.getDefaultCategorySkipRulesArray());
     }
 
-    if (this.settings.customCategorySkipRules.trim()) {
-      if (combined) combined += '\n';
-      combined += this.settings.customCategorySkipRules;
+    if (this.settings.customCategorySkipRules.length > 0) {
+      combined.push(...this.settings.customCategorySkipRules);
     }
 
     return combined;
@@ -557,16 +620,15 @@ export class SettingsManager {
   /**
    * Get merged category match rules (defaults + custom)
    */
-  getCombinedCategoryMatchRules(): string {
-    let combined = '';
+  getCombinedCategoryMatchRules(): string[] {
+    let combined: string[] = [];
 
     if (this.settings.useDefaultCategoryMatchRules) {
-      combined += this.getDefaultCategoryMatchRulesString();
+      combined.push(...this.getDefaultCategoryMatchRulesArray());
     }
 
-    if (this.settings.customCategoryMatchRules.trim()) {
-      if (combined) combined += '\n';
-      combined += this.settings.customCategoryMatchRules;
+    if (this.settings.customCategoryMatchRules.length > 0) {
+      combined.push(...this.settings.customCategoryMatchRules);
     }
 
     return combined;
@@ -575,16 +637,15 @@ export class SettingsManager {
   /**
    * Get merged name skip rules (defaults + custom)
    */
-  getCombinedNameSkipRules(): string {
-    let combined = '';
+  getCombinedNameSkipRules(): string[] {
+    let combined: string[] = [];
 
     if (this.settings.useDefaultNameSkipRules) {
-      combined += this.getDefaultNameSkipRulesString();
+      combined.push(...this.getDefaultNameSkipRulesArray());
     }
 
-    if (this.settings.customNameSkipRules.trim()) {
-      if (combined) combined += '\n';
-      combined += this.settings.customNameSkipRules;
+    if (this.settings.customNameSkipRules.length > 0) {
+      combined.push(...this.settings.customNameSkipRules);
     }
 
     return combined;
@@ -593,16 +654,15 @@ export class SettingsManager {
   /**
    * Get merged name trim rules (defaults + custom)
    */
-  getCombinedNameTrimRules(): string {
-    let combined = '';
+  getCombinedNameTrimRules(): string[] {
+    let combined: string[] = [];
 
     if (this.settings.useDefaultNameTrimRules) {
-      combined += this.getDefaultNameTrimRulesString();
+      combined.push(...this.getDefaultNameTrimRulesArray());
     }
 
-    if (this.settings.customNameTrimRules.trim()) {
-      if (combined) combined += '\n';
-      combined += this.settings.customNameTrimRules;
+    if (this.settings.customNameTrimRules.length > 0) {
+      combined.push(...this.settings.customNameTrimRules);
     }
 
     return combined;
@@ -611,16 +671,15 @@ export class SettingsManager {
   /**
    * Get merged name fold rules (defaults + custom)
    */
-  getCombinedNameFoldRules(): string {
-    let combined = '';
+  getCombinedNameFoldRules(): string[] {
+    let combined: string[] = [];
 
     if (this.settings.useDefaultNameFoldRules) {
-      combined += this.getDefaultNameFoldRulesString();
+      combined.push(...this.getDefaultNameFoldRulesArray());
     }
 
-    if (this.settings.customNameFoldRules.trim()) {
-      if (combined) combined += '\n';
-      combined += this.settings.customNameFoldRules;
+    if (this.settings.customNameFoldRules.length > 0) {
+      combined.push(...this.settings.customNameFoldRules);
     }
 
     return combined;
@@ -629,16 +688,15 @@ export class SettingsManager {
   /**
    * Get merged name find rules (defaults + custom)
    */
-  getCombinedNameFindRules(): string {
-    let combined = '';
+  getCombinedNameFindRules(): string[] {
+    let combined: string[] = [];
 
     if (this.settings.useDefaultNameFindRules) {
-      combined += this.getDefaultNameFindRulesString();
+      combined.push(...this.getDefaultNameFindRulesArray());
     }
 
-    if (this.settings.customNameFindRules.trim()) {
-      if (combined) combined += '\n';
-      combined += this.settings.customNameFindRules;
+    if (this.settings.customNameFindRules.length > 0) {
+      combined.push(...this.settings.customNameFindRules);
     }
 
     return combined;

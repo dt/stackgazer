@@ -1,6 +1,6 @@
 import { ProfileCollection, ProfileCollectionSettings } from '../app/ProfileCollection.js';
-// import type { CategoryRule } from '../app/ProfileCollection.js'; // Unused
 import { FileParser } from '../parser/index.js';
+import { templates as templatesFromTSX, createStateStatsElements } from './templates';
 import {
   UniqueStack,
   Group,
@@ -14,14 +14,14 @@ import {
 import { SettingsManager, AppSettings } from '../app/SettingsManager.js';
 import { ZipHandler } from '../parser/zip.js';
 
-export interface StackTraceAppOptions extends Partial<AppSettings> {
+export interface StackgazerAppOptions extends Partial<AppSettings> {
   initialTheme?: 'dark' | 'light';
 }
 
 /**
  * Main application class that manages the UI and coordinates with ProfileCollection
  */
-export class StackTraceApp {
+export class StackgazerApp {
   private profileCollection: ProfileCollection;
   private parser: FileParser;
   private settingsManager: SettingsManager;
@@ -32,26 +32,27 @@ export class StackTraceApp {
   private tooltip!: HTMLElement;
   private currentTheme: 'dark' | 'light' = 'dark';
   private initialTheme?: 'dark' | 'light';
+  private container?: HTMLElement;
   private templates!: {
-    category: HTMLTemplateElement;
-    stack: HTMLTemplateElement;
-    fileSection: HTMLTemplateElement;
-    group: HTMLTemplateElement;
-    goroutine: HTMLTemplateElement;
-    stackTrace: HTMLTemplateElement;
-    showMore: HTMLTemplateElement;
-    fileItem: HTMLTemplateElement;
-    fileEmptyState: HTMLTemplateElement;
-    fileDropArea: HTMLTemplateElement;
+    category: { content: { cloneNode: (deep?: boolean) => DocumentFragment; firstElementChild: HTMLElement } };
+    stack: { content: { cloneNode: (deep?: boolean) => DocumentFragment; firstElementChild: HTMLElement } };
+    fileSection: { content: { cloneNode: (deep?: boolean) => DocumentFragment; firstElementChild: HTMLElement } };
+    group: { content: { cloneNode: (deep?: boolean) => DocumentFragment; firstElementChild: HTMLElement } };
+    goroutine: { content: { cloneNode: (deep?: boolean) => DocumentFragment; firstElementChild: HTMLElement } };
+    stackTrace: { content: { cloneNode: (deep?: boolean) => DocumentFragment; firstElementChild: HTMLElement } };
+    showMore: { content: { cloneNode: (deep?: boolean) => DocumentFragment; firstElementChild: HTMLElement } };
+    fileItem: { content: { cloneNode: (deep?: boolean) => DocumentFragment; firstElementChild: HTMLElement } };
+    fileEmptyState: { content: { cloneNode: (deep?: boolean) => DocumentFragment; firstElementChild: HTMLElement } };
+    fileDropArea: { content: { cloneNode: (deep?: boolean) => DocumentFragment; firstElementChild: HTMLElement } };
+    container: { content: { cloneNode: (deep?: boolean) => DocumentFragment; firstElementChild: HTMLElement } };
+    sidebar: { content: { cloneNode: (deep?: boolean) => DocumentFragment; firstElementChild: HTMLElement } };
+    mainContent: { content: { cloneNode: (deep?: boolean) => DocumentFragment; firstElementChild: HTMLElement } };
+    settingsModal: { content: { cloneNode: (deep?: boolean) => DocumentFragment; firstElementChild: HTMLElement } };
   };
 
-  constructor(options?: StackTraceAppOptions) {
-    // Extract theme setting and settings defaults
-    const { initialTheme, ...customDefaults } = options || {};
-    this.initialTheme = initialTheme;
-
-    // Initialize settings manager and app state
-    this.settingsManager = new SettingsManager(customDefaults);
+  constructor(containerId: string, defaultsModifier?: (defaults: AppSettings) => AppSettings) {
+    this.initialTheme = undefined;
+    this.settingsManager = new SettingsManager(defaultsModifier);
     this.appState = new AppState();
 
     // Convert settings to ProfileCollectionSettings format
@@ -73,64 +74,70 @@ export class StackTraceApp {
     });
 
     this.initializeTemplates();
+    this.init(containerId);
+  }
+
+  /**
+   * Initialize the app with a container element
+   * @param containerId - The ID of the DOM element to render the app into
+   */
+  public init(containerId: string): void {
+    this.container = document.getElementById(containerId) as HTMLElement;
+    if (!this.container) {
+      throw new Error(`Container element with ID "${containerId}" not found`);
+    }
+
+    // Create the main app structure from templates
+    this.createAppStructure();
+    
+    // Initialize UI components and event listeners
     this.initializeUI();
     this.initializeTheme();
     this.loadUIState();
-    this.updateUnpinButtonVisibility(); // Initialize button visibility
+    this.updateUnpinButtonVisibility();
     this.createTooltip();
   }
 
   private initializeTemplates(): void {
-    this.templates = {
-      category: this.getTemplate('category-template'),
-      stack: this.getTemplate('stack-template'),
-      fileSection: this.getTemplate('file-section-template'),
-      group: this.getTemplate('group-template'),
-      goroutine: this.getTemplate('goroutine-template'),
-      stackTrace: this.getTemplate('stack-trace-template'),
-      showMore: this.getTemplate('show-more-template'),
-      fileItem: this.getTemplate('file-item-template'),
-      fileEmptyState: this.getTemplate('file-empty-state-template'),
-      fileDropArea: this.getTemplate('file-drop-area-template'),
-    };
-
-    // Normalize templates once to remove whitespace text nodes
-    Object.values(this.templates).forEach(template => {
-      this.normalizeTemplate(template);
-    });
+    // Templates are now imported from templates.tsx instead of DOM queries
+    this.templates = templatesFromTSX;
   }
 
-  private getTemplate(id: string): HTMLTemplateElement {
-    const template = document.getElementById(id) as HTMLTemplateElement;
-    if (!template) {
-      throw new Error(`Template with id '${id}' not found`);
+  private createAppStructure(): void {
+    if (!this.container) {
+      throw new Error('Container not initialized. Call init() first.');
     }
-    return template;
+
+    // Create main container structure
+    const containerFragment = this.templates.container.content.cloneNode(true) as DocumentFragment;
+    const containerElement = containerFragment.firstElementChild as HTMLElement;
+    
+    // Create sidebar structure
+    const sidebarFragment = this.templates.sidebar.content.cloneNode(true) as DocumentFragment;
+    const sidebarElement = sidebarFragment.firstElementChild as HTMLElement;
+    
+    // Create main content structure  
+    const mainContentFragment = this.templates.mainContent.content.cloneNode(true) as DocumentFragment;
+    const mainContentElement = mainContentFragment.firstElementChild as HTMLElement;
+    
+    // Create settings modal
+    const settingsModalFragment = this.templates.settingsModal.content.cloneNode(true) as DocumentFragment;
+    const settingsModalElement = settingsModalFragment.firstElementChild as HTMLElement;
+    
+    // Insert sidebar and main content into container
+    const sidebarContainer = containerElement.querySelector('#sidebar') as HTMLElement;
+    const mainContentContainer = containerElement.querySelector('#mainContent') as HTMLElement;
+    
+    if (sidebarContainer && mainContentContainer) {
+      sidebarContainer.replaceWith(sidebarElement);
+      mainContentContainer.replaceWith(mainContentElement);
+    }
+    
+    // Add everything to the main container
+    this.container.appendChild(containerElement);
+    this.container.appendChild(settingsModalElement);
   }
 
-  /**
-   * Removes whitespace-only text nodes from template content to prevent layout issues.
-   *
-   * When HTML templates are formatted with indentation and newlines for readability,
-   * the whitespace creates text nodes in the DOM. These can cause unexpected spacing
-   * when cloning templates, as CSS may treat them as content. By normalizing templates
-   * once during initialization, we get clean DOM structure without sacrificing
-   * template readability.
-   */
-  private normalizeTemplate(template: HTMLTemplateElement): void {
-    const removeWhitespaceNodes = (node: Node): void => {
-      const childNodes = Array.from(node.childNodes);
-      for (const child of childNodes) {
-        if (child.nodeType === Node.TEXT_NODE && /^\s*$/.test(child.textContent || '')) {
-          child.parentNode?.removeChild(child);
-        } else if (child.nodeType === Node.ELEMENT_NODE) {
-          removeWhitespaceNodes(child);
-        }
-      }
-    };
-
-    removeWhitespaceNodes(template.content);
-  }
 
   private initializeUI(): void {
     this.clearUrlAnchor();
@@ -1429,7 +1436,7 @@ export class StackTraceApp {
 
     const fileNames = this.profileCollection.getFileNames();
 
-    fileList.innerHTML = '';
+    fileList.textContent = '';
 
     if (fileNames.length === 0) {
       // Clone empty state template
@@ -1512,7 +1519,7 @@ export class StackTraceApp {
       stackDisplay.appendChild(categoryElement);
     });
 
-    dropZone.innerHTML = '';
+    dropZone.textContent = '';
     dropZone.appendChild(stackDisplay);
   }
 
@@ -1775,7 +1782,7 @@ export class StackTraceApp {
     const createdBySection = goroutineElement.querySelector('.goroutine-created-by') as HTMLElement;
 
     if (goroutine.creator && goroutine.creator !== goroutine.id) {
-      createdBySection.innerHTML = 'created by ';
+      createdBySection.textContent = 'created by ';
 
       if (goroutine.creatorExists) {
         const creatorLink = document.createElement('span');
@@ -1862,20 +1869,9 @@ export class StackTraceApp {
 
     if (categories.length === 0) {
       dropZone.classList.remove('has-content');
-      dropZone.innerHTML = `
-        <div class="drop-message">
-          <div>📁 Drop Go stack trace files here to get started</div>
-          <div class="demo-add-files">or click + to select files</div>
-          <div class="demo-add-files">🔒 all analysis is in-browser - nothing is uploaded</div>
-          <div class="demo-section-divider">
-            <div class="demo-try-demo">⚡️ Or try a quick demo with some example CockroachDB stack dumps:</div>
-            <div class="demo-buttons">
-              <a id="demoSingleBtn" href="#" class="demo-link">📄 single file →</a>
-              <a id="demoZipBtn" href="#" class="demo-link">📦 zip file of 4 stacks →</a>
-            </div>
-          </div>
-        </div>
-      `;
+      dropZone.textContent = '';
+      const emptyTemplate = templatesFromTSX.dropZoneEmpty.content.cloneNode(true) as DocumentFragment;
+      dropZone.appendChild(emptyTemplate);
 
       // Setup demo button event listeners
       this.setupDemoButtons();
@@ -2017,11 +2013,9 @@ export class StackTraceApp {
     const sortedStates = Array.from(stateStats.entries());
     const sortedEntries = sortStateEntries(sortedStates);
 
-    const stateElements = sortedEntries.map(([state, counts]) => {
-      return `<div><span>${state}</span><span>${counts.visible} / ${counts.total}</span></div>`;
-    });
-
-    sidebarStateStats.innerHTML = stateElements.join('');
+    sidebarStateStats.textContent = '';
+    const stateStatsFragment = createStateStatsElements(sortedEntries);
+    sidebarStateStats.appendChild(stateStatsFragment);
   }
 
   /**
@@ -2387,7 +2381,7 @@ export class StackTraceApp {
     secondLine: HTMLElement
   ): void {
     // Clear existing content of the second line
-    secondLine.innerHTML = '';
+    secondLine.textContent = '';
 
     const createdText = document.createElement('span');
     createdText.className = 'created-goroutines-label';
@@ -3010,7 +3004,7 @@ export class StackTraceApp {
       'defaultCategorySkipRules'
     ) as HTMLTextAreaElement;
     if (defaultCategorySkipRules) {
-      defaultCategorySkipRules.value = this.settingsManager.getDefaultCategorySkipRulesString();
+      defaultCategorySkipRules.value = this.settingsManager.getDefaultCategorySkipRulesArray().join('\n');
     }
 
     // Category match rules
@@ -3018,7 +3012,7 @@ export class StackTraceApp {
       'defaultCategoryMatchRules'
     ) as HTMLTextAreaElement;
     if (defaultCategoryMatchRules) {
-      defaultCategoryMatchRules.value = this.settingsManager.getDefaultCategoryMatchRulesString();
+      defaultCategoryMatchRules.value = this.settingsManager.getDefaultCategoryMatchRulesArray().join('\n');
     }
 
     // Name skip rules
@@ -3026,7 +3020,7 @@ export class StackTraceApp {
       'defaultNameSkipRules'
     ) as HTMLTextAreaElement;
     if (defaultNameSkipRules) {
-      defaultNameSkipRules.value = this.settingsManager.getDefaultNameSkipRulesString();
+      defaultNameSkipRules.value = this.settingsManager.getDefaultNameSkipRulesArray().join('\n');
     }
 
     // Name trim rules
@@ -3034,7 +3028,7 @@ export class StackTraceApp {
       'defaultNameTrimRules'
     ) as HTMLTextAreaElement;
     if (defaultNameTrimRules) {
-      defaultNameTrimRules.value = this.settingsManager.getDefaultNameTrimRulesString();
+      defaultNameTrimRules.value = this.settingsManager.getDefaultNameTrimRulesArray().join('\n');
     }
 
     // Name fold rules
@@ -3042,7 +3036,7 @@ export class StackTraceApp {
       'defaultNameFoldRules'
     ) as HTMLTextAreaElement;
     if (defaultNameFoldRules) {
-      defaultNameFoldRules.value = this.settingsManager.getDefaultNameFoldRulesString();
+      defaultNameFoldRules.value = this.settingsManager.getDefaultNameFoldRulesArray().join('\n');
     }
 
     // Name find rules
@@ -3050,7 +3044,7 @@ export class StackTraceApp {
       'defaultNameFindRules'
     ) as HTMLTextAreaElement;
     if (defaultNameFindRules) {
-      defaultNameFindRules.value = this.settingsManager.getDefaultNameFindRulesString();
+      defaultNameFindRules.value = this.settingsManager.getDefaultNameFindRulesArray().join('\n');
     }
   }
 
@@ -3338,35 +3332,19 @@ export class StackTraceApp {
    * Show brief visual feedback for copy operation
    */
   private showCopyFeedback(): void {
-    // Create a temporary feedback element
-    const feedback = document.createElement('div');
-    feedback.textContent = '📋 Copied to clipboard!';
-    feedback.style.cssText = `
-      position: fixed;
-      top: 20px;
-      right: 20px;
-      background: var(--accent-success);
-      color: white;
-      padding: 8px 16px;
-      border-radius: 4px;
-      font-size: 12px;
-      z-index: 10000;
-      pointer-events: none;
-      opacity: 0;
-      transition: opacity 0.3s ease;
-    `;
+    const notification = document.getElementById('copyNotification');
+    if (!notification) return;
 
-    document.body.appendChild(feedback);
+    // Show the notification
+    notification.style.display = 'block';
+    notification.classList.add('show');
 
-    // Trigger animation
-    requestAnimationFrame(() => {
-      feedback.style.opacity = '1';
-    });
-
-    // Remove after 2 seconds
+    // Hide after 2 seconds
     setTimeout(() => {
-      feedback.style.opacity = '0';
-      setTimeout(() => feedback.remove(), 300);
+      notification.classList.remove('show');
+      setTimeout(() => {
+        notification.style.display = 'none';
+      }, 300);
     }, 2000);
   }
 

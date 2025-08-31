@@ -2834,3 +2834,23 @@ textarea.rule-warning {
   border-color: var(--accent-warning, #fd7e14) !important;
   box-shadow: 0 0 0 2px rgba(253, 126, 20, 0.2);
 }
+
+/* Copy notification */
+.copy-notification {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  background: var(--accent-success);
+  color: white;
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-size: 12px;
+  z-index: 10000;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.copy-notification.show {
+  opacity: 1;
+}

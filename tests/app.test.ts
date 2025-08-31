@@ -6,7 +6,6 @@
 import { ProfileCollection } from '../src/app/ProfileCollection.js';
 import { SettingsManager } from '../src/app/SettingsManager.js';
 import { FileParser, ZipHandler } from '../src/parser/index.js';
-// import { StackTraceApp } from '../src/ui/StackTraceApp.js'; // Unused
 import { zip } from 'fflate';
 import { TEST_DATA, DEFAULT_SETTINGS, test } from './shared-test-data.js';
 import { readFileSync } from 'fs';
@@ -90,25 +89,28 @@ const testCases = {
       name: 'Combined rules',
       settings: {
         useDefaultNameSkipRules: true,
-        customNameSkipRules: 'custom.skip',
+        customNameSkipRules: ['custom.skip'],
         useDefaultNameTrimRules: true,
-        customNameTrimRules: 'custom/',
+        customNameTrimRules: ['custom/'],
         useDefaultNameFoldRules: true,
-        customNameFoldRules: 's|custom|CUSTOM|',
+        customNameFoldRules: ['s|custom|CUSTOM|'],
         useDefaultNameFindRules: true,
-        customNameFindRules: 'f|findme|FOUND|while:find',
+        customNameFindRules: ['f|findme|FOUND|while:find'],
       },
       validateCombined: true,
     },
     {
       name: 'Text trim rules',
-      settings: { customNameTrimRules: 'util/\ns|^rpc\\.makeInternalClientAdapter\\..*$|rpc|' },
+      settings: { 
+        customNameTrimRules: ['util/', 's|^rpc\\.makeInternalClientAdapter.*$|rpc|'],
+        customNameFoldRules: ['s|util/admission|AC|'],
+       },
       content: `goroutine 1 [running]:
 util/admission.(*WorkQueue).Admit()
 \tutil/admission/work_queue.go:100 +0x10
 rpc.makeInternalClientAdapter.func1()
 \trpc/internal_client.go:100 +0x20`,
-      expectedName: 'rpc.makeInternalClientAdapter → AC',
+      expectedName: 'rpc → AC',
     },
   ],
 
@@ -140,6 +142,7 @@ rpc.makeInternalClientAdapter.func1()
 
 async function runTests() {
   console.log('🧪 Comprehensive Test Suite');
+
 
   // File operations
   await test('File operations', async () => {
@@ -228,25 +231,69 @@ main.worker()
     }
   });
 
+  // Settings validation
+  await test('Settings validation', async () => {
+    // Test valid customizer works
+    const validSettings = new SettingsManager(d => ({
+      ...d,
+      customNameTrimRules: ['test']
+    }));
+    // Should not throw
+
+    // Test invalid customizer throws helpful error
+    try {
+      new SettingsManager(d => ({
+        ...d,
+        customNameTrimRules: 'should-be-array' as any
+      }));
+      throw new Error('Should have thrown validation error');
+    } catch (e: any) {
+      if (!e.message.includes('must be') || !e.message.includes('got string')) {
+        throw new Error(`Expected helpful validation message, got: ${e.message}`);
+      }
+    }
+
+    // Test updateSettings validation
+    try {
+      validSettings.updateSettings({
+        nameFoldRules: 'should-be-array' as any
+      });
+      throw new Error('Should have thrown validation error for updateSettings');
+    } catch (e: any) {
+      if (!e.message.includes('must be string[]')) {
+        throw new Error(`Expected validation message for updateSettings, got: ${e.message}`);
+      }
+    }
+  });
+
   // Settings integration
   await test('Settings integration', async () => {
     for (const t of testCases.settingsIntegration) {
-      const settingsManager = new SettingsManager(t.settings);
+      const settingsManager = new SettingsManager(d => ({
+        ...d,
+        ...t.settings
+      }));
 
       if (t.validateCombined) {
         const skip = settingsManager.getCombinedNameSkipRules();
         const fold = settingsManager.getCombinedNameFoldRules();
         const find = settingsManager.getCombinedNameFindRules();
 
-        if (!skip.includes('custom.skip') || !fold.includes('CUSTOM') || !find.includes('FOUND')) {
+        if (!skip.includes('custom.skip') || !fold.some(rule => rule.includes('CUSTOM')) || !find.some(rule => rule.includes('FOUND'))) {
           throw new Error(`${t.name}: Combined rules not working`);
         }
       }
 
       if (t.content && t.expectedName) {
+        // Use a proper settings conversion like StackTraceApp does
+        const appSettings = settingsManager.getSettings();
         const collection = new ProfileCollection({
-          ...DEFAULT_SETTINGS,
+          functionPrefixesToTrim: settingsManager.getFunctionTrimPrefixes(),
+          filePrefixesToTrim: settingsManager.getFileTrimPrefixes(),
           titleManipulationRules: settingsManager.getTitleManipulationRules(),
+          nameExtractionPatterns: appSettings.nameExtractionPatterns || [],
+          zipFilePattern: appSettings.zipFilePattern,
+          categoryRules: settingsManager.getCategoryRules(),
         });
 
         await addFile(collection, t.content, 'test.txt');
@@ -503,34 +550,35 @@ ${t.func}()
 
   // SettingsManager comprehensive coverage
   await test('SettingsManager comprehensive', async () => {
-    const settings = new SettingsManager({
+    const settings = new SettingsManager(d => ({
+      ...d,
       useDefaultNameSkipRules: false,
-      customNameSkipRules: '',
+      customNameSkipRules: [],
       useDefaultNameTrimRules: false,
-      customNameTrimRules: '',
+      customNameTrimRules: [],
       useDefaultNameFoldRules: false,
-      customNameFoldRules: '',
+      customNameFoldRules: [],
       useDefaultNameFindRules: false,
-      customNameFindRules: '',
-    });
+      customNameFindRules: [],
+    }));
 
     // Test empty combined rules
-    if (settings.getCombinedNameSkipRules() !== '') throw new Error('Empty skip rules failed');
-    if (settings.getCombinedNameTrimRules() !== '') throw new Error('Empty trim rules failed');
-    if (settings.getCombinedNameFoldRules() !== '') throw new Error('Empty fold rules failed');
-    if (settings.getCombinedNameFindRules() !== '') throw new Error('Empty find rules failed');
+    if (settings.getCombinedNameSkipRules().length !== 0) throw new Error('Empty skip rules failed');
+    if (settings.getCombinedNameTrimRules().length !== 0) throw new Error('Empty trim rules failed');
+    if (settings.getCombinedNameFoldRules().length !== 0) throw new Error('Empty fold rules failed');
+    if (settings.getCombinedNameFindRules().length !== 0) throw new Error('Empty find rules failed');
 
     // Test defaults only
     settings.updateSettings({ useDefaultNameSkipRules: true });
-    if (!settings.getCombinedNameSkipRules().includes('sync.runtime'))
+    if (!settings.getCombinedNameSkipRules().some(rule => rule.includes('sync.runtime')))
       throw new Error('Default skip rules failed');
 
     // Test custom only
     settings.updateSettings({
       useDefaultNameSkipRules: false,
-      customNameSkipRules: 'custom.skip',
+      customNameSkipRules: ['custom.skip'],
     });
-    if (settings.getCombinedNameSkipRules() !== 'custom.skip')
+    if (settings.getCombinedNameSkipRules().join('\n') !== 'custom.skip')
       throw new Error('Custom only skip rules failed');
   });
 
