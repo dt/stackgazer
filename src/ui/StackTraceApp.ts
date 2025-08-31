@@ -2685,13 +2685,13 @@ export class StackgazerApp {
   private readonly settingsConfig = {
     functionTrimPrefixes: {
       type: 'text' as const,
-      serialize: (value: string) => value,
-      deserialize: (value: any) => String(value),
+      serialize: (value: string) => value.split('\n').filter(s => s.trim() !== ''),
+      deserialize: (value: any) => Array.isArray(value) ? value.join('\n') : String(value),
     },
     fileTrimPrefixes: {
       type: 'text' as const,
-      serialize: (value: string) => value,
-      deserialize: (value: any) => String(value),
+      serialize: (value: string) => value.split('\n').filter(s => s.trim() !== ''),
+      deserialize: (value: any) => Array.isArray(value) ? value.join('\n') : String(value),
     },
     zipFilePattern: {
       type: 'text' as const,
@@ -2701,33 +2701,33 @@ export class StackgazerApp {
     // Legacy rule fields (for backward compatibility)
     categorySkipRules: {
       type: 'textarea' as const,
-      serialize: (value: string) => value,
-      deserialize: (value: any) => String(value),
+      serialize: (value: string) => value.split('\n').filter(s => s.trim() !== ''),
+      deserialize: (value: any) => Array.isArray(value) ? value.join('\n') : String(value),
     },
     categoryMatchRules: {
       type: 'textarea' as const,
-      serialize: (value: string) => value,
-      deserialize: (value: any) => String(value),
+      serialize: (value: string) => value.split('\n').filter(s => s.trim() !== ''),
+      deserialize: (value: any) => Array.isArray(value) ? value.join('\n') : String(value),
     },
     nameSkipRules: {
       type: 'textarea' as const,
-      serialize: (value: string) => value,
-      deserialize: (value: any) => String(value),
+      serialize: (value: string) => value.split('\n').filter(s => s.trim() !== ''),
+      deserialize: (value: any) => Array.isArray(value) ? value.join('\n') : String(value),
     },
     nameTrimRules: {
       type: 'textarea' as const,
-      serialize: (value: string) => value,
-      deserialize: (value: any) => String(value),
+      serialize: (value: string) => value.split('\n').filter(s => s.trim() !== ''),
+      deserialize: (value: any) => Array.isArray(value) ? value.join('\n') : String(value),
     },
     nameFoldRules: {
       type: 'textarea' as const,
-      serialize: (value: string) => value,
-      deserialize: (value: any) => String(value),
+      serialize: (value: string) => value.split('\n').filter(s => s.trim() !== ''),
+      deserialize: (value: any) => Array.isArray(value) ? value.join('\n') : String(value),
     },
     nameFindRules: {
       type: 'textarea' as const,
-      serialize: (value: string) => value,
-      deserialize: (value: any) => String(value),
+      serialize: (value: string) => value.split('\n').filter(s => s.trim() !== ''),
+      deserialize: (value: any) => Array.isArray(value) ? value.join('\n') : String(value),
     },
     // New custom/default rule fields
     useDefaultCategorySkipRules: {
@@ -2737,8 +2737,8 @@ export class StackgazerApp {
     },
     customCategorySkipRules: {
       type: 'textarea' as const,
-      serialize: (value: string) => value,
-      deserialize: (value: any) => String(value),
+      serialize: (value: string) => value.split('\n').filter(s => s.trim() !== ''),
+      deserialize: (value: any) => Array.isArray(value) ? value.join('\n') : String(value),
     },
     useDefaultCategoryMatchRules: {
       type: 'checkbox' as const,
@@ -2747,8 +2747,8 @@ export class StackgazerApp {
     },
     customCategoryMatchRules: {
       type: 'textarea' as const,
-      serialize: (value: string) => value,
-      deserialize: (value: any) => String(value),
+      serialize: (value: string) => value.split('\n').filter(s => s.trim() !== ''),
+      deserialize: (value: any) => Array.isArray(value) ? value.join('\n') : String(value),
     },
     useDefaultNameSkipRules: {
       type: 'checkbox' as const,
@@ -2757,8 +2757,8 @@ export class StackgazerApp {
     },
     customNameSkipRules: {
       type: 'textarea' as const,
-      serialize: (value: string) => value,
-      deserialize: (value: any) => String(value),
+      serialize: (value: string) => value.split('\n').filter(s => s.trim() !== ''),
+      deserialize: (value: any) => Array.isArray(value) ? value.join('\n') : String(value),
     },
     useDefaultNameTrimRules: {
       type: 'checkbox' as const,
@@ -2767,8 +2767,8 @@ export class StackgazerApp {
     },
     customNameTrimRules: {
       type: 'textarea' as const,
-      serialize: (value: string) => value,
-      deserialize: (value: any) => String(value),
+      serialize: (value: string) => value.split('\n').filter(s => s.trim() !== ''),
+      deserialize: (value: any) => Array.isArray(value) ? value.join('\n') : String(value),
     },
     useDefaultNameFoldRules: {
       type: 'checkbox' as const,
@@ -2777,8 +2777,8 @@ export class StackgazerApp {
     },
     customNameFoldRules: {
       type: 'textarea' as const,
-      serialize: (value: string) => value,
-      deserialize: (value: any) => String(value),
+      serialize: (value: string) => value.split('\n').filter(s => s.trim() !== ''),
+      deserialize: (value: any) => Array.isArray(value) ? value.join('\n') : String(value),
     },
     useDefaultNameFindRules: {
       type: 'checkbox' as const,
@@ -2787,8 +2787,8 @@ export class StackgazerApp {
     },
     customNameFindRules: {
       type: 'textarea' as const,
-      serialize: (value: string) => value,
-      deserialize: (value: any) => String(value),
+      serialize: (value: string) => value.split('\n').filter(s => s.trim() !== ''),
+      deserialize: (value: any) => Array.isArray(value) ? value.join('\n') : String(value),
     },
   } as const;
 
