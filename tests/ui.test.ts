@@ -14,7 +14,7 @@ const STANDALONE_HTML_PATH = path.join(__dirname, '..', 'dist', 'index.html');
 const STANDALONE_HTML_URL = `file://${STANDALONE_HTML_PATH}`;
 
 // Global timeout settings
-const DEFAULT_TIMEOUT = 3000; // 3 seconds
+// const DEFAULT_TIMEOUT = 3000; // 3 seconds - Unused
 const QUICK_TIMEOUT = 2000; // For quick operations
 
 let browser: Browser;
@@ -48,7 +48,7 @@ async function setup() {
     
     await page.goto(STANDALONE_HTML_URL, { timeout: QUICK_TIMEOUT });
   } catch (error) {
-    throw new Error(`Failed to load ${STANDALONE_HTML_URL}: ${error.message}`);
+    throw new Error(`Failed to load ${STANDALONE_HTML_URL}: ${error instanceof Error ? error.message : String(error)}`);
   }
   await page.waitForSelector('.drop-zone', { timeout: QUICK_TIMEOUT });
 }

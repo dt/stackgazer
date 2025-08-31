@@ -3,12 +3,12 @@
  * Maximizes coverage with minimal, readable code
  */
 
-import { ProfileCollection } from '../src/app/ProfileCollection.ts';
-import { SettingsManager } from '../src/app/SettingsManager.ts';
+import { ProfileCollection } from '../src/app/ProfileCollection.js';
+import { SettingsManager } from '../src/app/SettingsManager.js';
 import { FileParser, ZipHandler } from '../src/parser/index.js';
-import { StackTraceApp } from '../src/ui/StackTraceApp.ts';
+// import { StackTraceApp } from '../src/ui/StackTraceApp.js'; // Unused
 import { zip } from 'fflate';
-import { TEST_DATA, DEFAULT_SETTINGS, test, addFile } from './shared-test-data.js';
+import { TEST_DATA, DEFAULT_SETTINGS, test } from './shared-test-data.js';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -146,7 +146,7 @@ async function runTests() {
     for (const t of testCases.fileOperations) {
       const collection = new ProfileCollection(DEFAULT_SETTINGS);
       for (const file of t.files) {
-        await addFile(collection, file.content, file.name, file.customName);
+        await addFile(collection, file.content, file.name, 'customName' in file ? file.customName : undefined);
       }
 
       const stacks = collection.getCategories().reduce((acc, x) => acc + x.stacks.length, 0);
@@ -235,7 +235,6 @@ main.worker()
 
       if (t.validateCombined) {
         const skip = settingsManager.getCombinedNameSkipRules();
-        const trim = settingsManager.getCombinedNameTrimRules();
         const fold = settingsManager.getCombinedNameFoldRules();
         const find = settingsManager.getCombinedNameFindRules();
 
@@ -265,7 +264,6 @@ main.worker()
     for (const t of testCases.categoryExtraction) {
       const collection = new ProfileCollection({
         ...DEFAULT_SETTINGS,
-        categoryIgnoredPrefixes: [],
       });
       const content = `goroutine 1 [running]:
 ${t.func}()
@@ -470,7 +468,7 @@ ${t.func}()
       });
     });
 
-    const mockFile = new File([zipData], 'test.zip', { type: 'application/zip' });
+    const mockFile = new File([new Uint8Array(zipData)], 'test.zip', { type: 'application/zip' });
 
     const result = await ZipHandler.extractFiles(mockFile);
     if (result.files.length !== 2) {
@@ -490,8 +488,8 @@ ${t.func}()
     }
 
     // Test extractedName assignment (lines 362-363) using a parser with extraction patterns
-    const { FileParser } = await import('../src/parser/parser.ts');
-    const extractParser = new FileParser([{ regex: '#\\s*name:\\s*(\\w+)', replacement: '$1' }]);
+    const { FileParser } = await import('../src/parser/parser.js');
+    const extractParser = new FileParser({ nameExtractionPatterns: [{ regex: '#\\s*name:\\s*(\\w+)', replacement: '$1' }] });
 
     const extractResult = await extractParser.parseFile(
       '# name: testfile\ngoroutine 1 [running]:\nmain()\n\tmain.go:1 +0x1',
@@ -1920,9 +1918,9 @@ main.worker()
 
     // Clear visibility flags first
     testGroup.counts.visibilityChanged = false;
-    testFileSection.counts.visibilityChanged = false;
-    testStack.counts.visibilityChanged = false;
-    testCategory.counts.visibilityChanged = false;
+    if (testFileSection) testFileSection.counts.visibilityChanged = false;
+    if (testStack) testStack.counts.visibilityChanged = false;
+    if (testCategory) testCategory.counts.visibilityChanged = false;
 
     // Apply a filter - this should detect group-level changes even without individual goroutines
     collection.setFilter({ filterString: 'some_filter_that_affects_this_group' });

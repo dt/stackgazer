@@ -2,8 +2,8 @@
  * Shared test data and helpers to eliminate duplication across test files
  */
 
-import { ProfileCollection } from '../src/app/ProfileCollection.ts';
-import { FileParser } from '../src/parser/parser.ts';
+import { ProfileCollection } from '../src/app/ProfileCollection.js';
+import { FileParser } from '../src/parser/parser.js';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';

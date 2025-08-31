@@ -107,7 +107,7 @@ await test('ExtractedName assignment', async () => {
     'test.txt'
   );
   if (!format2Result.success || format2Result.data.extractedName !== 'myfile') {
-    throw new Error(`Format2 extractedName failed: got '${format2Result.data.extractedName}'`);
+    throw new Error(`Format2 extractedName failed: got '${format2Result.success ? format2Result.data.extractedName : 'parse failed'}'`);
   }
 
   // Test extractedName assignment in parseFormat1 (lines 304-305)
@@ -116,7 +116,7 @@ await test('ExtractedName assignment', async () => {
     'test.txt'
   );
   if (!format1Result.success || format1Result.data.extractedName !== 'testfile') {
-    throw new Error(`Format1 extractedName failed: got '${format1Result.data.extractedName}'`);
+    throw new Error(`Format1 extractedName failed: got '${format1Result.success ? format1Result.data.extractedName : 'parse failed'}'`);
   }
 });
 
@@ -210,7 +210,7 @@ await test('Zip extraction', async () => {
     });
   });
 
-  const mockFile = new File([zipData], 'test.zip', { type: 'application/zip' });
+  const mockFile = new File([new Uint8Array(zipData)], 'test.zip', { type: 'application/zip' });
 
   const result = await ZipHandler.extractFiles(mockFile);
   if (result.files.length !== 2) {

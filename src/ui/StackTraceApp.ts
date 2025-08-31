@@ -1,5 +1,5 @@
 import { ProfileCollection, ProfileCollectionSettings } from '../app/ProfileCollection.js';
-import type { TitleRule, CategoryRule } from '../app/ProfileCollection.js';
+// import type { CategoryRule } from '../app/ProfileCollection.js'; // Unused
 import { FileParser } from '../parser/index.js';
 import {
   UniqueStack,
@@ -646,21 +646,6 @@ export class StackTraceApp {
     }
   }
 
-  private handleRuleRemoveClick(e: Event): void {
-    const removeBtn = e.currentTarget as HTMLElement;
-    const ruleElement = removeBtn.closest('.rule-item') as HTMLElement;
-    const listType = removeBtn.dataset.listType || 'rulesList';
-
-    if (ruleElement) {
-      ruleElement.remove();
-      // Update rule count after removal
-      const rulesList = document.getElementById(listType);
-      if (rulesList) {
-        const remainingRules = rulesList.querySelectorAll('.rule-item').length;
-        this.updateRuleListHeader(listType, remainingRules);
-      }
-    }
-  }
 
   private toggleNarrowSidebar(): void {
     const sidebar = document.querySelector('.sidebar') as HTMLElement;
@@ -2949,366 +2934,34 @@ export class StackTraceApp {
     link.addEventListener('mousemove', this.handleTooltipMouseMove.bind(this));
   }
 
-  /**
-   * Load rules into the rule editor
-   */
-  private loadRulesIntoEditor(rules: TitleRule[]): void {
-    const rulesList = document.getElementById('rulesList');
-    if (!rulesList) return;
-
-    // Clear existing rule items only (not the add buttons)
-    const ruleItems = rulesList.querySelectorAll('.rule-item');
-    ruleItems.forEach(item => item.remove());
-
-    // Add each rule to the editor
-    rules.forEach(rule => this.addRuleToEditor(rule));
-
-    // Setup add button if not already done
-    this.setupRuleEditor();
-
-    // Update rule count in header
-    this.updateRuleListHeader('rulesList', rules.length);
-  }
 
   /**
    * Get rules from the rule editor
    */
-  private getRulesFromEditor(): TitleRule[] {
-    const rulesList = document.getElementById('rulesList');
-    if (!rulesList) return [];
-
-    const rules: TitleRule[] = [];
-    const ruleItems = rulesList.querySelectorAll('.rule-item');
-
-    ruleItems.forEach(ruleItem => {
-      // Determine rule type based on CSS class
-      if (ruleItem.classList.contains('skip-rule')) {
-        const ruleInput = ruleItem.querySelector('.rule-input') as HTMLInputElement;
-        if (ruleInput && ruleInput.value.trim()) {
-          rules.push({ skip: ruleInput.value.trim() });
-        }
-      } else if (ruleItem.classList.contains('trim-rule')) {
-        const ruleInput = ruleItem.querySelector('.rule-input') as HTMLInputElement;
-        if (ruleInput && ruleInput.value.trim()) {
-          rules.push({ trim: ruleInput.value.trim() });
-        }
-      } else if (ruleItem.classList.contains('fold-rule')) {
-        // For fold rules, get pattern, replacement, and optional while condition from separate inputs
-        const patternInput = ruleItem.querySelector('.rule-pattern-input') as HTMLInputElement;
-        const replacementInput = ruleItem.querySelector(
-          '.rule-replacement-input'
-        ) as HTMLInputElement;
-        const whileInput = ruleItem.querySelector('.rule-while-input') as HTMLInputElement;
-
-        if (patternInput && patternInput.value.trim()) {
-          const pattern = patternInput.value.trim();
-          const replacement = replacementInput ? replacementInput.value.trim() : '';
-          const whileCondition = whileInput ? whileInput.value.trim() : '';
-
-          const rule: any = { fold: pattern, to: replacement };
-          if (whileCondition) {
-            rule.while = whileCondition;
-          }
-          rules.push(rule);
-        }
-      } else if (ruleItem.classList.contains('find-rule')) {
-        // For find rules, get pattern, replacement, and optional while condition from separate inputs
-        const patternInput = ruleItem.querySelector('.rule-pattern-input') as HTMLInputElement;
-        const replacementInput = ruleItem.querySelector(
-          '.rule-replacement-input'
-        ) as HTMLInputElement;
-        const whileInput = ruleItem.querySelector('.rule-while-input') as HTMLInputElement;
-
-        if (patternInput && patternInput.value.trim()) {
-          const pattern = patternInput.value.trim();
-          const replacement = replacementInput ? replacementInput.value.trim() : '';
-          const whileCondition = whileInput ? whileInput.value.trim() : '';
-
-          const rule: any = { find: pattern, to: replacement };
-          if (whileCondition) {
-            rule.while = whileCondition;
-          }
-          rules.push(rule);
-        }
-      }
-    });
-
-    return rules;
-  }
 
   /**
    * Add a rule to the editor
    */
-  private addRuleToEditor(rule?: TitleRule, ruleType?: 'skip' | 'trim' | 'fold' | 'find'): void {
-    const rulesList = document.getElementById('rulesList');
-    if (!rulesList) return;
-
-    // Determine the rule type and template to use
-    let templateId: string;
-
-    if (rule) {
-      if ('skip' in rule) {
-        templateId = 'skip-rule-template';
-      } else if ('trim' in rule) {
-        templateId = 'trim-rule-template';
-      } else if ('fold' in rule) {
-        templateId = 'fold-rule-template';
-      } else if ('find' in rule) {
-        templateId = 'find-rule-template';
-      } else {
-        return; // Invalid rule
-      }
-    } else if (ruleType) {
-      templateId = `${ruleType}-rule-template`;
-    } else {
-      return; // Need either rule or ruleType
-    }
-
-    const template = document.getElementById(templateId) as HTMLTemplateElement;
-    if (!template) return;
-
-    const ruleItem = template.content.cloneNode(true) as DocumentFragment;
-    const ruleElement = ruleItem.querySelector('.rule-item') as HTMLElement;
-
-    // Populate values based on rule type
-    if (rule) {
-      if ('skip' in rule) {
-        const ruleInput = ruleElement.querySelector('.rule-input') as HTMLInputElement;
-        if (ruleInput) ruleInput.value = rule.skip;
-      } else if ('trim' in rule) {
-        const ruleInput = ruleElement.querySelector('.rule-input') as HTMLInputElement;
-        if (ruleInput) ruleInput.value = rule.trim;
-      } else if ('fold' in rule) {
-        const patternInput = ruleElement.querySelector('.rule-pattern-input') as HTMLInputElement;
-        const replacementInput = ruleElement.querySelector(
-          '.rule-replacement-input'
-        ) as HTMLInputElement;
-        const whileInput = ruleElement.querySelector('.rule-while-input') as HTMLInputElement;
-        if (patternInput) patternInput.value = rule.fold;
-        if (replacementInput) replacementInput.value = rule.to || '';
-        if (whileInput && rule.while) whileInput.value = rule.while;
-      } else if ('find' in rule) {
-        const patternInput = ruleElement.querySelector('.rule-pattern-input') as HTMLInputElement;
-        const replacementInput = ruleElement.querySelector(
-          '.rule-replacement-input'
-        ) as HTMLInputElement;
-        const whileInput = ruleElement.querySelector('.rule-while-input') as HTMLInputElement;
-        if (patternInput) patternInput.value = rule.find;
-        if (replacementInput) replacementInput.value = rule.to || '';
-        if (whileInput && rule.while) whileInput.value = rule.while;
-      }
-    }
-
-    // Setup remove button event listener
-    const removeBtn = ruleElement.querySelector('.remove-rule-btn') as HTMLButtonElement;
-    if (removeBtn) {
-      removeBtn.dataset.listType = 'rulesList';
-      removeBtn.addEventListener('click', this.handleRuleRemoveClick.bind(this));
-    }
-
-    // Insert before add buttons
-    const addButtons = rulesList.querySelector('.add-rule-buttons');
-    if (addButtons) {
-      rulesList.insertBefore(ruleItem, addButtons);
-    } else {
-      rulesList.appendChild(ruleItem);
-    }
-
-    // Update rule count after addition
-    const remainingRules = rulesList.querySelectorAll('.rule-item').length;
-    this.updateRuleListHeader('rulesList', remainingRules);
-  }
 
   /**
    * Setup the rule editor
    */
-  private setupRuleEditor(): void {
-    const addSkipBtn = document.getElementById('addSkipBtn');
-    const addTrimBtn = document.getElementById('addTrimBtn');
-    const addFoldBtn = document.getElementById('addFoldBtn');
-    const addFindBtn = document.getElementById('addFindBtn');
-
-    if (!addSkipBtn || !addTrimBtn || !addFoldBtn || !addFindBtn) return;
-
-    // Remove existing listeners to prevent duplicates
-    addSkipBtn.replaceWith(addSkipBtn.cloneNode(true));
-    addTrimBtn.replaceWith(addTrimBtn.cloneNode(true));
-    addFoldBtn.replaceWith(addFoldBtn.cloneNode(true));
-    addFindBtn.replaceWith(addFindBtn.cloneNode(true));
-
-    const newAddSkipBtn = document.getElementById('addSkipBtn');
-    const newAddTrimBtn = document.getElementById('addTrimBtn');
-    const newAddFoldBtn = document.getElementById('addFoldBtn');
-    const newAddFindBtn = document.getElementById('addFindBtn');
-
-    newAddSkipBtn?.addEventListener('click', () => {
-      this.addRuleToEditor(undefined, 'skip');
-    });
-
-    newAddTrimBtn?.addEventListener('click', () => {
-      this.addRuleToEditor(undefined, 'trim');
-    });
-
-    newAddFoldBtn?.addEventListener('click', () => {
-      this.addRuleToEditor(undefined, 'fold');
-    });
-
-    newAddFindBtn?.addEventListener('click', () => {
-      this.addRuleToEditor(undefined, 'find');
-    });
-  }
 
   /**
    * Load category rules into the category rule editor
    */
-  private loadCategoryRulesIntoEditor(rules: CategoryRule[]): void {
-    const categoryRulesList = document.getElementById('categoryRulesList');
-    if (!categoryRulesList) return;
-
-    // Clear existing rule items only (not the add buttons)
-    const ruleItems = categoryRulesList.querySelectorAll('.rule-item');
-    ruleItems.forEach(item => item.remove());
-
-    // Add each rule to the editor
-    rules.forEach(rule => this.addCategoryRuleToEditor(rule));
-
-    // Setup add button if not already done
-    this.setupCategoryRuleEditor();
-
-    // Update rule count in header
-    this.updateRuleListHeader('categoryRulesList', rules.length);
-  }
 
   /**
    * Get category rules from the category rule editor
    */
-  private getCategoryRulesFromEditor(): CategoryRule[] {
-    const categoryRulesList = document.getElementById('categoryRulesList');
-    if (!categoryRulesList) return [];
-
-    const rules: CategoryRule[] = [];
-    const ruleItems = categoryRulesList.querySelectorAll('.rule-item');
-
-    ruleItems.forEach(ruleItem => {
-      if (ruleItem.classList.contains('skip-rule')) {
-        const ruleInput = ruleItem.querySelector('.rule-input') as HTMLInputElement;
-        if (ruleInput && ruleInput.value.trim()) {
-          rules.push({ skip: ruleInput.value.trim() });
-        }
-      } else if (ruleItem.classList.contains('match-rule')) {
-        const ruleInput = ruleItem.querySelector('.rule-input') as HTMLInputElement;
-        if (ruleInput && ruleInput.value.trim()) {
-          rules.push({ match: ruleInput.value.trim() });
-        }
-      } else if (ruleItem.classList.contains('unknown-rule')) {
-        const jsonInput = ruleItem.querySelector('.rule-json-input') as HTMLTextAreaElement;
-        if (jsonInput && jsonInput.value.trim()) {
-          try {
-            const parsedRule = JSON.parse(jsonInput.value.trim());
-            rules.push(parsedRule);
-          } catch (e) {
-            console.warn('Invalid JSON in unknown rule, skipping:', jsonInput.value);
-          }
-        }
-      }
-    });
-
-    return rules;
-  }
 
   /**
    * Add a category rule to the editor
    */
-  private addCategoryRuleToEditor(rule?: CategoryRule, ruleType?: 'skip' | 'match'): void {
-    const categoryRulesList = document.getElementById('categoryRulesList');
-    if (!categoryRulesList) return;
-
-    // Determine the rule type and template to use
-    let templateId: string;
-
-    if (rule) {
-      if ('skip' in rule) {
-        templateId = 'category-skip-rule-template';
-      } else if ('match' in rule) {
-        templateId = 'category-match-rule-template';
-      } else {
-        // Unknown rule type - use fallback template
-        templateId = 'category-unknown-rule-template';
-      }
-    } else if (ruleType) {
-      templateId = `category-${ruleType}-rule-template`;
-    } else {
-      return; // Need either rule or ruleType
-    }
-
-    const template = document.getElementById(templateId) as HTMLTemplateElement;
-    if (!template) return;
-
-    const ruleItem = template.content.cloneNode(true) as DocumentFragment;
-    const ruleElement = ruleItem.querySelector('.rule-item') as HTMLElement;
-
-    // Populate values based on rule type
-    if (rule) {
-      if ('skip' in rule) {
-        const ruleInput = ruleElement.querySelector('.rule-input') as HTMLInputElement;
-        if (ruleInput) ruleInput.value = rule.skip;
-      } else if ('match' in rule) {
-        const ruleInput = ruleElement.querySelector('.rule-input') as HTMLInputElement;
-        if (ruleInput) ruleInput.value = rule.match;
-      } else {
-        // Unknown rule type - show as JSON
-        const jsonInput = ruleElement.querySelector('.rule-json-input') as HTMLTextAreaElement;
-        if (jsonInput) jsonInput.value = JSON.stringify(rule, null, 2);
-      }
-    }
-
-    // Setup remove button event listener
-    const removeBtn = ruleElement.querySelector('.remove-rule-btn') as HTMLButtonElement;
-    if (removeBtn) {
-      removeBtn.dataset.listType = 'categoryRulesList';
-      removeBtn.addEventListener('click', this.handleRuleRemoveClick.bind(this));
-    }
-
-    // Insert before add buttons
-    const addButtons = categoryRulesList.querySelector('.add-rule-buttons');
-    if (addButtons) {
-      categoryRulesList.insertBefore(ruleItem, addButtons);
-    } else {
-      categoryRulesList.appendChild(ruleItem);
-    }
-
-    // Update rule count after addition
-    const categoryRulesList2 = document.getElementById('categoryRulesList');
-    if (categoryRulesList2) {
-      const remainingRules = categoryRulesList2.querySelectorAll('.rule-item').length;
-      this.updateRuleListHeader('categoryRulesList', remainingRules);
-    }
-  }
 
   /**
    * Setup the category rule editor
    */
-  private setupCategoryRuleEditor(): void {
-    const addCategorySkipBtn = document.getElementById('addCategorySkipBtn');
-    const addCategoryMatchBtn = document.getElementById('addCategoryMatchBtn');
-
-    if (!addCategorySkipBtn || !addCategoryMatchBtn) return;
-
-    // Remove existing listeners to prevent duplicates
-    addCategorySkipBtn.replaceWith(addCategorySkipBtn.cloneNode(true));
-    addCategoryMatchBtn.replaceWith(addCategoryMatchBtn.cloneNode(true));
-
-    const newAddCategorySkipBtn = document.getElementById('addCategorySkipBtn');
-    const newAddCategoryMatchBtn = document.getElementById('addCategoryMatchBtn');
-
-    newAddCategorySkipBtn?.addEventListener('click', () => {
-      this.addCategoryRuleToEditor(undefined, 'skip');
-    });
-
-    newAddCategoryMatchBtn?.addEventListener('click', () => {
-      this.addCategoryRuleToEditor(undefined, 'match');
-    });
-  }
 
   /**
    * Setup collapsible sections
@@ -3347,16 +3000,6 @@ export class StackTraceApp {
   /**
    * Update rule list header with rule count
    */
-  private updateRuleListHeader(listId: string, count: number): void {
-    const targetId = listId === 'rulesList' ? 'rulesEditor' : 'categoryRulesEditor';
-    const header = document.querySelector(`#${targetId} .collapsible-header`) as HTMLElement;
-    if (header) {
-      const textSpan = header.querySelector('span:last-child');
-      if (textSpan) {
-        textSpan.textContent = `Rules (${count})`;
-      }
-    }
-  }
 
   /**
    * Populate default rule textareas with read-only default values
@@ -3600,7 +3243,7 @@ export class StackTraceApp {
 
             // Sort groups by state then by wait time (ascending)
             const sortedEntries = Array.from(fileGroups.entries()).sort(
-              ([keyA, goroutinesA], [keyB, goroutinesB]) => {
+              ([, goroutinesA], [, goroutinesB]) => {
                 const stateA = goroutinesA[0].state;
                 const stateB = goroutinesB[0].state;
                 const waitA = goroutinesA[0].waitMinutes;
@@ -3743,7 +3386,7 @@ export class StackTraceApp {
 
       // Sort groups by state then by wait time (ascending)
       const sortedEntries = Array.from(goroutineGroups.entries()).sort(
-        ([keyA, goroutinesA], [keyB, goroutinesB]) => {
+        ([, goroutinesA], [, goroutinesB]) => {
           const stateA = goroutinesA[0].state;
           const stateB = goroutinesB[0].state;
           const waitA = goroutinesA[0].waitMinutes;
