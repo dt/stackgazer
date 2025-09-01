@@ -721,10 +721,10 @@ export class StackgazerApp {
         if (file.name.toLowerCase().endsWith('.zip') || file.type === 'application/zip') {
           await this.handleZipFile(file);
         } else {
-          // Handle regular text file
+          // Handle regular file - parser handles binary detection
           console.time(`📄 File Import: ${file.name}`);
-          const text = await file.text();
-          const result = await this.parser.parseFile(text, file.name);
+          
+          const result = await this.parser.parseFile(file);
 
           if (result.success) {
             this.profileCollection.addFile(result.data);
@@ -2346,10 +2346,13 @@ export class StackgazerApp {
         }
         console.timeEnd(`🌐 URL Zip Import: ${fileName}`);
       } else {
-        // Handle single text files
+        // Handle single files (could be text or binary)
         console.time(`🌐 URL File Import: ${fileName}`);
-        const text = await response.text();
-        const result = await this.parser.parseFile(text, fileName);
+        const arrayBuffer = await response.arrayBuffer();
+        
+        // Create File object to use consistent parsing API
+        const file = new File([arrayBuffer], fileName);
+        const result = await this.parser.parseFile(file);
 
         if (result.success) {
           this.profileCollection.addFile(result.data);

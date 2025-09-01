@@ -4,6 +4,7 @@
 
 import { ProfileCollection } from '../src/app/ProfileCollection.js';
 import { FileParser } from '../src/parser/parser.js';
+import { SettingsManager } from '../src/app/SettingsManager.js';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -93,18 +94,6 @@ server/serverpb.(*statusClient).Stacks()
   exampleWithLabels: readFileSync(join(examplesDir, 'stacks_with_labels.txt'), 'utf8'),
 };
 
-// Default settings for tests
-export const DEFAULT_SETTINGS = {
-  functionPrefixesToTrim: [] as RegExp[],
-  filePrefixesToTrim: [] as RegExp[],
-  titleManipulationRules: [] as import('../src/app/ProfileCollection.js').TitleRule[],
-  nameExtractionPatterns: [],
-  zipFilePattern: '^(.*\/)?stacks\.txt$',
-  categoryIgnoredPrefixes: [],
-  categoryExtractionPattern: '^((([^\/.]*\\.[^\/]*)*\/)?[^\/.]+(\/[^\/.]+)?)',
-  categoryRules: [] as import('../src/app/ProfileCollection.js').CategoryRule[],
-};
-
 // Parser instance
 export const parser = new FileParser();
 
@@ -115,7 +104,7 @@ export async function addFile(
   name: string,
   customName?: string
 ) {
-  const result = await parser.parseFile(content, name);
+  const result = await parser.parseString(content, name);
   if (!result.success) throw new Error('Parse failed');
   collection.addFile(result.data, customName);
   return collection;
@@ -165,3 +154,21 @@ export async function test(name: string, fn: () => void | Promise<void>): Promis
     throw error;
   }
 }
+
+// Create test settings using the real SettingsManager conversion logic
+function createTestSettings() {
+  const settingsManager = new SettingsManager(undefined, true);
+  const appSettings = settingsManager.getSettings();
+  
+  // Convert using the same logic as StackTraceApp
+  return {
+    functionPrefixesToTrim: settingsManager.getFunctionTrimPrefixes(),
+    filePrefixesToTrim: settingsManager.getFileTrimPrefixes(),
+    titleManipulationRules: settingsManager.getTitleManipulationRules(),
+    nameExtractionPatterns: appSettings.nameExtractionPatterns || [],
+    zipFilePattern: appSettings.zipFilePattern,
+    categoryRules: settingsManager.getCategoryRules(),
+  };
+}
+
+export const DEFAULT_SETTINGS = createTestSettings();

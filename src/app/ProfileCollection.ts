@@ -26,7 +26,7 @@
  * - **Count**: Number of visible goroutines under each container
  */
 
-import { File as ParserFile, Frame as ParserFrame } from '../parser/types.js';
+import { ParsedFile, Frame as ParserFrame } from '../parser/types.js';
 import {
   UniqueStack,
   Frame,
@@ -304,7 +304,7 @@ export interface ProfileCollectionSettings {
 export class ProfileCollection {
   private categories: Category[] = [];
   private stackForTraceId: Map<string, { category: Category; stack: UniqueStack }> = new Map();
-  private parsedFiles = new Map<string, ParserFile>();
+  private parsedFiles = new Map<string, ParsedFile>();
   private settings: ProfileCollectionSettings;
   private stackNamer: StackNamer;
   private currentFilter: string = '';
@@ -452,7 +452,7 @@ export class ProfileCollection {
   /**
    * Import parser results into app File structure
    */
-  private importParsedFile(parserFile: ParserFile, fileName: string, nameInIds: boolean) {
+  private importParsedFile(parserFile: ParsedFile, fileName: string, nameInIds: boolean) {
     const fileId = `f${this.nextFileId++}`;
 
     // Process each stack group
@@ -746,7 +746,7 @@ export class ProfileCollection {
   /**
    * Add a file to the collection with optional custom name
    */
-  addFile(parsedFile: ParserFile, customName?: string): void {
+  addFile(parsedFile: ParsedFile, customName?: string): void {
     if (this.parsedFiles.size == 1) {
       // If there is only one file, we need to put its name into its ids before
       // we add another.
@@ -863,7 +863,7 @@ export class ProfileCollection {
     this.stackNamer.setRules(newSettings.titleManipulationRules);
 
     // Store current files with their names
-    const files: Array<{ name: string; data: ParserFile }> = [];
+    const files: Array<{ name: string; data: ParsedFile }> = [];
     for (const [name, data] of this.parsedFiles) {
       files.push({ name, data });
     }

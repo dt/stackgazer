@@ -103,7 +103,7 @@ export class SettingsManager {
   private changeCallback: ((settings: AppSettings) => void) | null = null;
   private defaultSettings: AppSettings;
 
-  constructor(customizer?: (settings: AppSettings) => AppSettings) {
+  constructor(customizer?: (settings: AppSettings) => AppSettings, skipLoad?: boolean) {
     const builtinDefaults = this.getBuiltinDefaults();
     const customizedDefaults = customizer ? customizer(builtinDefaults) : builtinDefaults;
     
@@ -112,7 +112,9 @@ export class SettingsManager {
     
     this.defaultSettings = customizedDefaults;
     this.settings = { ...this.defaultSettings };
-    this.loadSettings();
+    if (!skipLoad) {
+      this.loadSettings();
+    }
   }
 
   /**

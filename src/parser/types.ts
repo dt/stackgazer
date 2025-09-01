@@ -25,7 +25,7 @@ export interface Group {
   trace: Frame[]; // Stack trace frames (common to both)
 }
 
-export interface File {
+export interface ParsedFile {
   originalName: string;
   extractedName?: string; // Auto-extracted name during parsing (e.g., node ID)
   totalGoroutines?: number; // Total count if available (Format 1)
@@ -33,12 +33,12 @@ export interface File {
 }
 
 // Result type that can represent success or failure
-export type Result = { success: true; data: File } | { success: false; error: string };
+export type Result = { success: true; data: ParsedFile } | { success: false; error: string };
 
 // Zip extraction types
 export interface ZipFile {
   path: string;
-  content: string;
+  content: Blob;
 }
 
 export interface ExtractResult {

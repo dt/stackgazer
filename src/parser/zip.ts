@@ -119,8 +119,7 @@ export class ZipHandler {
         outBlob = await new Response(stream).blob();
       }
 
-      const content = await await new Response(outBlob).text();
-      files.push({ path: e.filename, content });
+      files.push({ path: e.filename, content: outBlob });
       totalSize += e.uncompSize >>> 0;
     }
 

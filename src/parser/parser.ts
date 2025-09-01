@@ -2,7 +2,8 @@
  * Core parser for Go stack trace files
  */
 
-import { File, Result, Group, Frame, Goroutine } from './types.js';
+import { ParsedFile, Result, Group, Frame, Goroutine } from './types.js';
+import { Profile } from 'pprof-format';
 
 /**
  * Simple FNV-1a hash implementation as fallback when crypto.subtle is unavailable
@@ -64,13 +65,46 @@ export class FileParser {
   }
 
   /**
-   * Parse a file and return common data structure
+   * Parse a Blob or File (handles binary detection and decompression)
    */
-  async parseFile(content: string, fileName: string): Promise<Result> {
-    if (this.detectFormat2(content)) {
-      return await this.parseFormat2(content, fileName);
+  async parseFile(blob: Blob, fileName?: string): Promise<Result> {
+    // Read first 2 bytes to detect gzip magic bytes
+    const chunk = await blob.slice(0, 2).arrayBuffer();
+    const bytes = new Uint8Array(chunk);
+    const isGzipped = bytes.length >= 2 && bytes[0] === 0x1f && bytes[1] === 0x8b;
+    
+    // Use provided fileName or default
+    const name = fileName || 'unknown';
+    
+    if (isGzipped) {
+      // Binary format0 - stream decompression
+      return await this.parseFormat0(blob, name);
     } else {
+      // Text format - read as text and dispatch
+      const content = await blob.text();
+      return this.parseString(content, name);
+    }
+  }
+
+  /**
+   * Parse string content (detects format1/2 and dispatches)
+   */
+  async parseString(content: string, fileName: string): Promise<Result> {
+    // Handle empty content
+    if (!content.trim()) {
+      return { success: true, data: { originalName: fileName, groups: [] } };
+    }
+    
+    if (this.detectFormat1(content)) {
       return await this.parseFormat1(content, fileName);
+    } else {
+      // Assume format 2, but validate it matches the expected pattern
+      if (this.detectFormat2(content)) {
+        return await this.parseFormat2(content, fileName);
+      } else {
+        // Return empty result for unrecognized content instead of error
+        return { success: true, data: { originalName: fileName, groups: [] } };
+      }
     }
   }
 
@@ -106,11 +140,118 @@ export class FileParser {
     return null;
   }
 
+
+  private detectFormat1(content: string): boolean {
+    // Format 1 starts with "goroutine profile:" header - check first 18 characters
+    return content.startsWith('goroutine profile:');
+  }
+
   private detectFormat2(content: string): boolean {
     // Format 2 has individual goroutine entries with "goroutine N ["
     // Check if content starts with goroutine line OR contains goroutine lines (for test logs)
     const trimmed = content.trim();
     return /^goroutine \d+ \[/.test(trimmed) || /\ngoroutine \d+ \[/.test(content);
+  }
+
+  private async parseFormat0(blob: Blob, fileName: string): Promise<Result> {
+    try {
+      // Stream decompression - much cleaner!
+      const decompressedStream = blob.stream().pipeThrough(new DecompressionStream('gzip'));
+      const response = new Response(decompressedStream);
+      const arrayBuffer = await response.arrayBuffer();
+      const decodedData = new Uint8Array(arrayBuffer);
+      
+      // Decode the pprof profile
+      const profile = Profile.decode(decodedData);
+      
+      // Convert pprof data to our internal format
+      const groups: Group[] = [];
+      
+      // Process samples - each sample represents a stack trace with count
+      for (const sample of profile.sample) {
+        const frames: Frame[] = [];
+        const values = sample.value || [];
+        const count = values.length > 0 ? Number(values[0]) : 1;
+        
+        // Extract labels from the sample
+        const labels: string[] = [];
+        const stringTable = (profile.stringTable as any)?.strings || [];
+        
+        if (sample.label) {
+          for (const label of sample.label) {
+            const key = stringTable[Number(label.key) || 0] || '';
+            const value = stringTable[Number(label.str) || 0] || '';
+            if (key && value) {
+              labels.push(`${key}=${value}`);
+            } else if (key) {
+              labels.push(key);
+            }
+          }
+        }
+        
+        // Build stack trace from location IDs, skipping initial runtime frames
+        let skipInitialRuntimeFrames = true;
+        let lastSkippedRuntimeFrame: string | null = null;
+        
+        for (const locationId of sample.locationId || []) {
+          const location = profile.location.find(loc => loc.id === locationId);
+          if (location) {
+            for (const line of location.line || []) {
+              const func = profile.function.find(f => f.id === line.functionId);
+              if (func) {
+                // String table access - the pprof format uses string table indexes
+                const functionName = stringTable[Number(func.name) || 0] || 'unknown';
+                const fileName = stringTable[Number(func.filename) || 0] || 'unknown';
+                
+                // Skip initial runtime frames during parsing, but track the last one for label synthesis
+                if (skipInitialRuntimeFrames && this.shouldSkipRuntimeFrame(functionName)) {
+                  lastSkippedRuntimeFrame = functionName;
+                  continue; // Skip this frame, don't allocate it
+                }
+                
+                // Once we find a non-runtime frame, stop skipping
+                skipInitialRuntimeFrames = false;
+                
+                frames.push({
+                  func: functionName,
+                  file: fileName,
+                  line: Number(line.line) || 0
+                });
+              }
+            }
+          }
+        }
+        
+        // Add synthesized label for the last skipped runtime frame
+        if (lastSkippedRuntimeFrame) {
+          const label = this.synthesizeRuntimeLabel(lastSkippedRuntimeFrame);
+          if (label) {
+            labels.push(label);
+          }
+        }
+        
+        // Create group for this stack trace
+        if (frames.length > 0) {
+          const traceId = await fingerprint(frames);
+          groups.push({
+            traceId,
+            count,
+            labels,
+            goroutines: [],
+            trace: frames
+          });
+        }
+      }
+      
+      const result: ParsedFile = { originalName: fileName, groups };
+      return { success: true, data: result };
+      
+    } catch (error) {
+      return { 
+        success: false, 
+        error: `Failed to parse pprof format: ${error instanceof Error ? error.message : String(error)}` 
+      };
+    }
   }
 
   private async parseFormat2(content: string, fileName: string): Promise<Result> {
@@ -267,7 +408,7 @@ export class FileParser {
       })
     );
 
-    const result: File = { originalName: fileName, groups };
+    const result: ParsedFile = { originalName: fileName, groups };
     if (extractedName) {
       result.extractedName = extractedName;
     }
@@ -362,7 +503,7 @@ export class FileParser {
       groups.push({ traceId: await fingerprint(trace), count, labels, goroutines: [], trace });
     }
 
-    const result: File = { originalName: fileName, totalGoroutines, groups };
+    const result: ParsedFile = { originalName: fileName, totalGoroutines, groups };
     if (extractedName) {
       result.extractedName = extractedName;
     }
@@ -384,5 +525,50 @@ export class FileParser {
     }
 
     return state;
+  }
+
+  /**
+   * Determine if a runtime frame should be skipped
+   */
+  private shouldSkipRuntimeFrame(functionName: string): boolean {
+    return functionName === 'runtime.gopark' || 
+           functionName === 'runtime.goparkunlock' ||
+           functionName === 'runtime.selectgo' ||
+           functionName === 'runtime.chanrecv' ||
+           functionName === 'runtime.chanrecv1' ||
+           functionName === 'runtime.chanrecv2' ||
+           functionName === 'runtime.chansend' ||
+           functionName === 'runtime.semacquire' ||
+           functionName === 'runtime.semacquire1' ||
+           functionName === 'runtime.netpollblock' ||
+           functionName === 'runtime.notetsleepg';
+  }
+
+  /**
+   * Synthesize a descriptive label for a skipped runtime frame
+   */
+  private synthesizeRuntimeLabel(functionName: string): string | null {
+    switch (functionName) {
+      case 'runtime.chanrecv':
+      case 'runtime.chanrecv1':
+      case 'runtime.chanrecv2':
+        return 'state=chan receive';
+      case 'runtime.chansend':
+        return 'state=chan send';
+      case 'runtime.selectgo':
+        return 'state=select';
+      case 'runtime.gopark':
+      case 'runtime.goparkunlock':
+        return 'state=parked';
+      case 'runtime.semacquire':
+      case 'runtime.semacquire1':
+        return 'state=semacquire';
+      case 'runtime.netpollblock':
+        return 'state=netpoll';
+      case 'runtime.notetsleepg':
+        return 'state=sleep';
+      default:
+        return null;
+    }
   }
 }
