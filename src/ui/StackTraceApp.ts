@@ -3808,22 +3808,18 @@ export class StackgazerApp {
         this.centerAncestryTreeOnNode(node.data.goroutine.id);
       });
 
-      g.addEventListener('mouseenter', e => {
+      g.addEventListener('mouseenter', () => {
         // Add subtle hover effect
         if (!isTarget) {
           rect.setAttribute('fill', 'var(--bg-secondary, #555)');
         }
-        this.showGoroutinePreviewTooltip(node.data.goroutine.id, e as MouseEvent);
+        // Note: No tooltip in ancestor view for cleaner experience
       });
       g.addEventListener('mouseleave', () => {
         // Remove hover effect
         if (!isTarget) {
           rect.setAttribute('fill', 'var(--bg-tertiary, #444)');
         }
-        this.hideTooltip();
-      });
-      g.addEventListener('mousemove', e => {
-        this.handleTooltipMouseMove(e as MouseEvent);
       });
 
       contentGroup.appendChild(g);
@@ -4080,8 +4076,8 @@ export class StackgazerApp {
     const targetX = (targetNode.y ?? 0) - minY;
     const targetY = (targetNode.x ?? 0) - minX;
 
-    // Start with a zoomed-in view focused on the target (1.5x zoom)
-    const scale = 1.5;
+    // Start with a zoomed-out view focused on the target (0.8x zoom)
+    const scale = 0.8;
 
     // Calculate translation to center target node at the zoomed scale
     const translateX = containerWidth / 2 - targetX * scale;
