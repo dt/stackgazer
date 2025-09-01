@@ -101,10 +101,10 @@ const testCases = {
     },
     {
       name: 'Text trim rules',
-      settings: { 
+      settings: {
         customNameTrimRules: ['util/', 's|^rpc\\.makeInternalClientAdapter.*$|rpc|'],
         customNameFoldRules: ['s|util/admission|AC|'],
-       },
+      },
       content: `goroutine 1 [running]:
 util/admission.(*WorkQueue).Admit()
 \tutil/admission/work_queue.go:100 +0x10
@@ -143,13 +143,17 @@ rpc.makeInternalClientAdapter.func1()
 async function runTests() {
   console.log('🧪 Comprehensive Test Suite');
 
-
   // File operations
   await test('File operations', async () => {
     for (const t of testCases.fileOperations) {
       const collection = new ProfileCollection(DEFAULT_SETTINGS);
       for (const file of t.files) {
-        await addFile(collection, file.content, file.name, 'customName' in file ? file.customName : undefined);
+        await addFile(
+          collection,
+          file.content,
+          file.name,
+          'customName' in file ? file.customName : undefined
+        );
       }
 
       const stacks = collection.getCategories().reduce((acc, x) => acc + x.stacks.length, 0);
@@ -236,7 +240,7 @@ main.worker()
     // Test valid customizer works
     const validSettings = new SettingsManager(d => ({
       ...d,
-      customNameTrimRules: ['test']
+      customNameTrimRules: ['test'],
     }));
     // Should not throw
 
@@ -244,7 +248,7 @@ main.worker()
     try {
       new SettingsManager(d => ({
         ...d,
-        customNameTrimRules: 'should-be-array' as any
+        customNameTrimRules: 'should-be-array' as any,
       }));
       throw new Error('Should have thrown validation error');
     } catch (e: any) {
@@ -256,7 +260,7 @@ main.worker()
     // Test updateSettings validation
     try {
       validSettings.updateSettings({
-        nameFoldRules: 'should-be-array' as any
+        nameFoldRules: 'should-be-array' as any,
       });
       throw new Error('Should have thrown validation error for updateSettings');
     } catch (e: any) {
@@ -271,7 +275,7 @@ main.worker()
     for (const t of testCases.settingsIntegration) {
       const settingsManager = new SettingsManager(d => ({
         ...d,
-        ...t.settings
+        ...t.settings,
       }));
 
       if (t.validateCombined) {
@@ -279,7 +283,11 @@ main.worker()
         const fold = settingsManager.getCombinedNameFoldRules();
         const find = settingsManager.getCombinedNameFindRules();
 
-        if (!skip.includes('custom.skip') || !fold.some(rule => rule.includes('CUSTOM')) || !find.some(rule => rule.includes('FOUND'))) {
+        if (
+          !skip.includes('custom.skip') ||
+          !fold.some(rule => rule.includes('CUSTOM')) ||
+          !find.some(rule => rule.includes('FOUND'))
+        ) {
           throw new Error(`${t.name}: Combined rules not working`);
         }
       }
@@ -527,7 +535,9 @@ ${t.func}()
   await test('Parser maximum realistic coverage', async () => {
     // Test extractedName assignment (lines 362-363) using a parser with extraction patterns
     const { FileParser } = await import('../src/parser/parser.js');
-    const extractParser = new FileParser({ nameExtractionPatterns: [{ regex: '#\\s*name:\\s*(\\w+)', replacement: '$1' }] });
+    const extractParser = new FileParser({
+      nameExtractionPatterns: [{ regex: '#\\s*name:\\s*(\\w+)', replacement: '$1' }],
+    });
 
     const extractResult = await extractParser.parseString(
       '# name: testfile\ngoroutine 1 [running]:\nmain()\n\tmain.go:1 +0x1',
@@ -554,10 +564,14 @@ ${t.func}()
     }));
 
     // Test empty combined rules
-    if (settings.getCombinedNameSkipRules().length !== 0) throw new Error('Empty skip rules failed');
-    if (settings.getCombinedNameTrimRules().length !== 0) throw new Error('Empty trim rules failed');
-    if (settings.getCombinedNameFoldRules().length !== 0) throw new Error('Empty fold rules failed');
-    if (settings.getCombinedNameFindRules().length !== 0) throw new Error('Empty find rules failed');
+    if (settings.getCombinedNameSkipRules().length !== 0)
+      throw new Error('Empty skip rules failed');
+    if (settings.getCombinedNameTrimRules().length !== 0)
+      throw new Error('Empty trim rules failed');
+    if (settings.getCombinedNameFoldRules().length !== 0)
+      throw new Error('Empty fold rules failed');
+    if (settings.getCombinedNameFindRules().length !== 0)
+      throw new Error('Empty find rules failed');
 
     // Test defaults only
     settings.updateSettings({ useDefaultNameSkipRules: true });
@@ -1988,7 +2002,7 @@ main.worker()
     const runtimeFramesToSkip = [
       'runtime.gopark',
       'runtime.goparkunlock',
-      'runtime.selectgo', 
+      'runtime.selectgo',
       'runtime.chanrecv',
       'runtime.chanrecv1',
       'runtime.chanrecv2',
@@ -1996,7 +2010,7 @@ main.worker()
       'runtime.semacquire',
       'runtime.semacquire1',
       'runtime.netpollblock',
-      'runtime.notetsleepg'
+      'runtime.notetsleepg',
     ];
 
     for (const frameName of runtimeFramesToSkip) {
@@ -2010,14 +2024,14 @@ main.worker()
       ['runtime.chanrecv', 'state=chan receive'],
       ['runtime.chanrecv1', 'state=chan receive'],
       ['runtime.chanrecv2', 'state=chan receive'],
-      ['runtime.chansend', 'state=chan send'], 
+      ['runtime.chansend', 'state=chan send'],
       ['runtime.selectgo', 'state=select'],
       ['runtime.gopark', 'state=parked'],
       ['runtime.goparkunlock', 'state=parked'],
       ['runtime.semacquire', 'state=semacquire'],
       ['runtime.semacquire1', 'state=semacquire'],
       ['runtime.netpollblock', 'state=netpoll'],
-      ['runtime.notetsleepg', 'state=sleep']
+      ['runtime.notetsleepg', 'state=sleep'],
     ];
 
     for (const [frameName, expectedLabel] of expectedLabels) {
@@ -2038,68 +2052,70 @@ main.worker()
   // Test state counting uses synthesized labels from groups
   await test('State counting uses synthesized labels from groups', async () => {
     const collection = new ProfileCollection(DEFAULT_SETTINGS);
-    
+
     // Create test data with a synthesized state label
     const testData = `goroutine 1 [running]:
 main.worker()
 \tmain.go:10 +0x10`;
 
     await addFile(collection, testData, 'test.txt');
-    
+
     // Mock a group with a synthesized state label
     const group = collection.getCategories()[0].stacks[0].files[0].groups[0];
     group.labels.push('state=chan receive'); // Add synthesized label
-    
+
     // Rebuild the collection to trigger state counting
     collection.updateSettings(DEFAULT_SETTINGS);
-    
+
     // Check that state statistics now show the synthesized state
     const stateStats = collection.getStateStatistics();
-    
+
     // Should have 'chan receive' state from the synthesized label
     if (!stateStats.has('chan receive')) {
       throw new Error('State statistics should include synthesized state from group labels');
     }
-    
+
     const chanReceiveStats = stateStats.get('chan receive');
     if (!chanReceiveStats || chanReceiveStats.total === 0) {
       throw new Error('Synthesized state should have non-zero count');
     }
-    
+
     console.log('✅ State counting correctly uses synthesized labels from groups');
   });
 
   // Test that time ranges with Infinity values are handled correctly
   await test('Time ranges with Infinity values are not displayed', async () => {
     const collection = new ProfileCollection(DEFAULT_SETTINGS);
-    
+
     // Create test data that will result in Infinity wait times
     const testData = `goroutine 1 [running]:
 main.worker()
 \tmain.go:10 +0x10`;
 
     await addFile(collection, testData, 'test.txt');
-    
+
     // Get a group and artificially set wait times to Infinity (simulating format0 behavior)
     const group = collection.getCategories()[0].stacks[0].files[0].groups[0];
     group.counts.minWait = Infinity;
     group.counts.maxWait = -Infinity;
-    group.counts.minMatchingWait = Infinity; 
+    group.counts.minMatchingWait = Infinity;
     group.counts.maxMatchingWait = -Infinity;
-    
+
     // Verify that the group has Infinity values (format0 behavior)
-    
+
     // The formatWaitTime method should return empty string for Infinity values
     // This is tested indirectly by ensuring the UI components work correctly
     // We can't test the private formatWaitTime method directly, but we can verify
     // that the data structure handles Infinity values appropriately
-    
+
     if (!isFinite(group.counts.minMatchingWait) || !isFinite(group.counts.maxMatchingWait)) {
-      console.log('✅ Group correctly has Infinity wait times (no individual goroutines with wait data)');
+      console.log(
+        '✅ Group correctly has Infinity wait times (no individual goroutines with wait data)'
+      );
     } else {
       throw new Error('Expected Infinity wait times for groups without valid wait data');
     }
-    
+
     console.log('✅ Time range handling with Infinity values works correctly');
   });
 

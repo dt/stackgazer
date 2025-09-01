@@ -288,6 +288,25 @@ const MainContentTemplate = (
 );
 
 // Settings Modal (complete structure)
+const AncestryModalTemplate = (
+  <div id="ancestryModal" className="ancestry-modal modal-visible">
+    <div className="ancestry-modal-content">
+      <button className="ancestry-modal-close">&times;</button>
+      <div className="ancestry-tree-container">
+        <div className="ancestry-zoom-controls">
+          <button className="ancestry-zoom-in">+</button>
+          <button className="ancestry-zoom-out">−</button>
+          <button className="ancestry-fit-view">⌖</button>
+        </div>
+      </div>
+    </div>
+  </div>
+);
+
+const AncestryEmptyStateTemplate = (
+  <p className="ancestry-empty-state">No ancestry data available</p>
+);
+
 const SettingsModalTemplate = (
   <div id="settingsModal" className="modal">
     <div className="modal-content">
@@ -620,6 +639,8 @@ export const templates = {
   sidebar: createTemplateFromElement(SidebarTemplate),
   mainContent: createTemplateFromElement(MainContentTemplate),
   settingsModal: createTemplateFromElement(SettingsModalTemplate),
+  ancestryModal: createTemplateFromElement(AncestryModalTemplate),
+  ancestryEmptyState: createTemplateFromElement(AncestryEmptyStateTemplate),
 };
 
 // Template functions for dynamic content

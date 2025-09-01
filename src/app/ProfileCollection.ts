@@ -288,8 +288,6 @@ class StackNamer {
 
     return stackName || (trace.length > 0 ? trace[trace.length - 1].func : '');
   }
-
-
 }
 
 export interface ProfileCollectionSettings {
@@ -585,7 +583,6 @@ export class ProfileCollection {
         const currentMatchingCount = g.counts.matchingStates.get(goroutine.state) || 0;
         g.counts.matchingStates.set(goroutine.state, currentMatchingCount + 1);
       }
-
 
       let fileSection = stack.files.find(file => file.fileId === fileId);
       if (!fileSection) {

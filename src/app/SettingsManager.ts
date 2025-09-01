@@ -5,7 +5,6 @@
 import type { TitleRule, CategoryRule } from './ProfileCollection.js';
 import type { NameExtractionPattern } from './types.js';
 
-
 export const DEFAULT_SETTINGS: AppSettings = {
   // Parsing options
   functionTrimPrefixes: [],
@@ -13,24 +12,25 @@ export const DEFAULT_SETTINGS: AppSettings = {
   // Category rules
   categorySkipRules: [
     // Skip basic Go utilities that launch goroutines.
-    'sync.', 'internal/', 'golang.org/x/sync/errgroup',
+    'sync.',
+    'internal/',
+    'golang.org/x/sync/errgroup',
     // Skip gRPC infra to find the server it is actually starting.
     'google.golang.org/grpc',
   ],
-  categoryMatchRules: [
-    's|^((([^\/.\\[]*\\.[^\/\\[]*)*\/)?[^\/\\.\\[]+(\/[^\/.\\[]+)?)|$1|'
-  ],
+  categoryMatchRules: ['s|^((([^\/.\\[]*\\.[^\/\\[]*)*\/)?[^\/\\.\\[]+(\/[^\/.\\[]+)?)|$1|'],
   // Title manipulation rules
   nameSkipRules: [
     // Skip common low-level runtime frames.
-    'sync.runtime_notifyListWait', 'sync.runtime_Semacquire', 
+    'sync.runtime_notifyListWait',
+    'sync.runtime_Semacquire',
     'golang.org/x/sync/errgroup.(*Group).Wait',
   ],
   nameTrimRules: [
     's|\\[[^\\]]*\\]||',
     's|\\.func\\d+(\\.\\d+)?$||',
     'util/',
-    's|^server.\\(\\*Node\\).Batch$|batch|'
+    's|^server.\\(\\*Node\\).Batch$|batch|',
   ],
   nameFoldRules: [
     's|sync.(*Cond).Wait,|condwait|',
@@ -106,10 +106,10 @@ export class SettingsManager {
   constructor(customizer?: (settings: AppSettings) => AppSettings, skipLoad?: boolean) {
     const builtinDefaults = this.getBuiltinDefaults();
     const customizedDefaults = customizer ? customizer(builtinDefaults) : builtinDefaults;
-    
+
     // Validate that customizer didn't break our types
     this.validateAppSettings(customizedDefaults, 'customizer');
-    
+
     this.defaultSettings = customizedDefaults;
     this.settings = { ...this.defaultSettings };
     if (!skipLoad) {
@@ -149,7 +149,9 @@ export class SettingsManager {
         if (expectedType.includes('[]') && actualType === 'string') {
           helpText = ` If you're migrating from the old string format, convert "rule1\\nrule2" to ["rule1", "rule2"]`;
         }
-        throw new Error(`${source}: '${key}' must be ${expectedType}, got ${actualType}${helpText}`);
+        throw new Error(
+          `${source}: '${key}' must be ${expectedType}, got ${actualType}${helpText}`
+        );
       }
 
       // Additional validation for string arrays
@@ -164,8 +166,15 @@ export class SettingsManager {
       // Additional validation for nameExtractionPatterns
       if (key === 'nameExtractionPatterns' && Array.isArray(actualValue)) {
         actualValue.forEach((pattern: any, index: number) => {
-          if (!pattern || typeof pattern !== 'object' || typeof pattern.regex !== 'string' || typeof pattern.replacement !== 'string') {
-            throw new Error(`${source}: 'nameExtractionPatterns[${index}]' must have {regex: string, replacement: string}`);
+          if (
+            !pattern ||
+            typeof pattern !== 'object' ||
+            typeof pattern.regex !== 'string' ||
+            typeof pattern.replacement !== 'string'
+          ) {
+            throw new Error(
+              `${source}: 'nameExtractionPatterns[${index}]' must have {regex: string, replacement: string}`
+            );
           }
         });
       }
@@ -180,12 +189,12 @@ export class SettingsManager {
     if (expected === null || expected === undefined) {
       return actual === null || actual === undefined;
     }
-    
+
     // Both must be arrays or both must not be arrays
     if (Array.isArray(expected) !== Array.isArray(actual)) {
       return false;
     }
-    
+
     // If arrays, check element types
     if (Array.isArray(expected) && Array.isArray(actual)) {
       // Empty arrays are compatible with any array
@@ -196,12 +205,12 @@ export class SettingsManager {
       const expectedElementType = typeof expected[0];
       return actual.every(item => typeof item === expectedElementType);
     }
-    
+
     // For objects, do a basic structure check
     if (typeof expected === 'object' && typeof actual === 'object') {
       return true; // Basic compatibility for now
     }
-    
+
     // For primitives, check exact type match
     return typeof expected === typeof actual;
   }
@@ -289,7 +298,7 @@ export class SettingsManager {
   updateSettings(updates: Partial<AppSettings>): void {
     // Validate the updates before applying them
     this.validateAppSettings(updates, 'updateSettings');
-    
+
     Object.assign(this.settings, updates);
     this.saveSettings();
     this.notifyChange();
@@ -423,9 +432,7 @@ export class SettingsManager {
       return [];
     }
 
-    return combined
-      .map(rule => rule.trim())
-      .filter(rule => rule.length > 0);
+    return combined.map(rule => rule.trim()).filter(rule => rule.length > 0);
   }
 
   /**
@@ -497,9 +504,7 @@ export class SettingsManager {
       return [];
     }
 
-    const lines = ruleArray
-      .map(line => line.trim())
-      .filter(line => line.length > 0);
+    const lines = ruleArray.map(line => line.trim()).filter(line => line.length > 0);
 
     const rules: TitleRule[] = [];
 

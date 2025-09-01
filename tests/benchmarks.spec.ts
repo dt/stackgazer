@@ -18,10 +18,10 @@ interface BenchmarkResult {
 
 class UIBenchmark {
   private results: BenchmarkResult[] = [];
-  
+
   async measureOperation(
-    page: Page, 
-    name: string, 
+    page: Page,
+    name: string,
     operation: () => Promise<void>
   ): Promise<BenchmarkResult> {
     // Start performance monitoring
@@ -32,21 +32,21 @@ class UIBenchmark {
       (window as any).performanceMetrics = {
         styleRecalculations: 0,
         layouts: 0,
-        paints: 0
+        paints: 0,
       };
     });
 
     // Enable tracing for Chrome DevTools events
     const client = await page.context().newCDPSession(page);
     await client.send('Performance.enable');
-    
+
     // Mark start time
     await page.evaluate(() => performance.mark('operation-start'));
-    
+
     const startTime = performance.now();
     await operation();
     const endTime = performance.now();
-    
+
     // Mark end time and measure
     await page.evaluate(() => {
       performance.mark('operation-end');
@@ -58,19 +58,19 @@ class UIBenchmark {
       const measure = performance.getEntriesByName('operation-duration')[0];
       const paintEntries = performance.getEntriesByType('paint');
       const layoutEntries = performance.getEntriesByType('layout-shift');
-      
+
       return {
         duration: measure?.duration || 0,
         paintCount: paintEntries.length,
         layoutShifts: layoutEntries.length,
-        metrics: (window as any).performanceMetrics
+        metrics: (window as any).performanceMetrics,
       };
     });
 
     // Get additional metrics from CDP
     const metrics = await client.send('Performance.getMetrics');
     await client.detach();
-    
+
     // Find relevant metrics
     const layoutCount = metrics.metrics.find(m => m.name === 'LayoutCount')?.value || 0;
     const styleRecalcCount = metrics.metrics.find(m => m.name === 'RecalcStyleCount')?.value || 0;
@@ -83,12 +83,14 @@ class UIBenchmark {
         styleRecalculations: styleRecalcCount,
         layoutThrashing: layoutCount,
         paintTime: performanceData.paintCount,
-      }
+      },
     };
 
     this.results.push(result);
-    console.log(`✅ ${name}: ${result.duration}ms (${styleRecalcCount} style recalcs, ${layoutCount} layouts)`);
-    
+    console.log(
+      `✅ ${name}: ${result.duration}ms (${styleRecalcCount} style recalcs, ${layoutCount} layouts)`
+    );
+
     return result;
   }
 
@@ -112,28 +114,28 @@ class UIBenchmark {
     const slowOperations = this.results.filter(r => r.duration > 100);
     const highStyleRecalcs = this.results.filter(r => (r.metrics?.styleRecalculations || 0) > 50);
     const highLayouts = this.results.filter(r => (r.metrics?.layoutThrashing || 0) > 10);
-    
+
     if (slowOperations.length > 0) {
       console.log('\n⚠️  Performance concerns (>100ms):');
       for (const op of slowOperations) {
         console.log(`   ${op.operation}: ${op.duration}ms`);
       }
     }
-    
+
     if (highStyleRecalcs.length > 0) {
       console.log('\n⚠️  High style recalculations (>50):');
       for (const op of highStyleRecalcs) {
         console.log(`   ${op.operation}: ${op.metrics?.styleRecalculations} recalculations`);
       }
     }
-    
+
     if (highLayouts.length > 0) {
       console.log('\n⚠️  High layout thrashing (>10):');
       for (const op of highLayouts) {
         console.log(`   ${op.operation}: ${op.metrics?.layoutThrashing} layouts`);
       }
     }
-    
+
     if (slowOperations.length === 0 && highStyleRecalcs.length === 0 && highLayouts.length === 0) {
       console.log('\n✅ All operations performing well - UI performance looks good!');
     }
@@ -145,16 +147,16 @@ test.describe('UI Performance Benchmarks', () => {
 
   test.beforeEach(async ({ page }) => {
     benchmark = new UIBenchmark();
-    
+
     // Navigate to the standalone app
     await page.goto(`file://${process.cwd()}/dist/index.html`);
-    
+
     // Click the demo zip button to load test data
     await page.click('#demoZipBtn');
-    
+
     // Wait for categories to appear
     await page.waitForSelector('.category-section', { timeout: 10000 });
-    
+
     // Wait a bit more for everything to settle
     await page.waitForTimeout(1000);
   });
@@ -165,7 +167,7 @@ test.describe('UI Performance Benchmarks', () => {
 
   test('Filter benchmarks', async ({ page }) => {
     const filterInput = page.locator('#filterInput');
-    
+
     // Benchmark: Filter by 'runnable'
     await benchmark.measureOperation(page, 'Filter: runnable', async () => {
       await filterInput.fill('runnable');
@@ -203,7 +205,7 @@ test.describe('UI Performance Benchmarks', () => {
   test('Pinning benchmarks', async ({ page }) => {
     // Find first goroutine, stack, and category pin buttons
     const firstGoroutinePinBtn = page.locator('.goroutine .pin-btn').first();
-    const firstStackPinBtn = page.locator('.stack .pin-btn').first(); 
+    const firstStackPinBtn = page.locator('.stack .pin-btn').first();
     const firstCategoryPinBtn = page.locator('.category-section .pin-btn').first();
 
     // Benchmark: Pin/unpin goroutine
@@ -252,7 +254,7 @@ test.describe('UI Performance Benchmarks', () => {
       await page.waitForTimeout(50); // Allow animation to start
     });
 
-    // Benchmark: Collapse large category  
+    // Benchmark: Collapse large category
     await benchmark.measureOperation(page, 'Collapse kv/kvserver category', async () => {
       await kvCollapseBtn.click();
       await page.waitForTimeout(50);
@@ -297,7 +299,7 @@ test.describe('UI Performance Benchmarks', () => {
     // Find a file section with many goroutines (48 as mentioned)
     const fileSections = page.locator('.file-section');
     const count = await fileSections.count();
-    
+
     let targetFileSection = null;
     for (let i = 0; i < count; i++) {
       const section = fileSections.nth(i);
@@ -323,15 +325,23 @@ test.describe('UI Performance Benchmarks', () => {
     }
 
     // Benchmark: Collapse large file section
-    await benchmark.measureOperation(page, 'Collapse large file section (48 goroutines)', async () => {
-      await collapseBtn.click();
-      await page.waitForTimeout(100);
-    });
+    await benchmark.measureOperation(
+      page,
+      'Collapse large file section (48 goroutines)',
+      async () => {
+        await collapseBtn.click();
+        await page.waitForTimeout(100);
+      }
+    );
 
     // Benchmark: Expand large file section
-    await benchmark.measureOperation(page, 'Expand large file section (48 goroutines)', async () => {
-      await collapseBtn.click();
-      await page.waitForTimeout(100);
-    });
+    await benchmark.measureOperation(
+      page,
+      'Expand large file section (48 goroutines)',
+      async () => {
+        await collapseBtn.click();
+        await page.waitForTimeout(100);
+      }
+    );
   });
 });

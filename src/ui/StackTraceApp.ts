@@ -13,9 +13,18 @@ import {
 } from '../app/types.js';
 import { SettingsManager, AppSettings } from '../app/SettingsManager.js';
 import { ZipHandler } from '../parser/zip.js';
+import { hierarchy, tree } from 'd3-hierarchy';
 
 export interface StackgazerAppOptions extends Partial<AppSettings> {
   initialTheme?: 'dark' | 'light';
+}
+
+interface AncestryTreeNode {
+  id: string;
+  goroutine: Goroutine;
+  category: Category | null;
+  isTarget: boolean;
+  children: AncestryTreeNode[];
 }
 
 /**
@@ -34,20 +43,54 @@ export class StackgazerApp {
   private initialTheme?: 'dark' | 'light';
   private container?: HTMLElement;
   private templates!: {
-    category: { content: { cloneNode: (deep?: boolean) => DocumentFragment; firstElementChild: HTMLElement } };
-    stack: { content: { cloneNode: (deep?: boolean) => DocumentFragment; firstElementChild: HTMLElement } };
-    fileSection: { content: { cloneNode: (deep?: boolean) => DocumentFragment; firstElementChild: HTMLElement } };
-    group: { content: { cloneNode: (deep?: boolean) => DocumentFragment; firstElementChild: HTMLElement } };
-    goroutine: { content: { cloneNode: (deep?: boolean) => DocumentFragment; firstElementChild: HTMLElement } };
-    stackTrace: { content: { cloneNode: (deep?: boolean) => DocumentFragment; firstElementChild: HTMLElement } };
-    showMore: { content: { cloneNode: (deep?: boolean) => DocumentFragment; firstElementChild: HTMLElement } };
-    fileItem: { content: { cloneNode: (deep?: boolean) => DocumentFragment; firstElementChild: HTMLElement } };
-    fileEmptyState: { content: { cloneNode: (deep?: boolean) => DocumentFragment; firstElementChild: HTMLElement } };
-    fileDropArea: { content: { cloneNode: (deep?: boolean) => DocumentFragment; firstElementChild: HTMLElement } };
-    container: { content: { cloneNode: (deep?: boolean) => DocumentFragment; firstElementChild: HTMLElement } };
-    sidebar: { content: { cloneNode: (deep?: boolean) => DocumentFragment; firstElementChild: HTMLElement } };
-    mainContent: { content: { cloneNode: (deep?: boolean) => DocumentFragment; firstElementChild: HTMLElement } };
-    settingsModal: { content: { cloneNode: (deep?: boolean) => DocumentFragment; firstElementChild: HTMLElement } };
+    category: {
+      content: { cloneNode: (deep?: boolean) => DocumentFragment; firstElementChild: HTMLElement };
+    };
+    stack: {
+      content: { cloneNode: (deep?: boolean) => DocumentFragment; firstElementChild: HTMLElement };
+    };
+    fileSection: {
+      content: { cloneNode: (deep?: boolean) => DocumentFragment; firstElementChild: HTMLElement };
+    };
+    group: {
+      content: { cloneNode: (deep?: boolean) => DocumentFragment; firstElementChild: HTMLElement };
+    };
+    goroutine: {
+      content: { cloneNode: (deep?: boolean) => DocumentFragment; firstElementChild: HTMLElement };
+    };
+    stackTrace: {
+      content: { cloneNode: (deep?: boolean) => DocumentFragment; firstElementChild: HTMLElement };
+    };
+    showMore: {
+      content: { cloneNode: (deep?: boolean) => DocumentFragment; firstElementChild: HTMLElement };
+    };
+    fileItem: {
+      content: { cloneNode: (deep?: boolean) => DocumentFragment; firstElementChild: HTMLElement };
+    };
+    fileEmptyState: {
+      content: { cloneNode: (deep?: boolean) => DocumentFragment; firstElementChild: HTMLElement };
+    };
+    fileDropArea: {
+      content: { cloneNode: (deep?: boolean) => DocumentFragment; firstElementChild: HTMLElement };
+    };
+    container: {
+      content: { cloneNode: (deep?: boolean) => DocumentFragment; firstElementChild: HTMLElement };
+    };
+    sidebar: {
+      content: { cloneNode: (deep?: boolean) => DocumentFragment; firstElementChild: HTMLElement };
+    };
+    mainContent: {
+      content: { cloneNode: (deep?: boolean) => DocumentFragment; firstElementChild: HTMLElement };
+    };
+    settingsModal: {
+      content: { cloneNode: (deep?: boolean) => DocumentFragment; firstElementChild: HTMLElement };
+    };
+    ancestryModal: {
+      content: { cloneNode: (deep?: boolean) => DocumentFragment; firstElementChild: HTMLElement };
+    };
+    ancestryEmptyState: {
+      content: { cloneNode: (deep?: boolean) => DocumentFragment; firstElementChild: HTMLElement };
+    };
   };
 
   constructor(containerId: string, defaultsModifier?: (defaults: AppSettings) => AppSettings) {
@@ -89,7 +132,7 @@ export class StackgazerApp {
 
     // Create the main app structure from templates
     this.createAppStructure();
-    
+
     // Initialize UI components and event listeners
     this.initializeUI();
     this.initializeTheme();
@@ -111,33 +154,36 @@ export class StackgazerApp {
     // Create main container structure
     const containerFragment = this.templates.container.content.cloneNode(true) as DocumentFragment;
     const containerElement = containerFragment.firstElementChild as HTMLElement;
-    
+
     // Create sidebar structure
     const sidebarFragment = this.templates.sidebar.content.cloneNode(true) as DocumentFragment;
     const sidebarElement = sidebarFragment.firstElementChild as HTMLElement;
-    
-    // Create main content structure  
-    const mainContentFragment = this.templates.mainContent.content.cloneNode(true) as DocumentFragment;
+
+    // Create main content structure
+    const mainContentFragment = this.templates.mainContent.content.cloneNode(
+      true
+    ) as DocumentFragment;
     const mainContentElement = mainContentFragment.firstElementChild as HTMLElement;
-    
+
     // Create settings modal
-    const settingsModalFragment = this.templates.settingsModal.content.cloneNode(true) as DocumentFragment;
+    const settingsModalFragment = this.templates.settingsModal.content.cloneNode(
+      true
+    ) as DocumentFragment;
     const settingsModalElement = settingsModalFragment.firstElementChild as HTMLElement;
-    
+
     // Insert sidebar and main content into container
     const sidebarContainer = containerElement.querySelector('#sidebar') as HTMLElement;
     const mainContentContainer = containerElement.querySelector('#mainContent') as HTMLElement;
-    
+
     if (sidebarContainer && mainContentContainer) {
       sidebarContainer.replaceWith(sidebarElement);
       mainContentContainer.replaceWith(mainContentElement);
     }
-    
+
     // Add everything to the main container
     this.container.appendChild(containerElement);
     this.container.appendChild(settingsModalElement);
   }
-
 
   private initializeUI(): void {
     this.clearUrlAnchor();
@@ -653,6 +699,14 @@ export class StackgazerApp {
     }
   }
 
+  private handleChainIconClick(e: Event): void {
+    e.stopPropagation();
+    const chainIcon = e.currentTarget as HTMLElement;
+    const goroutineId = chainIcon.dataset.goroutineId;
+    if (goroutineId) {
+      this.showAncestryTree(goroutineId);
+    }
+  }
 
   private toggleNarrowSidebar(): void {
     const sidebar = document.querySelector('.sidebar') as HTMLElement;
@@ -723,7 +777,7 @@ export class StackgazerApp {
         } else {
           // Handle regular file - parser handles binary detection
           console.time(`📄 File Import: ${file.name}`);
-          
+
           const result = await this.parser.parseFile(file);
 
           if (result.success) {
@@ -1778,6 +1832,21 @@ export class StackgazerApp {
     const headerLeft = goroutineElement.querySelector('.goroutine-header-left') as HTMLElement;
     headerLeft.textContent = `${goroutine.id}${waitText}:`;
 
+    // Add chain icon if goroutine has creator or children relationships
+    const hasRelationships =
+      (goroutine.creator && goroutine.creator !== goroutine.id) || goroutine.created.length > 0;
+    if (hasRelationships) {
+      const chainIcon = document.createElement('span');
+      chainIcon.className = 'chain-icon';
+      chainIcon.textContent = '🕸️';
+      chainIcon.style.marginLeft = '0.5em';
+      chainIcon.style.cursor = 'pointer';
+      chainIcon.title = 'View ancestry tree';
+      chainIcon.dataset.goroutineId = goroutine.id;
+      chainIcon.addEventListener('click', this.handleChainIconClick.bind(this));
+      headerLeft.appendChild(chainIcon);
+    }
+
     // Handle created by section
     const createdBySection = goroutineElement.querySelector('.goroutine-created-by') as HTMLElement;
 
@@ -1870,7 +1939,9 @@ export class StackgazerApp {
     if (categories.length === 0) {
       dropZone.classList.remove('has-content');
       dropZone.textContent = '';
-      const emptyTemplate = templatesFromTSX.dropZoneEmpty.content.cloneNode(true) as DocumentFragment;
+      const emptyTemplate = templatesFromTSX.dropZoneEmpty.content.cloneNode(
+        true
+      ) as DocumentFragment;
       dropZone.appendChild(emptyTemplate);
 
       // Setup demo button event listeners
@@ -2349,7 +2420,7 @@ export class StackgazerApp {
         // Handle single files (could be text or binary)
         console.time(`🌐 URL File Import: ${fileName}`);
         const arrayBuffer = await response.arrayBuffer();
-        
+
         // Create File object to use consistent parsing API
         const file = new File([arrayBuffer], fileName);
         const result = await this.parser.parseFile(file);
@@ -2691,12 +2762,12 @@ export class StackgazerApp {
     functionTrimPrefixes: {
       type: 'text' as const,
       serialize: (value: string) => value.split('\n').filter(s => s.trim() !== ''),
-      deserialize: (value: any) => Array.isArray(value) ? value.join('\n') : String(value),
+      deserialize: (value: any) => (Array.isArray(value) ? value.join('\n') : String(value)),
     },
     fileTrimPrefixes: {
       type: 'text' as const,
       serialize: (value: string) => value.split('\n').filter(s => s.trim() !== ''),
-      deserialize: (value: any) => Array.isArray(value) ? value.join('\n') : String(value),
+      deserialize: (value: any) => (Array.isArray(value) ? value.join('\n') : String(value)),
     },
     zipFilePattern: {
       type: 'text' as const,
@@ -2707,32 +2778,32 @@ export class StackgazerApp {
     categorySkipRules: {
       type: 'textarea' as const,
       serialize: (value: string) => value.split('\n').filter(s => s.trim() !== ''),
-      deserialize: (value: any) => Array.isArray(value) ? value.join('\n') : String(value),
+      deserialize: (value: any) => (Array.isArray(value) ? value.join('\n') : String(value)),
     },
     categoryMatchRules: {
       type: 'textarea' as const,
       serialize: (value: string) => value.split('\n').filter(s => s.trim() !== ''),
-      deserialize: (value: any) => Array.isArray(value) ? value.join('\n') : String(value),
+      deserialize: (value: any) => (Array.isArray(value) ? value.join('\n') : String(value)),
     },
     nameSkipRules: {
       type: 'textarea' as const,
       serialize: (value: string) => value.split('\n').filter(s => s.trim() !== ''),
-      deserialize: (value: any) => Array.isArray(value) ? value.join('\n') : String(value),
+      deserialize: (value: any) => (Array.isArray(value) ? value.join('\n') : String(value)),
     },
     nameTrimRules: {
       type: 'textarea' as const,
       serialize: (value: string) => value.split('\n').filter(s => s.trim() !== ''),
-      deserialize: (value: any) => Array.isArray(value) ? value.join('\n') : String(value),
+      deserialize: (value: any) => (Array.isArray(value) ? value.join('\n') : String(value)),
     },
     nameFoldRules: {
       type: 'textarea' as const,
       serialize: (value: string) => value.split('\n').filter(s => s.trim() !== ''),
-      deserialize: (value: any) => Array.isArray(value) ? value.join('\n') : String(value),
+      deserialize: (value: any) => (Array.isArray(value) ? value.join('\n') : String(value)),
     },
     nameFindRules: {
       type: 'textarea' as const,
       serialize: (value: string) => value.split('\n').filter(s => s.trim() !== ''),
-      deserialize: (value: any) => Array.isArray(value) ? value.join('\n') : String(value),
+      deserialize: (value: any) => (Array.isArray(value) ? value.join('\n') : String(value)),
     },
     // New custom/default rule fields
     useDefaultCategorySkipRules: {
@@ -2743,7 +2814,7 @@ export class StackgazerApp {
     customCategorySkipRules: {
       type: 'textarea' as const,
       serialize: (value: string) => value.split('\n').filter(s => s.trim() !== ''),
-      deserialize: (value: any) => Array.isArray(value) ? value.join('\n') : String(value),
+      deserialize: (value: any) => (Array.isArray(value) ? value.join('\n') : String(value)),
     },
     useDefaultCategoryMatchRules: {
       type: 'checkbox' as const,
@@ -2753,7 +2824,7 @@ export class StackgazerApp {
     customCategoryMatchRules: {
       type: 'textarea' as const,
       serialize: (value: string) => value.split('\n').filter(s => s.trim() !== ''),
-      deserialize: (value: any) => Array.isArray(value) ? value.join('\n') : String(value),
+      deserialize: (value: any) => (Array.isArray(value) ? value.join('\n') : String(value)),
     },
     useDefaultNameSkipRules: {
       type: 'checkbox' as const,
@@ -2763,7 +2834,7 @@ export class StackgazerApp {
     customNameSkipRules: {
       type: 'textarea' as const,
       serialize: (value: string) => value.split('\n').filter(s => s.trim() !== ''),
-      deserialize: (value: any) => Array.isArray(value) ? value.join('\n') : String(value),
+      deserialize: (value: any) => (Array.isArray(value) ? value.join('\n') : String(value)),
     },
     useDefaultNameTrimRules: {
       type: 'checkbox' as const,
@@ -2773,7 +2844,7 @@ export class StackgazerApp {
     customNameTrimRules: {
       type: 'textarea' as const,
       serialize: (value: string) => value.split('\n').filter(s => s.trim() !== ''),
-      deserialize: (value: any) => Array.isArray(value) ? value.join('\n') : String(value),
+      deserialize: (value: any) => (Array.isArray(value) ? value.join('\n') : String(value)),
     },
     useDefaultNameFoldRules: {
       type: 'checkbox' as const,
@@ -2783,7 +2854,7 @@ export class StackgazerApp {
     customNameFoldRules: {
       type: 'textarea' as const,
       serialize: (value: string) => value.split('\n').filter(s => s.trim() !== ''),
-      deserialize: (value: any) => Array.isArray(value) ? value.join('\n') : String(value),
+      deserialize: (value: any) => (Array.isArray(value) ? value.join('\n') : String(value)),
     },
     useDefaultNameFindRules: {
       type: 'checkbox' as const,
@@ -2793,7 +2864,7 @@ export class StackgazerApp {
     customNameFindRules: {
       type: 'textarea' as const,
       serialize: (value: string) => value.split('\n').filter(s => s.trim() !== ''),
-      deserialize: (value: any) => Array.isArray(value) ? value.join('\n') : String(value),
+      deserialize: (value: any) => (Array.isArray(value) ? value.join('\n') : String(value)),
     },
   } as const;
 
@@ -2933,7 +3004,6 @@ export class StackgazerApp {
     link.addEventListener('mousemove', this.handleTooltipMouseMove.bind(this));
   }
 
-
   /**
    * Get rules from the rule editor
    */
@@ -3009,7 +3079,9 @@ export class StackgazerApp {
       'defaultCategorySkipRules'
     ) as HTMLTextAreaElement;
     if (defaultCategorySkipRules) {
-      defaultCategorySkipRules.value = this.settingsManager.getDefaultCategorySkipRulesArray().join('\n');
+      defaultCategorySkipRules.value = this.settingsManager
+        .getDefaultCategorySkipRulesArray()
+        .join('\n');
     }
 
     // Category match rules
@@ -3017,7 +3089,9 @@ export class StackgazerApp {
       'defaultCategoryMatchRules'
     ) as HTMLTextAreaElement;
     if (defaultCategoryMatchRules) {
-      defaultCategoryMatchRules.value = this.settingsManager.getDefaultCategoryMatchRulesArray().join('\n');
+      defaultCategoryMatchRules.value = this.settingsManager
+        .getDefaultCategoryMatchRulesArray()
+        .join('\n');
     }
 
     // Name skip rules
@@ -3451,5 +3525,667 @@ export class StackgazerApp {
         titleElement.textContent = `${baseTitle} (${ruleCount})`;
       }
     });
+  }
+
+  /**
+   * Show ancestry tree modal for a goroutine
+   */
+  private showAncestryTree(goroutineId: string): void {
+    const targetGoroutine = this.profileCollection.getGoroutineByID(goroutineId);
+    if (!targetGoroutine) {
+      console.warn(`Goroutine ${goroutineId} not found`);
+      return;
+    }
+
+    // Build the ancestry tree data structure
+    const treeData = this.buildAncestryTree(goroutineId);
+
+    // Create and show the modal
+    this.createAncestryModal(treeData, targetGoroutine);
+  }
+
+  /**
+   * Build the ancestry tree data structure for D3
+   */
+  private buildAncestryTree(targetGoroutineId: string): AncestryTreeNode | null {
+    const buildNode = (goroutineId: string): AncestryTreeNode | null => {
+      const goroutine = this.profileCollection.getGoroutineByID(goroutineId);
+      if (!goroutine) return null;
+
+      const category = this.profileCollection.getCategoryForGoroutine(goroutineId) || null;
+      const isTarget = goroutineId === targetGoroutineId;
+
+      const node: AncestryTreeNode = {
+        id: goroutineId,
+        goroutine,
+        category,
+        isTarget,
+        children: [],
+      };
+
+      // Just show all children - let D3 handle the layout
+      for (const childId of goroutine.created) {
+        const childNode = buildNode(childId);
+        if (childNode) {
+          node.children.push(childNode);
+        }
+      }
+      return node;
+    };
+
+    let rootId = targetGoroutineId;
+    while (true) {
+      let g = this.profileCollection.getGoroutineByID(rootId);
+      if (!g?.creatorExists) break;
+      rootId = g.creator;
+    }
+
+    return buildNode(rootId);
+  }
+
+  /**
+   * Create and display the ancestry modal with D3 tree
+   */
+  private createAncestryModal(treeData: AncestryTreeNode | null, targetGoroutine: Goroutine): void {
+    // Remove any existing ancestry modal
+    const existingModal = document.getElementById('ancestryModal');
+    if (existingModal) {
+      existingModal.remove();
+    }
+
+    // Create modal from template
+    const modalFragment = this.templates.ancestryModal.content.cloneNode(true) as DocumentFragment;
+    const modal = modalFragment.firstElementChild as HTMLElement;
+
+    // Setup close button
+    const closeButton = modal.querySelector('.ancestry-modal-close') as HTMLButtonElement;
+    closeButton.addEventListener('click', () => modal.remove());
+
+    // Get the SVG container
+    const svgContainer = modal.querySelector('.ancestry-tree-container') as HTMLElement;
+
+    // Close modal on background click or escape key
+    modal.addEventListener('click', e => {
+      if (e.target === modal) {
+        modal.remove();
+      }
+    });
+
+    // Close modal on escape key
+    const closeOnEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        modal.remove();
+      }
+    };
+    document.addEventListener('keydown', closeOnEscape);
+
+    document.body.appendChild(modal);
+
+    // Render the tree
+    this.renderAncestryTree(svgContainer, treeData, targetGoroutine);
+  }
+
+  /**
+   * Render the D3 tree visualization with zoom and pan capabilities
+   */
+  private renderAncestryTree(
+    container: HTMLElement,
+    treeData: AncestryTreeNode | null,
+    targetGoroutine: Goroutine
+  ): void {
+    if (!treeData) {
+      const emptyStateFragment = this.templates.ancestryEmptyState.content.cloneNode(
+        true
+      ) as DocumentFragment;
+      container.appendChild(emptyStateFragment);
+      return;
+    }
+
+    // Clear container but preserve zoom controls
+    const zoomControls = container.querySelector('.ancestry-zoom-controls');
+    container.innerHTML = '';
+    if (zoomControls) {
+      container.appendChild(zoomControls);
+    }
+
+    // Get container dimensions
+    const containerRect = container.getBoundingClientRect();
+    const containerWidth = containerRect.width;
+    const containerHeight = containerRect.height;
+
+    // Use D3 hierarchy and tree layout
+    const root = hierarchy<AncestryTreeNode>(treeData);
+
+    // Set up tree layout with extra spacing for much wider nodes
+    const nodeWidth = 720; // Increased to accommodate 640px wide nodes + margin
+    const nodeHeight = 120;
+    const treeLayout = tree<AncestryTreeNode>()
+      .nodeSize([nodeHeight, nodeWidth])
+      .separation((a, b) => (a.parent === b.parent ? 1.2 : 2.5));
+
+    treeLayout(root);
+
+    // Calculate tree bounds
+    let minX = Infinity,
+      maxX = -Infinity,
+      minY = Infinity,
+      maxY = -Infinity;
+    root.descendants().forEach(d => {
+      if (d.x !== undefined && d.y !== undefined) {
+        minX = Math.min(minX, d.x);
+        maxX = Math.max(maxX, d.x);
+        minY = Math.min(minY, d.y);
+        maxY = Math.max(maxY, d.y);
+      }
+    });
+
+    // Tree dimensions
+    const treeWidth = maxY - minY;
+    const treeHeight = maxX - minX;
+
+    // Create SVG that fills the container
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('width', '100%');
+    svg.setAttribute('height', '100%');
+    svg.setAttribute('class', 'ancestry-tree-svg');
+
+    // Create zoom/pan transform group
+    const zoomGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    zoomGroup.id = 'zoomGroup';
+
+    // Create content group positioned relative to tree bounds
+    const contentGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    contentGroup.setAttribute('transform', `translate(${-minY}, ${-minX})`);
+
+    // Create links (edges)
+    const links = root.links();
+    links.forEach(link => {
+      const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      line.setAttribute('x1', (link.source.y ?? 0).toString());
+      line.setAttribute('y1', (link.source.x ?? 0).toString());
+      line.setAttribute('x2', (link.target.y ?? 0).toString());
+      line.setAttribute('y2', (link.target.x ?? 0).toString());
+      line.setAttribute('stroke', 'var(--border-color, #666)');
+      line.setAttribute('stroke-width', '2');
+      line.setAttribute('stroke-opacity', '0.6');
+      contentGroup.appendChild(line);
+    });
+
+    // Create nodes
+    root.descendants().forEach(node => {
+      const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      g.setAttribute('transform', `translate(${node.y ?? 0}, ${node.x ?? 0})`);
+
+      const isTarget = node.data.isTarget;
+
+      // Node background rect - wider to accommodate longer text
+      const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      rect.setAttribute('x', '-320');
+      rect.setAttribute('y', '-35');
+      rect.setAttribute('width', '640');
+      rect.setAttribute('height', '70');
+      rect.setAttribute('rx', '8');
+      rect.setAttribute(
+        'fill',
+        isTarget ? 'var(--accent-primary, #007acc)' : 'var(--bg-tertiary, #444)'
+      );
+      rect.setAttribute('stroke', isTarget ? '#fff' : 'var(--border-color, #666)');
+      rect.setAttribute('stroke-width', isTarget ? '3' : '2');
+
+      // Add pulsing animation for target
+      if (isTarget) {
+        const animate = document.createElementNS('http://www.w3.org/2000/svg', 'animateTransform');
+        animate.setAttribute('attributeName', 'transform');
+        animate.setAttribute('type', 'scale');
+        animate.setAttribute('values', '1;1.05;1');
+        animate.setAttribute('dur', '2s');
+        animate.setAttribute('repeatCount', 'indefinite');
+        rect.appendChild(animate);
+      }
+
+      g.appendChild(rect);
+
+      // Node labels
+      const category = node.data.category?.name || '';
+      const stackTitle = node.data.goroutine.stack?.name || '';
+      const waitText =
+        node.data.goroutine.waitMinutes > 0 ? ` (${node.data.goroutine.waitMinutes}m)` : '';
+      const stateText = `[${node.data.goroutine.state}]`;
+
+      // First line: ID + state + wait time
+      const firstLineText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      firstLineText.setAttribute('text-anchor', 'middle');
+      firstLineText.setAttribute('dy', '-8');
+      firstLineText.setAttribute('fill', isTarget ? '#000' : 'var(--text-primary, #fff)');
+      firstLineText.setAttribute('font-size', isTarget ? '15' : '13');
+      firstLineText.setAttribute('font-weight', isTarget ? 'bold' : 'normal');
+
+      // Create clickable ID part and non-clickable state/wait part
+      const idPart = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
+      idPart.textContent = node.data.goroutine.id;
+      idPart.setAttribute('class', 'ancestry-node-id');
+
+      const statePart = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
+      statePart.textContent = ` ${stateText}${waitText}`;
+
+      firstLineText.appendChild(idPart);
+      firstLineText.appendChild(statePart);
+      g.appendChild(firstLineText);
+
+      // Second line: Category → Title with line wrapping
+      if (category || stackTitle) {
+        const label =
+          category && stackTitle ? `${category} → ${stackTitle}` : category || stackTitle;
+
+        // Create foreignObject for HTML text wrapping
+        const foreign = document.createElementNS('http://www.w3.org/2000/svg', 'foreignObject');
+        foreign.setAttribute('x', '-310');
+        foreign.setAttribute('y', '0');
+        foreign.setAttribute('width', '620');
+        foreign.setAttribute('height', '30');
+
+        const div = document.createElement('div');
+        div.className = `ancestry-node-label ${isTarget ? 'target' : 'normal'}`;
+        div.textContent = label;
+
+        foreign.appendChild(div);
+        g.appendChild(foreign);
+      }
+
+      // Event handlers
+      g.setAttribute('class', 'ancestry-node');
+
+      // ID click handler - navigate and close modal
+      idPart.addEventListener('click', e => {
+        e.stopPropagation(); // Prevent node click
+        document.getElementById('ancestryModal')?.remove();
+        this.navigateToGoroutine(node.data.goroutine.id, targetGoroutine.id);
+      });
+
+      // Node click handler - center this node
+      g.addEventListener('click', e => {
+        e.stopPropagation(); // Prevent triggering pan
+        this.centerAncestryTreeOnNode(node.data.goroutine.id);
+      });
+
+      g.addEventListener('mouseenter', e => {
+        // Add subtle hover effect
+        if (!isTarget) {
+          rect.setAttribute('fill', 'var(--bg-secondary, #555)');
+        }
+        this.showGoroutinePreviewTooltip(node.data.goroutine.id, e as MouseEvent);
+      });
+      g.addEventListener('mouseleave', () => {
+        // Remove hover effect
+        if (!isTarget) {
+          rect.setAttribute('fill', 'var(--bg-tertiary, #444)');
+        }
+        this.hideTooltip();
+      });
+      g.addEventListener('mousemove', e => {
+        this.handleTooltipMouseMove(e as MouseEvent);
+      });
+
+      contentGroup.appendChild(g);
+    });
+
+    zoomGroup.appendChild(contentGroup);
+    svg.appendChild(zoomGroup);
+    container.appendChild(svg);
+
+    // Find and center on target node first
+    this.centerOnTargetNode(
+      zoomGroup,
+      root,
+      targetGoroutine.id,
+      containerWidth,
+      containerHeight,
+      minX,
+      minY
+    );
+
+    // Add zoom and pan controls after centering (so they start with correct scale)
+    this.addZoomPanControls(
+      container,
+      svg,
+      zoomGroup,
+      treeWidth,
+      treeHeight,
+      containerWidth,
+      containerHeight
+    );
+
+    // Setup zoom control buttons from template
+    this.setupAncestryZoomControls(
+      container,
+      zoomGroup,
+      containerWidth,
+      containerHeight,
+      targetGoroutine.id
+    );
+  }
+
+  /**
+   * Add zoom and pan controls to the ancestry tree
+   */
+  private addZoomPanControls(
+    _container: HTMLElement,
+    svg: SVGElement,
+    zoomGroup: SVGGElement,
+    _treeWidth: number,
+    _treeHeight: number,
+    containerWidth: number,
+    containerHeight: number
+  ): void {
+    // Initialize with current transform values (from centering)
+    const currentTransform = (zoomGroup as any).__currentTransform;
+    let currentScale = currentTransform?.scale ?? 1;
+    let currentTranslateX = currentTransform?.translateX ?? 0;
+    let currentTranslateY = currentTransform?.translateY ?? 0;
+
+    let isDragging = false;
+    let lastMouseX = 0;
+    let lastMouseY = 0;
+
+    // Apply transform to zoom group
+    const updateTransform = () => {
+      const storedTransform = (zoomGroup as any).__currentTransform;
+      if (storedTransform) {
+        currentScale = storedTransform.scale;
+        currentTranslateX = storedTransform.translateX;
+        currentTranslateY = storedTransform.translateY;
+      }
+      zoomGroup.setAttribute(
+        'transform',
+        `translate(${currentTranslateX}, ${currentTranslateY}) scale(${currentScale})`
+      );
+    };
+
+    // Mouse wheel zoom - zoom toward viewport center to keep target visible
+    svg.addEventListener('wheel', e => {
+      e.preventDefault();
+
+      // Much slower zoom factor
+      const zoomFactor = e.deltaY > 0 ? 0.97 : 1.03;
+      const newScale = Math.max(0.1, Math.min(3, currentScale * zoomFactor));
+
+      if (newScale !== currentScale) {
+        // Use center of viewport as zoom point to keep target visible
+        const centerX = containerWidth / 2;
+        const centerY = containerHeight / 2;
+
+        // Convert center to world coordinates at current scale
+        const worldX = (centerX - currentTranslateX) / currentScale;
+        const worldY = (centerY - currentTranslateY) / currentScale;
+
+        // Update scale
+        currentScale = newScale;
+
+        // Adjust translation so the same world point stays at viewport center
+        currentTranslateX = centerX - worldX * currentScale;
+        currentTranslateY = centerY - worldY * currentScale;
+
+        // Update stored transform
+        const storedTransform = (zoomGroup as any).__currentTransform;
+        if (storedTransform) {
+          storedTransform.scale = currentScale;
+          storedTransform.translateX = currentTranslateX;
+          storedTransform.translateY = currentTranslateY;
+        }
+
+        updateTransform();
+      }
+    });
+
+    // Mouse drag pan
+    svg.addEventListener('mousedown', e => {
+      if (e.target === svg || (e.target as Element).closest('#zoomGroup') === zoomGroup) {
+        isDragging = true;
+        lastMouseX = e.clientX;
+        lastMouseY = e.clientY;
+        svg.classList.add('grabbing');
+      }
+    });
+
+    document.addEventListener('mousemove', e => {
+      if (isDragging) {
+        e.preventDefault();
+        // Prevent text selection during drag
+        document.getSelection()?.removeAllRanges();
+
+        const deltaX = e.clientX - lastMouseX;
+        const deltaY = e.clientY - lastMouseY;
+        currentTranslateX += deltaX;
+        currentTranslateY += deltaY;
+        lastMouseX = e.clientX;
+        lastMouseY = e.clientY;
+
+        // Update stored transform
+        const storedTransform = (zoomGroup as any).__currentTransform;
+        if (storedTransform) {
+          storedTransform.translateX = currentTranslateX;
+          storedTransform.translateY = currentTranslateY;
+        }
+
+        updateTransform();
+      }
+    });
+
+    document.addEventListener('mouseup', () => {
+      if (isDragging) {
+        isDragging = false;
+        svg.classList.remove('grabbing');
+      }
+    });
+
+    // Store current transform for external access and update stored values
+    (zoomGroup as any).__currentTransform = {
+      scale: currentScale,
+      translateX: currentTranslateX,
+      translateY: currentTranslateY,
+    };
+    (zoomGroup as any).__updateTransform = updateTransform;
+
+    // Update the stored values to match what was set during centering
+    const storedTransform = (zoomGroup as any).__currentTransform;
+    if (storedTransform) {
+      currentScale = storedTransform.scale;
+      currentTranslateX = storedTransform.translateX;
+      currentTranslateY = storedTransform.translateY;
+    }
+  }
+
+  /**
+   * Setup zoom control buttons from template
+   */
+  private setupAncestryZoomControls(
+    container: HTMLElement,
+    zoomGroup: SVGGElement,
+    containerWidth: number,
+    containerHeight: number,
+    targetGoroutineId: string
+  ): void {
+    const modal = container.closest('.ancestry-modal') as HTMLElement;
+    if (!modal) return;
+
+    const zoomInBtn = modal.querySelector('.ancestry-zoom-in') as HTMLButtonElement;
+    const zoomOutBtn = modal.querySelector('.ancestry-zoom-out') as HTMLButtonElement;
+    const fitBtn = modal.querySelector('.ancestry-fit-view') as HTMLButtonElement;
+
+    const currentTransform = (zoomGroup as any).__currentTransform;
+    const updateTransform = (zoomGroup as any).__updateTransform;
+
+    if (zoomInBtn && currentTransform && updateTransform) {
+      zoomInBtn.addEventListener('click', () => {
+        const newScale = Math.min(3, currentTransform.scale * 1.2);
+        if (newScale !== currentTransform.scale) {
+          const centerX = containerWidth / 2;
+          const centerY = containerHeight / 2;
+
+          const worldX = (centerX - currentTransform.translateX) / currentTransform.scale;
+          const worldY = (centerY - currentTransform.translateY) / currentTransform.scale;
+
+          currentTransform.scale = newScale;
+          currentTransform.translateX = centerX - worldX * currentTransform.scale;
+          currentTransform.translateY = centerY - worldY * currentTransform.scale;
+
+          updateTransform();
+        }
+      });
+    }
+
+    if (zoomOutBtn && currentTransform && updateTransform) {
+      zoomOutBtn.addEventListener('click', () => {
+        const newScale = Math.max(0.1, currentTransform.scale * 0.8);
+        if (newScale !== currentTransform.scale) {
+          const centerX = containerWidth / 2;
+          const centerY = containerHeight / 2;
+
+          const worldX = (centerX - currentTransform.translateX) / currentTransform.scale;
+          const worldY = (centerY - currentTransform.translateY) / currentTransform.scale;
+
+          currentTransform.scale = newScale;
+          currentTransform.translateX = centerX - worldX * currentTransform.scale;
+          currentTransform.translateY = centerY - worldY * currentTransform.scale;
+
+          updateTransform();
+        }
+      });
+    }
+
+    if (fitBtn) {
+      fitBtn.addEventListener('click', () => {
+        // Center on target node at 80% zoom
+        this.centerAncestryTreeOnNode(targetGoroutineId, 0.8);
+      });
+    }
+  }
+
+  /**
+   * Center the view on the target node with zoom
+   */
+  private centerOnTargetNode(
+    zoomGroup: SVGGElement,
+    root: any,
+    targetId: string,
+    containerWidth: number,
+    containerHeight: number,
+    minX: number,
+    minY: number
+  ): void {
+    const targetNode = root.descendants().find((d: any) => d.data.goroutine.id === targetId);
+    if (!targetNode) return;
+
+    // Calculate target position in tree coordinates
+    const targetX = (targetNode.y ?? 0) - minY;
+    const targetY = (targetNode.x ?? 0) - minX;
+
+    // Start with a zoomed-in view focused on the target (1.5x zoom)
+    const scale = 1.5;
+
+    // Calculate translation to center target node at the zoomed scale
+    const translateX = containerWidth / 2 - targetX * scale;
+    const translateY = containerHeight / 2 - targetY * scale;
+
+    // Apply the transform
+    zoomGroup.setAttribute('transform', `translate(${translateX}, ${translateY}) scale(${scale})`);
+
+    // Store transform for zoom controls
+    (zoomGroup as any).__currentTransform = { scale, translateX, translateY };
+  }
+
+  /**
+   * Center the ancestry tree on a specific node
+   */
+  private centerAncestryTreeOnNode(goroutineId: string, forceScale?: number): void {
+    const modal = document.getElementById('ancestryModal');
+    if (!modal) return;
+
+    const zoomGroup = modal.querySelector('#zoomGroup') as SVGGElement;
+    if (!zoomGroup) return;
+
+    // Find the node element by searching for the goroutine ID in tspan elements
+    const nodeTexts = modal.querySelectorAll('tspan');
+    let targetNodeGroup: SVGGElement | null = null;
+
+    for (let i = 0; i < nodeTexts.length; i++) {
+      const tspan = nodeTexts[i];
+      if (tspan.textContent === goroutineId) {
+        // Walk up to find the parent g element that has a transform
+        let parent = tspan.parentElement;
+        while (parent && parent.tagName !== 'g') {
+          parent = parent.parentElement;
+        }
+        // Make sure this g element has a transform (it's a node, not the content group)
+        if (parent && parent.tagName === 'g' && parent.getAttribute('transform')) {
+          targetNodeGroup = parent as unknown as SVGGElement;
+          break;
+        }
+      }
+    }
+
+    if (!targetNodeGroup) return;
+
+    // Get the transform attribute to find the node position
+    const transform = targetNodeGroup.getAttribute('transform');
+    if (!transform) return;
+
+    const match = transform.match(/translate\(([^,]+),\s*([^)]+)\)/);
+    if (!match) return;
+
+    const nodeX = parseFloat(match[1]);
+    const nodeY = parseFloat(match[2]);
+
+    // Get container size
+    const container = modal.querySelector('.ancestry-tree-container') as HTMLElement;
+    if (!container) return;
+
+    const containerRect = container.getBoundingClientRect();
+    const containerWidth = containerRect.width;
+    const containerHeight = containerRect.height;
+
+    // Get current zoom controls to access the updateTransform function
+    const currentTransform = (zoomGroup as any).__currentTransform;
+    const updateTransform = (zoomGroup as any).__updateTransform;
+
+    if (currentTransform && updateTransform) {
+      // Get the content group transform to account for the coordinate offset
+      const contentGroup = zoomGroup.querySelector('g');
+      const contentTransform = contentGroup?.getAttribute('transform') || '';
+      const contentMatch = contentTransform.match(/translate\(([^,]+),\s*([^)]+)\)/);
+      const contentOffsetX = contentMatch ? parseFloat(contentMatch[1]) : 0;
+      const contentOffsetY = contentMatch ? parseFloat(contentMatch[2]) : 0;
+
+      // Calculate the actual world position of the node
+      const worldX = nodeX + contentOffsetX;
+      const worldY = nodeY + contentOffsetY;
+
+      // Use forceScale if provided, otherwise conditional zoom logic
+      if (forceScale !== undefined) {
+        // Force specific zoom level
+        currentTransform.scale = forceScale;
+        currentTransform.translateX = containerWidth / 2 - worldX * forceScale;
+        currentTransform.translateY = containerHeight / 2 - worldY * forceScale;
+      } else if (currentTransform.scale < 0.8) {
+        // Zoom to 80% and center on the node
+        const targetScale = 0.8;
+        currentTransform.scale = targetScale;
+        currentTransform.translateX = containerWidth / 2 - worldX * targetScale;
+        currentTransform.translateY = containerHeight / 2 - worldY * targetScale;
+      } else {
+        // Just center the node at current scale
+        currentTransform.translateX = containerWidth / 2 - worldX * currentTransform.scale;
+        currentTransform.translateY = containerHeight / 2 - worldY * currentTransform.scale;
+      }
+
+      // Add a smooth transition for visual feedback
+      zoomGroup.style.transition = 'transform 0.3s ease-out';
+      updateTransform();
+
+      // Remove transition after animation
+      setTimeout(() => {
+        zoomGroup.style.transition = '';
+      }, 300);
+    }
   }
 }

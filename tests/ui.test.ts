@@ -45,10 +45,12 @@ async function setup() {
     if (!fs.existsSync(STANDALONE_HTML_PATH)) {
       throw new Error(`HTML file does not exist: ${STANDALONE_HTML_PATH}`);
     }
-    
+
     await page.goto(STANDALONE_HTML_URL, { timeout: QUICK_TIMEOUT });
   } catch (error) {
-    throw new Error(`Failed to load ${STANDALONE_HTML_URL}: ${error instanceof Error ? error.message : String(error)}`);
+    throw new Error(
+      `Failed to load ${STANDALONE_HTML_URL}: ${error instanceof Error ? error.message : String(error)}`
+    );
   }
   await page.waitForSelector('.drop-zone', { timeout: QUICK_TIMEOUT });
 }
@@ -767,18 +769,20 @@ async function runTests() {
     await page.waitForSelector('#settingsModal', { timeout: QUICK_TIMEOUT });
 
     // Modify functionTrimPrefixes setting
-    const functionTrimInput = await page.waitForSelector('#functionTrimPrefixes', { timeout: QUICK_TIMEOUT });
+    const functionTrimInput = await page.waitForSelector('#functionTrimPrefixes', {
+      timeout: QUICK_TIMEOUT,
+    });
     if (!functionTrimInput) throw new Error('functionTrimPrefixes input not found');
-    
+
     // Clear and set new value
     await page.fill('#functionTrimPrefixes', 'github.com/test/\ncom.example.');
-    
+
     // Save settings
     const saveBtn = await page.waitForSelector('#saveSettingsBtn', { timeout: QUICK_TIMEOUT });
     if (!saveBtn) throw new Error('Save button not found');
-    
+
     await page.click('#saveSettingsBtn');
-    
+
     // Wait for modal to close (indicating successful save)
     await page.waitForTimeout(100);
     const modalHidden = !(await page.isVisible('#settingsModal'));
@@ -789,15 +793,17 @@ async function runTests() {
     // Reopen modal to verify settings were persisted
     await page.click('#settingsBtn');
     await page.waitForSelector('#settingsModal', { timeout: QUICK_TIMEOUT });
-    
+
     const persistedValue = await page.inputValue('#functionTrimPrefixes');
     // HTML textareas convert newlines to spaces when displayed
     const expectedValues = ['github.com/test/\ncom.example.', 'github.com/test/ com.example.'];
-    
+
     if (!expectedValues.includes(persistedValue)) {
-      throw new Error(`Settings not persisted. Expected: one of ${JSON.stringify(expectedValues)}, Got: '${persistedValue}'`);
+      throw new Error(
+        `Settings not persisted. Expected: one of ${JSON.stringify(expectedValues)}, Got: '${persistedValue}'`
+      );
     }
-    
+
     console.log('  ✅ Settings persistence verified');
 
     // Close modal

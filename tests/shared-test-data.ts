@@ -159,7 +159,7 @@ export async function test(name: string, fn: () => void | Promise<void>): Promis
 function createTestSettings() {
   const settingsManager = new SettingsManager(undefined, true);
   const appSettings = settingsManager.getSettings();
-  
+
   // Convert using the same logic as StackTraceApp
   return {
     functionPrefixesToTrim: settingsManager.getFunctionTrimPrefixes(),

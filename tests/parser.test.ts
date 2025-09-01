@@ -107,7 +107,9 @@ await test('ExtractedName assignment', async () => {
     'test.txt'
   );
   if (!format2Result.success || format2Result.data.extractedName !== 'myfile') {
-    throw new Error(`Format2 extractedName failed: got '${format2Result.success ? format2Result.data.extractedName : 'parse failed'}'`);
+    throw new Error(
+      `Format2 extractedName failed: got '${format2Result.success ? format2Result.data.extractedName : 'parse failed'}'`
+    );
   }
 
   // Test extractedName assignment in parseFormat1 (lines 304-305)
