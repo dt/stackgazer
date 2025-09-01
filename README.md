@@ -1,18 +1,22 @@
-# StackGazer
+# Stackgazer
 
 An interactive tool for analyzing Go stack trace dumps (goroutine profiles).
 
-It is designed to make browsing profiles containing larger numbers of goroutines easier, particularly when analyzing a collection of many profiles captured from separate but related processes in a distributed system or service like CockroachDB.
+Stackgazer designed to make browsing and searching profiles containing larger numbers of goroutines easier, particularly when analyzing a collection of many profiles captured from separate but related processes in a distributed system or service e.g. CockroachDB.
 
-[**Live Demo**](https://davidt.io/stackgazer)
+[**⚡ Live Demo**](https://davidt.io/stackgazer)
+
+![StackGazer Screenshot](examples/screenshot.png)
 
 ## Features
 
 - **Responsive, Quick Filtering**: Rapidly filter stacks by keywords or attributes.
 - **Customizable Categorization**: Hierarchical organization of related and identical stacks for faster browsing, using configurable rules to determine groups and useful and informative names.
-- **Interactive Navigation**: Navigate between creator/created goroutines with clickable links with previews.
-- **Multi-process/multi-file Analysis**: Combines and groups stack traces captured from multiple processes/nodes in a distributed system. Files can be added individually or en-masse via zip file.
+- **Interactive Navigation**: Navigate between creator/created goroutines with clickable links with previews, or browse in a zoomable tree.
+- **Multi-process/multi-file Analysis**: Combines and groups stack traces captured from multiple processes/nodes in a distributed system. Files can be added individually or en-masse via zip file. 
+  - Customizable rules can name files based on labels or extracting arguments from debug=2 stack frames (e.g. if you expect a stack to have a server.start() frame which includes a serverID as an argument, you can use a pattern to extract that ID to use as the file name).
 - **Multiple Display Modes**: Different viewing options for stack traces and goroutines.
+- **Support Multiple Formats**: supports all three goroutine profile formats: debug=2 (aka backtace), debug=1 (text with labels), and debug=0 (compressed pprof proto).
 - **Local analysis**: Everything is processed locally in the browser; nothing is uploaded.
 - **Customizable Settings**: Behavior can be customized through locally stored settings with configurable defaults
 
