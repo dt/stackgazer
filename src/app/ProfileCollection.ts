@@ -538,6 +538,14 @@ export class ProfileCollection {
         }),
       };
 
+      // Handle groups without individual goroutines (format0/format1)
+      // Initialize state counts using synthesized state from group labels
+      if (g.goroutines.length === 0 && g.counts.total > 0) {
+        const stateToCount = this.extractStateFromGroupLabels(g);
+        g.counts.states.set(stateToCount, g.counts.total);
+        g.counts.matchingStates.set(stateToCount, g.counts.total);
+      }
+
       // Update goroutine IDs and store them
       for (const goroutine of g.goroutines) {
         if (nameInIds) {
@@ -570,13 +578,14 @@ export class ProfileCollection {
           g.counts.maxMatchingWait = goroutine.waitMinutes;
         }
 
-        // Update state counts
+        // Update state counts using individual goroutine state (for format2)
         const currentTotalCount = g.counts.states.get(goroutine.state) || 0;
         g.counts.states.set(goroutine.state, currentTotalCount + 1);
 
         const currentMatchingCount = g.counts.matchingStates.get(goroutine.state) || 0;
         g.counts.matchingStates.set(goroutine.state, currentMatchingCount + 1);
       }
+
 
       let fileSection = stack.files.find(file => file.fileId === fileId);
       if (!fileSection) {
@@ -1068,7 +1077,7 @@ export class ProfileCollection {
             fileSection.counts.matchingStates.clear();
 
             for (const group of fileSection.groups) {
-              const groupMatches = group.labels.some(label => label.includes(filter));
+              const groupMatches = group.labels.some(label => label.toLowerCase().includes(filter));
               if (groupMatches) {
                 // Group matches text, but still need to check wait/state constraints
                 if (
@@ -1691,6 +1700,21 @@ export class ProfileCollection {
     }
 
     return stats;
+  }
+
+  /**
+   * Extract state from group labels. Returns the first state label found,
+   * or 'other' if no state label is found.
+   */
+  private extractStateFromGroupLabels(group: Group): string {
+    // Find the first state label
+    for (const label of group.labels) {
+      if (label.startsWith('state=')) {
+        return label.substring(6); // Remove "state=" prefix
+      }
+    }
+
+    return 'unspecified';
   }
 
   /**
