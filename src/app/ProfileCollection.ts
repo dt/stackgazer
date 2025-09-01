@@ -196,11 +196,11 @@ class StackNamer {
               }
             }
           } else if (rule.trim.startsWith('s|')) {
-            const match = rule.trim.match(/^s\|(.*)\|([^|]*)\|$/);
+            const match = rule.trim.match(/^s\|(.*)\|([^|]*)\|([gimuy]*)$/);
             if (match) {
               try {
-                const [, pattern, replacement] = match;
-                const regex = new RegExp(pattern);
+                const [, pattern, replacement, flags] = match;
+                const regex = new RegExp(pattern, flags || '');
                 trimmedName = trimmedName.replace(regex, replacement);
               } catch (e) {
                 // Invalid regex, ignore this rule
