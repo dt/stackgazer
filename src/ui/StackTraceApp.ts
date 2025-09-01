@@ -1992,6 +1992,8 @@ export class StackgazerApp {
   }
 
   private formatWaitTime(minWait: number, maxWait: number): string {
+    // Don't display time ranges if either value is Infinity (no valid wait times)
+    if (!isFinite(minWait) || !isFinite(maxWait)) return '';
     if (minWait === 0 && maxWait === 0) return '';
     if (minWait === maxWait) return `${minWait}mins`;
     return `${minWait}-${maxWait}mins`;

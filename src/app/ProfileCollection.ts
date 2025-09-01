@@ -410,64 +410,12 @@ export class ProfileCollection {
   }
 
   /**
-   * Extract category name using pattern: prefix up to second slash OR first dot in second part
-   * Pattern: part1/part2 where part2 stops at first dot or slash
-   * Returns first part, slash, and second part up to dot or second slash
+   * extractCategoryFromFunction is a categorizer of last resort, if the match
+   * rules don't match anything.
    */
   private extractCategoryFromFunction(func: string): string {
-    // Handle empty string or empty function notation
-    if (func === '' || func === '()') {
-      return '';
-    }
-
-    // Handle edge cases that should return empty
-    if (func === '/' || func === '.' || func.startsWith('/')) {
-      return '';
-    }
-
-    // Handle double slash case like "a//b" -> "a/"
-    if (func.includes('//')) {
-      const doubleSlashIndex = func.indexOf('//');
-      return func.substring(0, doubleSlashIndex + 1);
-    }
-
-    const firstDot = func.indexOf('.');
-    const firstSlash = func.indexOf('/');
-
-    // Special case: if dot comes before slash and there's only one slash, prefer dot rule
-    // BUT skip this if the pattern looks like a domain (has multiple dots before first slash)
-    if (firstDot !== -1 && firstSlash !== -1 && firstDot < firstSlash) {
-      // Count slashes and dots before first slash
-      const slashCount = (func.match(/\//g) || []).length;
-      const dotsBeforeSlash = func.substring(0, firstSlash).split('.').length - 1;
-      if (slashCount === 1 && dotsBeforeSlash === 1) {
-        // Only one slash and one dot before it, use dot rule
-        return func.substring(0, firstDot);
-      }
-    }
-
-    // Use default pattern: ^((([^/.]*\.[^/]*)*\/)?[^/.]+(\/?[^/.]+)?)
-    try {
-      const regex = new RegExp('^((([^\\/.]*\\\\.[^\\/]*)*\\/)?[^\\/.]+(\\/[^\\/.]+)?)');
-      const match = func.match(regex);
-
-      if (match && match[1]) {
-        // Found the pattern, return the captured group
-        return match[1];
-      }
-    } catch (e) {
-      console.warn('Invalid category extraction pattern:', e);
-      // Fall through to fallback logic
-    }
-
-    // Fallback: if no slash but has dot, use prefix up to first dot
-    if (firstSlash === -1 && firstDot !== -1) {
-      // No slash but has dot, use dot rule
-      return func.substring(0, firstDot);
-    }
-
-    // No pattern match, return whole function
-    return func;
+    const firstDot = func.indexOf('/');
+    return firstDot === -1 ? func : func.substring(0, firstDot);
   }
 
   /**

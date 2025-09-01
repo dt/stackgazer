@@ -18,7 +18,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     'google.golang.org/grpc',
   ],
   categoryMatchRules: [
-    's|^((([^\/.]*\\.[^\/]*)*\/)?[^\/.]+(\/[^\/.]+)?)|$1|'
+    's|^((([^\/.\\[]*\\.[^\/\\[]*)*\/)?[^\/\\.\\[]+(\/[^\/.\\[]+)?)|$1|'
   ],
   // Title manipulation rules
   nameSkipRules: [
@@ -27,6 +27,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     'golang.org/x/sync/errgroup.(*Group).Wait',
   ],
   nameTrimRules: [
+    's|\\[[^\\]]*\\]||',
     's|\\.func\\d+(\\.\\d+)?$||',
     'util/',
     's|^server.\\(\\*Node\\).Batch$|batch|'
