@@ -62,18 +62,10 @@
                 ],
                 nameExtractionPatterns: [
                     ...defaults.nameExtractionPatterns,
-                    {
-                        regex: 'pgwire\\.\\(\\*Server\\)\\.serveImpl.*?\\{0x1,\\s*0x2,\\s*\\{0x([0-9a-fA-F]+),',
-                        replacement: 'hex:n$1',
-                    },
-                    {
-                        regex: 'pgwire\\.\\(\\*Server\\)\\.serveImpl.*?\\{0x0,\\s*0x4,\\s*\\{0x([0-9a-fA-F]+),',
-                        replacement: 'hex:n$1',
-                    },
-                    {
-                        regex: '# labels:.*?"n":"([0-9]+)"',
-                        replacement: 'n$1',
-                    },
+                    's|pgwire\\.\\(\\*Server\\)\\.serveImpl.*?\\{0x1,\\s*0x2,\\s*\\{0x([0-9a-fA-F]+),|hex:n$1|',
+                    's|pgwire\\.\\(\\*Server\\)\\.serveImpl.*?\\{0x0,\\s*0x4,\\s*\\{0x([0-9a-fA-F]+),|hex:n$1|',
+                    's|# labels:.*?"n":"([0-9]+)"|n$1|',
+                    's|tags=([^,\\s]+)|$1|',
                 ]
                 };
             });

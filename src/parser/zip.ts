@@ -10,7 +10,7 @@ export class ZipHandler {
   // Default: only "stacks.txt" anywhere in the archive
   static async extractFiles(
     file: File,
-    pattern: RegExp = /^(.*\/)?stacks\.txt$/
+    patterns: RegExp[] = [/^(.*\/)?stacks\.txt$/]
   ): Promise<ExtractResult> {
     if (typeof (globalThis as any).DecompressionStream === 'undefined') {
       throw new Error('DecompressionStream is required by this app.');
@@ -99,7 +99,7 @@ export class ZipHandler {
     let totalSize = 0;
 
     for (const e of entries) {
-      if (!pattern.test(e.filename)) continue;
+      if (!patterns.some(pattern => pattern.test(e.filename))) continue;
 
       if (e.method !== 0 && e.method !== 8) {
         throw new Error(`ZIP: unsupported compression method ${e.method} for ${e.filename}`);

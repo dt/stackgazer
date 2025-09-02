@@ -44,20 +44,15 @@ async function fingerprint(frames: Frame[]): Promise<string> {
   return hashHex.slice(-FINGERPRINT_LENGTH);
 }
 
-interface NameExtractionPattern {
-  regex: string;
-  replacement: string;
-}
-
 interface ParserSettings {
-  nameExtractionPatterns?: NameExtractionPattern[];
+  nameExtractionPatterns?: string[];
 }
 
 /**
  * File parser
  */
 export class FileParser {
-  private nameExtractionPatterns: NameExtractionPattern[];
+  private nameExtractionPatterns: string[];
 
   constructor(settings?: ParserSettings) {
     // Use provided patterns or empty array as fallback
@@ -112,13 +107,22 @@ export class FileParser {
    * Extract name from a line using configured patterns
    */
   private extractNameFromLine(line: string): string | null {
-    for (const pattern of this.nameExtractionPatterns) {
+    for (const patternStr of this.nameExtractionPatterns) {
       try {
-        const regex = new RegExp(pattern.regex);
+        // Parse s|pattern|replacement| format
+        if (!patternStr.startsWith('s|')) continue;
+        
+        const parts = patternStr.slice(2).split('|');
+        if (parts.length < 2) continue;
+        
+        const regexPattern = parts[0];
+        const replacement = parts[1];
+        
+        const regex = new RegExp(regexPattern);
         const match = line.match(regex);
         if (match) {
           // Apply replacement template (e.g., "n$1" becomes "n" + first capture group)
-          let result = pattern.replacement;
+          let result = replacement;
           if (result.startsWith('hex:')) {
             result = result.slice(4);
             // Replace $1 with hex-to-decimal conversion
@@ -242,7 +246,23 @@ export class FileParser {
         }
       }
 
-      const result: ParsedFile = { originalName: fileName, groups };
+      // Try to extract a custom name from labels
+      let extractedName: string | null = null;
+      for (const group of groups) {
+        for (const label of group.labels) {
+          const name = this.extractNameFromLine(label);
+          if (name) {
+            extractedName = name;
+            break;
+          }
+        }
+        if (extractedName) break;
+      }
+
+      const result: ParsedFile = { 
+        originalName: extractedName || fileName, 
+        groups 
+      };
       return { success: true, data: result };
     } catch (error) {
       return {

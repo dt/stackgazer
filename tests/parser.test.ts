@@ -6,6 +6,7 @@ import { FileParser, ZipHandler } from '../src/parser/index.js';
 // Compression functions removed - they were causing memory usage to double
 import { zip } from 'fflate';
 import { TEST_DATA, parser, test } from './shared-test-data.js';
+import { readFileSync } from 'fs';
 
 // Test table
 const parseTests = [
@@ -99,7 +100,7 @@ await runParseTests();
 await test('ExtractedName assignment', async () => {
   // Test extractedName assignment in parseFormat2 (lines 249-250)
   const format2Parser = new FileParser({
-    nameExtractionPatterns: [{ regex: 'name:(\\w+)', replacement: '$1' }],
+    nameExtractionPatterns: ['s|name:(\\w+)|$1|'],
   });
 
   const format2Result = await format2Parser.parseString(
@@ -126,7 +127,7 @@ await test('ExtractedName assignment', async () => {
 await test('Name extraction patterns', async () => {
   // Test hex conversion pattern (lines 65-68)
   const hexParser = new FileParser({
-    nameExtractionPatterns: [{ regex: 'n0x([0-9a-f]+)', replacement: 'hex:$1' }],
+    nameExtractionPatterns: ['s|n0x([0-9a-f]+)|hex:$1|'],
   });
 
   const hexResult = await hexParser.parseString(
@@ -141,8 +142,8 @@ await test('Name extraction patterns', async () => {
   // Test invalid regex pattern (lines 78-82)
   const invalidParser = new FileParser({
     nameExtractionPatterns: [
-      { regex: '[invalid regex', replacement: '$1' },
-      { regex: 'valid(\\w+)', replacement: '$1' },
+      's|[invalid regex|$1|',
+      's|valid(\\w+)|$1|',
     ],
   });
 
@@ -218,6 +219,127 @@ await test('Zip extraction', async () => {
   if (result.files.length !== 2) {
     throw new Error(`Expected 2 stacks.txt files, got ${result.files.length}`);
   }
+});
+
+await test('Format0 (pprof) parsing', async () => {
+  // Read the actual pprof file
+  const pprof = readFileSync('examples/goroutines.pb.gz');
+  const blob = new Blob([pprof], { type: 'application/octet-stream' });
+  
+  const result = await parser.parseFile(blob, 'goroutines.pb.gz');
+  if (!result.success) {
+    throw new Error(`Format0 parse failed: ${result.error}`);
+  }
+  
+  // Verify we got groups (should have some goroutines)
+  if (result.data.groups.length === 0) {
+    throw new Error('Expected some groups from pprof data');
+  }
+  
+  // Verify groups have traces
+  const firstGroup = result.data.groups[0];
+  if (!firstGroup.trace || firstGroup.trace.length === 0) {
+    throw new Error('Expected trace frames in first group');
+  }
+  
+  // Verify frames have expected structure
+  const firstFrame = firstGroup.trace[0];
+  if (!firstFrame.func || !firstFrame.file) {
+    throw new Error(`Expected frame with func and file, got: ${JSON.stringify(firstFrame)}`);
+  }
+  
+  console.log(`✓ Parsed ${result.data.groups.length} groups from pprof file`);
+});
+
+await test('Format0 label extraction', async () => {
+  // Test label extraction and name extraction from pprof
+  const pprof = readFileSync('examples/goroutines.pb.gz');
+  const blob = new Blob([pprof], { type: 'application/octet-stream' });
+  
+  // Parser with tags extraction pattern
+  const parserWithPatterns = new FileParser({
+    nameExtractionPatterns: [
+      's|tags=([^,\\s]+)|$1|'
+    ]
+  });
+  
+  const result = await parserWithPatterns.parseFile(blob, 'goroutines.pb.gz');
+  if (!result.success) {
+    throw new Error(`Format0 with patterns parse failed: ${result.error}`);
+  }
+  
+  // Check if any groups have labels
+  const groupsWithLabels = result.data.groups.filter(g => g.labels && g.labels.length > 0);
+  if (groupsWithLabels.length === 0) {
+    throw new Error('Expected some groups to have labels');
+  }
+  
+  // Check for tags label specifically
+  const tagsLabel = groupsWithLabels.find(g => 
+    g.labels.some(label => label.startsWith('tags='))
+  );
+  if (!tagsLabel) {
+    throw new Error('Expected to find a group with tags= label');
+  }
+  
+  console.log(`✓ Found ${groupsWithLabels.length} groups with labels`);
+  console.log(`✓ Found tags label: ${tagsLabel.labels.find(l => l.startsWith('tags='))}`);
+});
+
+await test('Format0 name extraction from labels', async () => {
+  // Test that file name is extracted from tags label
+  const pprof = readFileSync('examples/goroutines.pb.gz');
+  const blob = new Blob([pprof], { type: 'application/octet-stream' });
+  
+  const parserWithPatterns = new FileParser({
+    nameExtractionPatterns: [
+      's|tags=([^,\\s]+)|$1|'
+    ]
+  });
+  
+  const result = await parserWithPatterns.parseFile(blob, 'goroutines.pb.gz');
+  if (!result.success) {
+    throw new Error(`Format0 name extraction failed: ${result.error}`);
+  }
+  
+  // Check if originalName was extracted (should not be the default filename)
+  if (result.data.originalName === 'goroutines.pb.gz') {
+    throw new Error('Expected originalName to be extracted from labels, but got default filename');
+  }
+  
+  console.log(`✓ Extracted name from labels: "${result.data.originalName}"`);
+});
+
+await test('Format0 stack trace structure', async () => {
+  // Test that stack traces have proper structure and content
+  const pprof = readFileSync('examples/goroutines.pb.gz');
+  const blob = new Blob([pprof], { type: 'application/octet-stream' });
+  
+  const result = await parser.parseFile(blob, 'goroutines.pb.gz');
+  if (!result.success) {
+    throw new Error(`Format0 structure test failed: ${result.error}`);
+  }
+  
+  // Find a group with multiple frames
+  const groupWithFrames = result.data.groups.find(g => g.trace.length > 1);
+  if (!groupWithFrames) {
+    throw new Error('Expected to find a group with multiple stack frames');
+  }
+  
+  // Verify frame structure
+  for (const frame of groupWithFrames.trace) {
+    if (typeof frame.func !== 'string' || frame.func.length === 0) {
+      throw new Error(`Invalid frame.func: ${frame.func}`);
+    }
+    if (typeof frame.file !== 'string' || frame.file.length === 0) {
+      throw new Error(`Invalid frame.file: ${frame.file}`);
+    }
+    if (typeof frame.line !== 'number' || frame.line < 0) {
+      throw new Error(`Invalid frame.line: ${frame.line}`);
+    }
+  }
+  
+  console.log(`✓ Verified stack trace structure for ${groupWithFrames.trace.length} frames`);
 });
 
 console.log('🎉 All parser tests completed!');

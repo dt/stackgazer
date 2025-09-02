@@ -768,14 +768,24 @@ async function runTests() {
     await page.click('#settingsBtn');
     await page.waitForSelector('#settingsModal', { timeout: QUICK_TIMEOUT });
 
-    // Modify functionTrimPrefixes setting
-    const functionTrimInput = await page.waitForSelector('#functionTrimPrefixes', {
-      timeout: QUICK_TIMEOUT,
+    // First, expand the custom rules section by clicking its header
+    // Use JavaScript to find and click the header
+    await page.evaluate(() => {
+      const textarea = document.getElementById('customfunctionTrimPrefixes');
+      if (textarea) {
+        const customSection = textarea.closest('.custom-rules-section');
+        if (customSection) {
+          const header = customSection.querySelector('.custom-rules-header');
+          if (header) {
+            (header as HTMLElement).click();
+          }
+        }
+      }
     });
-    if (!functionTrimInput) throw new Error('functionTrimPrefixes input not found');
 
-    // Clear and set new value
-    await page.fill('#functionTrimPrefixes', 'github.com/test/\ncom.example.');
+    // Now wait for the textarea to be visible and fill it
+    await page.waitForSelector('#customfunctionTrimPrefixes:visible', { timeout: QUICK_TIMEOUT });
+    await page.fill('#customfunctionTrimPrefixes', 'github.com/test/\ncom.example.');
 
     // Save settings
     const saveBtn = await page.waitForSelector('#saveSettingsBtn', { timeout: QUICK_TIMEOUT });
@@ -794,13 +804,27 @@ async function runTests() {
     await page.click('#settingsBtn');
     await page.waitForSelector('#settingsModal', { timeout: QUICK_TIMEOUT });
 
-    const persistedValue = await page.inputValue('#functionTrimPrefixes');
-    // HTML textareas convert newlines to spaces when displayed
-    const expectedValues = ['github.com/test/\ncom.example.', 'github.com/test/ com.example.'];
+    // Expand the custom section again to check the persisted value
+    await page.evaluate(() => {
+      const textarea = document.getElementById('customfunctionTrimPrefixes');
+      if (textarea) {
+        const customSection = textarea.closest('.custom-rules-section');
+        if (customSection) {
+          const header = customSection.querySelector('.custom-rules-header');
+          if (header) {
+            (header as HTMLElement).click();
+          }
+        }
+      }
+    });
 
-    if (!expectedValues.includes(persistedValue)) {
+    await page.waitForSelector('#customfunctionTrimPrefixes:visible', { timeout: QUICK_TIMEOUT });
+    const persistedValue = await page.inputValue('#customfunctionTrimPrefixes');
+    const expectedValue = 'github.com/test/\ncom.example.';
+
+    if (persistedValue !== expectedValue) {
       throw new Error(
-        `Settings not persisted. Expected: one of ${JSON.stringify(expectedValues)}, Got: '${persistedValue}'`
+        `Settings not persisted. Expected: '${expectedValue}', Got: '${persistedValue}'`
       );
     }
 

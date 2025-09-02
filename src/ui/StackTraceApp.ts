@@ -1,6 +1,6 @@
 import { ProfileCollection, ProfileCollectionSettings } from '../app/ProfileCollection.js';
 import { FileParser } from '../parser/index.js';
-import { templates as templatesFromTSX, createStateStatsElements } from './templates';
+import { templates as templatesFromTSX, createStateStatsElements, settingsModalConfig, createSettingComponent } from './templates';
 import {
   UniqueStack,
   Group,
@@ -2663,8 +2663,8 @@ export class StackgazerApp {
       functionPrefixesToTrim: this.settingsManager.getFunctionTrimPrefixes(),
       filePrefixesToTrim: this.settingsManager.getFileTrimPrefixes(),
       titleManipulationRules: this.settingsManager.getTitleManipulationRules(),
-      nameExtractionPatterns: appSettings.nameExtractionPatterns || [],
-      zipFilePattern: appSettings.zipFilePattern,
+      nameExtractionPatterns: appSettings.nameExtractionPatterns,
+      zipFilePatterns: this.settingsManager.getZipFilePatterns(),
       categoryRules: this.settingsManager.getCategoryRules(),
     };
   }
@@ -2757,167 +2757,115 @@ export class StackgazerApp {
     }
   }
 
-  // Settings configuration map for data-driven modal handling
-  private readonly settingsConfig = {
-    functionTrimPrefixes: {
-      type: 'text' as const,
-      serialize: (value: string) => value.split('\n').filter(s => s.trim() !== ''),
-      deserialize: (value: any) => (Array.isArray(value) ? value.join('\n') : String(value)),
-    },
-    fileTrimPrefixes: {
-      type: 'text' as const,
-      serialize: (value: string) => value.split('\n').filter(s => s.trim() !== ''),
-      deserialize: (value: any) => (Array.isArray(value) ? value.join('\n') : String(value)),
-    },
-    zipFilePattern: {
-      type: 'text' as const,
-      serialize: (value: string) => value,
-      deserialize: (value: any) => String(value),
-    },
-    // Legacy rule fields (for backward compatibility)
-    categorySkipRules: {
-      type: 'textarea' as const,
-      serialize: (value: string) => value.split('\n').filter(s => s.trim() !== ''),
-      deserialize: (value: any) => (Array.isArray(value) ? value.join('\n') : String(value)),
-    },
-    categoryMatchRules: {
-      type: 'textarea' as const,
-      serialize: (value: string) => value.split('\n').filter(s => s.trim() !== ''),
-      deserialize: (value: any) => (Array.isArray(value) ? value.join('\n') : String(value)),
-    },
-    nameSkipRules: {
-      type: 'textarea' as const,
-      serialize: (value: string) => value.split('\n').filter(s => s.trim() !== ''),
-      deserialize: (value: any) => (Array.isArray(value) ? value.join('\n') : String(value)),
-    },
-    nameTrimRules: {
-      type: 'textarea' as const,
-      serialize: (value: string) => value.split('\n').filter(s => s.trim() !== ''),
-      deserialize: (value: any) => (Array.isArray(value) ? value.join('\n') : String(value)),
-    },
-    nameFoldRules: {
-      type: 'textarea' as const,
-      serialize: (value: string) => value.split('\n').filter(s => s.trim() !== ''),
-      deserialize: (value: any) => (Array.isArray(value) ? value.join('\n') : String(value)),
-    },
-    nameFindRules: {
-      type: 'textarea' as const,
-      serialize: (value: string) => value.split('\n').filter(s => s.trim() !== ''),
-      deserialize: (value: any) => (Array.isArray(value) ? value.join('\n') : String(value)),
-    },
-    // New custom/default rule fields
-    useDefaultCategorySkipRules: {
-      type: 'checkbox' as const,
-      serialize: (value: boolean) => value,
-      deserialize: (value: any) => Boolean(value),
-    },
-    customCategorySkipRules: {
-      type: 'textarea' as const,
-      serialize: (value: string) => value.split('\n').filter(s => s.trim() !== ''),
-      deserialize: (value: any) => (Array.isArray(value) ? value.join('\n') : String(value)),
-    },
-    useDefaultCategoryMatchRules: {
-      type: 'checkbox' as const,
-      serialize: (value: boolean) => value,
-      deserialize: (value: any) => Boolean(value),
-    },
-    customCategoryMatchRules: {
-      type: 'textarea' as const,
-      serialize: (value: string) => value.split('\n').filter(s => s.trim() !== ''),
-      deserialize: (value: any) => (Array.isArray(value) ? value.join('\n') : String(value)),
-    },
-    useDefaultNameSkipRules: {
-      type: 'checkbox' as const,
-      serialize: (value: boolean) => value,
-      deserialize: (value: any) => Boolean(value),
-    },
-    customNameSkipRules: {
-      type: 'textarea' as const,
-      serialize: (value: string) => value.split('\n').filter(s => s.trim() !== ''),
-      deserialize: (value: any) => (Array.isArray(value) ? value.join('\n') : String(value)),
-    },
-    useDefaultNameTrimRules: {
-      type: 'checkbox' as const,
-      serialize: (value: boolean) => value,
-      deserialize: (value: any) => Boolean(value),
-    },
-    customNameTrimRules: {
-      type: 'textarea' as const,
-      serialize: (value: string) => value.split('\n').filter(s => s.trim() !== ''),
-      deserialize: (value: any) => (Array.isArray(value) ? value.join('\n') : String(value)),
-    },
-    useDefaultNameFoldRules: {
-      type: 'checkbox' as const,
-      serialize: (value: boolean) => value,
-      deserialize: (value: any) => Boolean(value),
-    },
-    customNameFoldRules: {
-      type: 'textarea' as const,
-      serialize: (value: string) => value.split('\n').filter(s => s.trim() !== ''),
-      deserialize: (value: any) => (Array.isArray(value) ? value.join('\n') : String(value)),
-    },
-    useDefaultNameFindRules: {
-      type: 'checkbox' as const,
-      serialize: (value: boolean) => value,
-      deserialize: (value: any) => Boolean(value),
-    },
-    customNameFindRules: {
-      type: 'textarea' as const,
-      serialize: (value: string) => value.split('\n').filter(s => s.trim() !== ''),
-      deserialize: (value: any) => (Array.isArray(value) ? value.join('\n') : String(value)),
-    },
-  } as const;
+  // No conversion needed - settingKey already matches SettingsManager
+
+  private generateModalContent(): void {
+    const modalBody = document.getElementById('settingsModalBody');
+    if (!modalBody) return;
+    
+    // Clear existing content 
+    modalBody.innerHTML = '';
+    
+    // Generate sections from simple configuration table
+    Object.entries(settingsModalConfig).forEach(([sectionTitle, settings]) => {
+      // Create section header
+      const sectionHeader = document.createElement('h4');
+      sectionHeader.textContent = sectionTitle;
+      modalBody.appendChild(sectionHeader);
+      
+      // Add section description for Parsing Options
+      if (sectionTitle === 'Parsing Options') {
+        const sectionDesc = document.createElement('div');
+        sectionDesc.className = 'setting-description-prose';
+        const p = document.createElement('p');
+        p.innerHTML = `<strong>Note:</strong> Parsing trim prefixes are applied first during file parsing. The trimmed function and file names are then used as input for all categorization and naming rules above.`;
+        sectionDesc.appendChild(p);
+        modalBody.appendChild(sectionDesc);
+      }
+      
+      // Create settings group container
+      const settingGroup = document.createElement('div');
+      settingGroup.className = 'setting-group';
+      
+      // Generate each setting - ALL use the same unified component
+      Object.entries(settings).forEach(([settingName, config]) => {
+        const settingComponent = createSettingComponent({
+          id: config.settingKey,
+          title: settingName,
+          description: config.description,
+          helpTooltip: config.tooltip,
+          defaultRows: 3,
+          customRows: 2,
+          customPlaceholder: `Add your own ${settingName.toLowerCase()} here...`
+        });
+        settingGroup.appendChild(settingComponent);
+      });
+      
+      modalBody.appendChild(settingGroup);
+    });
+  }
 
   private loadSettingsIntoModal(): void {
-    const settings = this.settingsManager.getSettings();
+    // First, generate the modal content programmatically
+    this.generateModalContent();
+    
+    const storedSettings = this.settingsManager.getStoredSettings();
 
-    // Load all setting values into modal inputs using config map
-    Object.entries(this.settingsConfig).forEach(([key, config]) => {
-      const element = document.getElementById(key) as HTMLInputElement | HTMLTextAreaElement;
-      if (element && key in settings) {
-        const value = (settings as any)[key];
-        if (config.type === 'checkbox') {
-          (element as HTMLInputElement).checked = Boolean(config.deserialize(value));
-        } else {
-          element.value = String(config.deserialize(value));
+    // Load all setting values from the simple configuration table
+    Object.values(settingsModalConfig).forEach(sectionSettings => {
+      Object.values(sectionSettings).forEach(config => {
+        const settingKey = config.settingKey;
+        const override = (storedSettings as any)[settingKey];
+        
+        // ALL settings use the same unified component structure
+        // Handle toggle checkbox
+        const toggleElement = document.getElementById(`useDefault${settingKey}`) as HTMLInputElement;
+        if (toggleElement) {
+          toggleElement.checked = !override?.ignoreDefault;
         }
-      }
+        
+        // Handle custom textarea
+        const customElement = document.getElementById(`custom${settingKey}`) as HTMLTextAreaElement;
+        if (customElement) {
+          customElement.value = override?.custom ? override.custom.join('\n') : '';
+        }
+      });
     });
 
     // Populate default rule textareas with read-only default values
     this.populateDefaultRuleTextareas();
 
-    // Setup toggle event handlers
-    this.setupDefaultRuleToggles();
-
-    // Setup collapsible sections
-    this.setupCollapsibleSections();
+    // Setup event handlers
+    this.setupModalEventHandlers();
 
     // Update rule counts after populating
     this.updateAllRuleCounts();
   }
 
   private saveSettingsFromModal(): void {
-    // Collect all settings from the modal using config map
-    const updates: Partial<AppSettings> = {};
-
-    Object.entries(this.settingsConfig).forEach(([key, config]) => {
-      const element = document.getElementById(key) as HTMLInputElement | HTMLTextAreaElement;
-      if (element) {
-        let value: any;
-        if (config.type === 'checkbox') {
-          value = config.serialize((element as HTMLInputElement).checked);
-        } else {
-          value = config.serialize(config.deserialize(element.value));
+    // Process all settings from the simple configuration table
+    Object.values(settingsModalConfig).forEach(sectionSettings => {
+      Object.values(sectionSettings).forEach(config => {
+        const settingKey = config.settingKey;
+        
+        // ALL settings use the same unified component structure
+        const toggleElement = document.getElementById(`useDefault${settingKey}`) as HTMLInputElement;
+        const customElement = document.getElementById(`custom${settingKey}`) as HTMLTextAreaElement;
+        
+        if (toggleElement && customElement) {
+          const useDefaults = toggleElement.checked;
+          const customText = customElement.value;
+          const customArray = customText.split('\n').filter(s => s.trim() !== '');
+          
+          const override = {
+            ignoreDefault: !useDefaults,
+            custom: customArray
+          };
+          
+          this.settingsManager.updateSetting(settingKey as any, override);
         }
-        if (value !== undefined) {
-          (updates as any)[key] = value;
-        }
-      }
+      });
     });
-
-    // Apply all settings at once
-    this.settingsManager.updateSettings(updates);
 
     // Close modal
     const settingsModal = document.getElementById('settingsModal');
@@ -3004,37 +2952,6 @@ export class StackgazerApp {
     link.addEventListener('mousemove', this.handleTooltipMouseMove.bind(this));
   }
 
-  /**
-   * Get rules from the rule editor
-   */
-
-  /**
-   * Add a rule to the editor
-   */
-
-  /**
-   * Setup the rule editor
-   */
-
-  /**
-   * Load category rules into the category rule editor
-   */
-
-  /**
-   * Get category rules from the category rule editor
-   */
-
-  /**
-   * Add a category rule to the editor
-   */
-
-  /**
-   * Setup the category rule editor
-   */
-
-  /**
-   * Setup collapsible sections
-   */
   private setupCollapsibleSections(): void {
     const collapsibleHeaders = document.querySelectorAll('.collapsible-header');
 
@@ -3074,123 +2991,117 @@ export class StackgazerApp {
    * Populate default rule textareas with read-only default values
    */
   private populateDefaultRuleTextareas(): void {
-    // Category skip rules
-    const defaultCategorySkipRules = document.getElementById(
-      'defaultCategorySkipRules'
-    ) as HTMLTextAreaElement;
-    if (defaultCategorySkipRules) {
-      defaultCategorySkipRules.value = this.settingsManager
-        .getDefaultCategorySkipRulesArray()
-        .join('\n');
-    }
+    const defaults = this.settingsManager.getDefaults();
 
-    // Category match rules
-    const defaultCategoryMatchRules = document.getElementById(
-      'defaultCategoryMatchRules'
-    ) as HTMLTextAreaElement;
-    if (defaultCategoryMatchRules) {
-      defaultCategoryMatchRules.value = this.settingsManager
-        .getDefaultCategoryMatchRulesArray()
-        .join('\n');
-    }
+    // Populate default textareas for all settings from the simple configuration table
+    Object.values(settingsModalConfig).forEach(sectionSettings => {
+      Object.values(sectionSettings).forEach(config => {
+        const settingKey = config.settingKey;
+        const textarea = document.getElementById(`default${settingKey}`) as HTMLTextAreaElement;
+        if (textarea) {
+          const values = (defaults as any)[settingKey] || [];
+          textarea.value = values.join('\n');
+        }
+      });
+    });
+  }
 
-    // Name skip rules
-    const defaultNameSkipRules = document.getElementById(
-      'defaultNameSkipRules'
-    ) as HTMLTextAreaElement;
-    if (defaultNameSkipRules) {
-      defaultNameSkipRules.value = this.settingsManager.getDefaultNameSkipRulesArray().join('\n');
-    }
+  /**
+   * Setup unified modal event handlers for all settings
+   */
+  private setupModalEventHandlers(): void {
+    // Setup event handlers for all settings from the simple configuration table
+    Object.values(settingsModalConfig).forEach(sectionSettings => {
+      Object.values(sectionSettings).forEach(config => {
+        this.setupRuleSettingHandlers(config.settingKey);
+      });
+    });
 
-    // Name trim rules
-    const defaultNameTrimRules = document.getElementById(
-      'defaultNameTrimRules'
-    ) as HTMLTextAreaElement;
-    if (defaultNameTrimRules) {
-      defaultNameTrimRules.value = this.settingsManager.getDefaultNameTrimRulesArray().join('\n');
-    }
+    // Setup collapsible sections
+    this.setupCollapsibleSections();
+    this.updateAllRuleCounts();
+  }
 
-    // Name fold rules
-    const defaultNameFoldRules = document.getElementById(
-      'defaultNameFoldRules'
-    ) as HTMLTextAreaElement;
-    if (defaultNameFoldRules) {
-      defaultNameFoldRules.value = this.settingsManager.getDefaultNameFoldRulesArray().join('\n');
-    }
+  /**
+   * Setup event handlers for a specific rule setting
+   */
+  private setupRuleSettingHandlers(settingId: string): void {
+    const toggle = document.getElementById(`useDefault${settingId}`) as HTMLInputElement;
+    
+    if (toggle && !(toggle as any).__ruleToggleSetup) {
+      // Find the sections
+      const defaultSection = toggle.closest('.default-rules-section');
+      const customSection = document.querySelector(`#custom${settingId}`)?.closest('.custom-rules-section');
+      
+      if (defaultSection) {
+        const header = defaultSection.querySelector('.default-rules-header') as HTMLElement;
+        const content = defaultSection.querySelector('.default-rules-content') as HTMLElement;
 
-    // Name find rules
-    const defaultNameFindRules = document.getElementById(
-      'defaultNameFindRules'
-    ) as HTMLTextAreaElement;
-    if (defaultNameFindRules) {
-      defaultNameFindRules.value = this.settingsManager.getDefaultNameFindRulesArray().join('\n');
+        if (header && content) {
+          // Update initial state
+          this.updateDefaultRuleToggleState(toggle, header, content);
+
+          // Add header click handler for collapsing
+          const headerClickHandler = (e: Event) => {
+            if (e.target !== toggle && !toggle.contains(e.target as Node) && toggle.checked) {
+              content.classList.toggle('collapsed-settings');
+              defaultSection.classList.toggle('settings-collapsed', content.classList.contains('collapsed-settings'));
+            }
+          };
+          header.addEventListener('click', headerClickHandler);
+
+          // Add toggle change handler
+          const toggleChangeHandler = () => {
+            this.updateDefaultRuleToggleState(toggle, header, content);
+          };
+          toggle.addEventListener('change', toggleChangeHandler);
+        }
+      }
+      
+      // Setup custom section handlers
+      if (customSection) {
+        this.setupCustomRulesSectionHandlers(customSection as HTMLElement, settingId);
+      }
+
+      // Mark as setup
+      (toggle as any).__ruleToggleSetup = true;
     }
   }
 
   /**
-   * Setup toggle event handlers for default rule sections
+   * Setup event handlers for a custom rules section
    */
-  private setupDefaultRuleToggles(): void {
-    // Helper function to setup toggle for a rule type
-    const setupToggle = (ruleType: string) => {
-      const toggle = document.getElementById(`useDefault${ruleType}Rules`) as HTMLInputElement;
+  private setupCustomRulesSectionHandlers(section: HTMLElement, _settingId: string): void {
+    if ((section as any).__customRulesSetup) return;
 
-      if (toggle) {
-        // Check if this toggle already has event listener setup
-        if ((toggle as any).__defaultRuleToggleSetup) {
-          return;
+    const header = section.querySelector('.custom-rules-header') as HTMLElement;
+    const content = section.querySelector('.custom-rules-content') as HTMLElement;
+
+    if (header && content) {
+      const headerClickHandler = () => {
+        const isCollapsed = content.classList.contains('collapsed-settings');
+        if (isCollapsed) {
+          content.classList.remove('collapsed-settings');
+          section.classList.remove('settings-collapsed');
+        } else {
+          content.classList.add('collapsed-settings');
+          section.classList.add('settings-collapsed');
         }
+      };
+      header.addEventListener('click', headerClickHandler);
 
-        // Find the closest default-rules-section to this toggle
-        const section = toggle.closest('.default-rules-section');
-        if (section) {
-          const header = section.querySelector('.default-rules-header') as HTMLElement;
-          const content = section.querySelector('.default-rules-content') as HTMLElement;
-
-          if (header && content) {
-            // Update initial state
-            this.updateDefaultRuleToggleState(toggle, header, content);
-
-            // Add click handler to header for collapsing
-            const headerClickHandler = (e: Event) => {
-              // Don't toggle if clicking on toggle switch or if rules are disabled
-              if (e.target !== toggle && !toggle.contains(e.target as Node) && toggle.checked) {
-                content.classList.toggle('collapsed-settings');
-                // Update section class using settings-specific class
-                section.classList.toggle(
-                  'settings-collapsed',
-                  content.classList.contains('collapsed-settings')
-                );
-              }
-            };
-
-            header.addEventListener('click', headerClickHandler);
-
-            // Add change handler to toggle
-            const toggleChangeHandler = () => {
-              this.updateDefaultRuleToggleState(toggle, header, content);
-            };
-
-            toggle.addEventListener('change', toggleChangeHandler);
-
-            // Mark this toggle as having event listener setup
-            (toggle as any).__defaultRuleToggleSetup = true;
-          }
-        }
+      // Add input event listener to textarea to update rule counts
+      const textarea = content.querySelector('textarea') as HTMLTextAreaElement;
+      if (textarea) {
+        const textareaInputHandler = () => {
+          this.updateRuleCount(section, textarea);
+        };
+        textarea.addEventListener('input', textareaInputHandler);
       }
-    };
 
-    // Setup toggles for each rule type
-    setupToggle('CategorySkip');
-    setupToggle('CategoryMatch');
-    setupToggle('NameSkip');
-    setupToggle('NameTrim');
-    setupToggle('NameFold');
-    setupToggle('NameFind');
-
-    // Setup custom rules expand/collapse handlers and update counts
-    this.setupCustomRulesHandlers();
-    this.updateAllRuleCounts();
+      // Mark as setup
+      (section as any).__customRulesSetup = true;
+    }
   }
 
   /**
@@ -3217,51 +3128,6 @@ export class StackgazerApp {
     }
   }
 
-  /**
-   * Setup expand/collapse handlers for custom rules sections
-   */
-  private setupCustomRulesHandlers(): void {
-    const customRulesSections = document.querySelectorAll('.custom-rules-section');
-
-    customRulesSections.forEach(section => {
-      // Check if this section already has event listener setup
-      if ((section as any).__customRulesSetup) {
-        return;
-      }
-
-      const header = section.querySelector('.custom-rules-header') as HTMLElement;
-      const content = section.querySelector('.custom-rules-content') as HTMLElement;
-
-      if (header && content) {
-        const headerClickHandler = () => {
-          const isCollapsed = content.classList.contains('collapsed-settings');
-
-          if (isCollapsed) {
-            content.classList.remove('collapsed-settings');
-            section.classList.remove('settings-collapsed');
-          } else {
-            content.classList.add('collapsed-settings');
-            section.classList.add('settings-collapsed');
-          }
-        };
-
-        header.addEventListener('click', headerClickHandler);
-
-        // Add input event listener to textarea to update rule counts
-        const textarea = content.querySelector('textarea') as HTMLTextAreaElement;
-        if (textarea) {
-          const textareaInputHandler = () => {
-            this.updateRuleCount(section, textarea);
-          };
-
-          textarea.addEventListener('input', textareaInputHandler);
-        }
-
-        // Mark this section as having event listener setup
-        (section as any).__customRulesSetup = true;
-      }
-    });
-  }
 
   /**
    * Update rule count for a specific custom rules section
@@ -3275,6 +3141,18 @@ export class StackgazerApp {
       // Extract the base title (everything before the count)
       const baseTitle = titleElement.textContent?.replace(/\s*\(\d+\)$/, '') || 'Custom Rules';
       titleElement.textContent = `${baseTitle} (${ruleCount})`;
+      
+      // Dim the entire custom rules section when empty
+      const customHeader = section.querySelector('.custom-rules-header') as HTMLElement;
+      if (customHeader) {
+        if (ruleCount === 0) {
+          customHeader.style.opacity = '0.5';
+          customHeader.style.color = '#666';
+        } else {
+          customHeader.style.opacity = '1';
+          customHeader.style.color = '';
+        }
+      }
     }
   }
 
@@ -3501,29 +3379,36 @@ export class StackgazerApp {
    * Update all rule counts for custom and default sections
    */
   private updateAllRuleCounts(): void {
-    // Update custom rules counts
-    const customRulesSections = document.querySelectorAll('.custom-rules-section');
-    customRulesSections.forEach(section => {
-      const textarea = section.querySelector('textarea') as HTMLTextAreaElement;
-      if (textarea) {
-        this.updateRuleCount(section, textarea);
-      }
-    });
+    // Update counts for all settings from the simple configuration table
+    Object.values(settingsModalConfig).forEach(sectionSettings => {
+      Object.values(sectionSettings).forEach(config => {
+        const settingKey = config.settingKey;
+        
+        // Update custom rules count
+        const customSection = document.querySelector(`#custom${settingKey}`)?.closest('.custom-rules-section');
+        if (customSection) {
+          const textarea = customSection.querySelector('textarea') as HTMLTextAreaElement;
+          if (textarea) {
+            this.updateRuleCount(customSection, textarea);
+          }
+        }
 
-    // Update default rules counts (based on displayed content)
-    const defaultRulesSections = document.querySelectorAll('.default-rules-section');
-    defaultRulesSections.forEach(section => {
-      const textarea = section.querySelector('.default-rules-textarea') as HTMLTextAreaElement;
-      const titleElement = section.querySelector('.default-rules-title h5') as HTMLElement;
+        // Update default rules count
+        const defaultSection = document.querySelector(`#default${settingKey}`)?.closest('.default-rules-section');
+        if (defaultSection) {
+          const textarea = defaultSection.querySelector('.default-rules-textarea') as HTMLTextAreaElement;
+          const titleElement = defaultSection.querySelector('.default-rules-title h5') as HTMLElement;
 
-      if (textarea && titleElement) {
-        const ruleText = textarea.value.trim();
-        const ruleCount = ruleText ? ruleText.split('\n').filter(line => line.trim()).length : 0;
+          if (textarea && titleElement) {
+            const ruleText = textarea.value.trim();
+            const ruleCount = ruleText ? ruleText.split('\n').filter(line => line.trim()).length : 0;
 
-        // Extract the base title (everything before the count)
-        const baseTitle = titleElement.textContent?.replace(/\s*\(\d+\)$/, '') || 'Default Rules';
-        titleElement.textContent = `${baseTitle} (${ruleCount})`;
-      }
+            // Extract the base title (everything before the count)
+            const baseTitle = titleElement.textContent?.replace(/\s*\(\d+\)$/, '') || 'Default Rules';
+            titleElement.textContent = `${baseTitle} (${ruleCount})`;
+          }
+        }
+      });
     });
   }
 

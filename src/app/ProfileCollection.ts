@@ -32,7 +32,6 @@ import {
   Frame,
   Group,
   FileSection,
-  NameExtractionPattern,
   Filter,
   Goroutine,
   Category,
@@ -294,8 +293,8 @@ export interface ProfileCollectionSettings {
   functionPrefixesToTrim: RegExp[];
   filePrefixesToTrim: RegExp[];
   titleManipulationRules: TitleRule[];
-  nameExtractionPatterns: NameExtractionPattern[];
-  zipFilePattern: string;
+  nameExtractionPatterns: string[];
+  zipFilePatterns: RegExp[];
   categoryRules: CategoryRule[];
 }
 

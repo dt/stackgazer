@@ -166,7 +166,7 @@ function createTestSettings() {
     filePrefixesToTrim: settingsManager.getFileTrimPrefixes(),
     titleManipulationRules: settingsManager.getTitleManipulationRules(),
     nameExtractionPatterns: appSettings.nameExtractionPatterns || [],
-    zipFilePattern: appSettings.zipFilePattern,
+    zipFilePatterns: settingsManager.getZipFilePatterns(),
     categoryRules: settingsManager.getCategoryRules(),
   };
 }

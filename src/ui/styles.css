@@ -938,6 +938,11 @@ body {
     display: none;
 }
 
+/* Hide group section content when it has no children */
+.group-section .section-content:empty {
+    display: none;
+}
+
 /* Expand/collapse icons using CSS content - reusable for any header */
 .expandable .expand-icon::before {
     content: '▼';

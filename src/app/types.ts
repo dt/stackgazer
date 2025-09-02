@@ -97,18 +97,12 @@ export interface FilterChanges {
 }
 
 // Settings and metadata types
-export interface NameExtractionPattern {
-  regex: string; // Regex pattern as string for JSON serialization
-  replacement: string; // Template for replacement, e.g. "n$1" where $1 is first capture group
-  description: string; // Human-readable description
-}
-
 export interface AppSettings {
   functionPrefixesToTrim: string[];
   filePrefixesToTrim: string[];
   titleManipulationRules: string[];
   zipFilePattern: string;
-  nameExtractionPatterns: NameExtractionPattern[];
+  nameExtractionPatterns: string[];
   categoryIgnoredPrefixes: string[];
 }
 

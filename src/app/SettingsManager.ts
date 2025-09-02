@@ -3,7 +3,6 @@
  */
 
 import type { TitleRule, CategoryRule } from './ProfileCollection.js';
-import type { NameExtractionPattern } from './types.js';
 
 export const DEFAULT_SETTINGS: AppSettings = {
   // Parsing options
@@ -43,32 +42,43 @@ export const DEFAULT_SETTINGS: AppSettings = {
   ],
   nameFindRules: [],
 
-  useDefaultCategorySkipRules: true,
-  customCategorySkipRules: [],
-  useDefaultCategoryMatchRules: true,
-  customCategoryMatchRules: [],
-  useDefaultNameSkipRules: true,
-  customNameSkipRules: [],
-  useDefaultNameTrimRules: true,
-  customNameTrimRules: [],
-  useDefaultNameFoldRules: true,
-  customNameFoldRules: [],
-  useDefaultNameFindRules: true,
-  customNameFindRules: [],
-
   // Zip file handling
-  zipFilePattern: '^(.*\/)?stacks\.txt$',
+  zipFilePatterns: ['^(.*\/)?stacks\.txt$'] ,
 
   // Name extraction patterns
   nameExtractionPatterns: [],
 };
 
+// Generic override for persistence
+export interface Override {
+  ignoreDefault?: boolean;  // undefined = false = use defaults
+  custom?: string[];              // undefined = [] for arrays
+}
+
+// What gets stored in localStorage
+export interface StoredSettings {
+  // Simple overrides
+  functionTrimPrefixes?: Override;
+  fileTrimPrefixes?: Override;
+  zipFilePatterns?: Override;
+
+  // Rule overrides
+  categorySkipRules?: Override;
+  categoryMatchRules?: Override;
+  nameSkipRules?: Override;
+  nameTrimRules?: Override;
+  nameFoldRules?: Override;
+  nameFindRules?: Override;
+  nameExtractionPatterns?: Override;
+}
+
+// Resolved settings interface (clean, no override fields)
 export interface AppSettings {
   // Parsing options
   functionTrimPrefixes: string[];
   fileTrimPrefixes: string[];
 
-  // Text-based rule format - legacy (for backward compatibility)
+  // Resolved rule arrays
   categorySkipRules: string[];
   categoryMatchRules: string[];
   nameSkipRules: string[];
@@ -76,30 +86,47 @@ export interface AppSettings {
   nameFoldRules: string[];
   nameFindRules: string[];
 
-  // New custom/default rule system
-  useDefaultCategorySkipRules: boolean;
-  customCategorySkipRules: string[];
-  useDefaultCategoryMatchRules: boolean;
-  customCategoryMatchRules: string[];
-  useDefaultNameSkipRules: boolean;
-  customNameSkipRules: string[];
-  useDefaultNameTrimRules: boolean;
-  customNameTrimRules: string[];
-  useDefaultNameFoldRules: boolean;
-  customNameFoldRules: string[];
-  useDefaultNameFindRules: boolean;
-  customNameFindRules: string[];
-
-  // Name extraction patterns (still used by FileParser)
-  nameExtractionPatterns: NameExtractionPattern[];
+  // Name extraction patterns
+  nameExtractionPatterns: string[];
 
   // Zip file handling
-  zipFilePattern: string;
+  zipFilePatterns: string[];
+}
+
+function resolveOverride(defaults: string[], override?: Override): string[] {
+  const result: string[] = [];
+  if (!override?.ignoreDefault) {
+    result.push(...defaults);
+  }
+  // Add custom rules
+  if (override?.custom) {
+    result.push(...override.custom);
+  }
+  return result;
+}
+
+function resolveSettings(defaults: AppSettings, stored: StoredSettings): AppSettings {
+  return {
+    // Simple fields - stored overrides default
+    functionTrimPrefixes: resolveOverride(defaults.functionTrimPrefixes, stored.functionTrimPrefixes),
+    fileTrimPrefixes: resolveOverride(defaults.fileTrimPrefixes, stored.fileTrimPrefixes),
+    zipFilePatterns: resolveOverride(defaults.zipFilePatterns, stored.zipFilePatterns),
+
+    // Rule arrays - resolve override pattern
+    categorySkipRules: resolveOverride(defaults.categorySkipRules, stored.categorySkipRules),
+    categoryMatchRules: resolveOverride(defaults.categoryMatchRules, stored.categoryMatchRules),
+    nameSkipRules: resolveOverride(defaults.nameSkipRules, stored.nameSkipRules),
+    nameTrimRules: resolveOverride(defaults.nameTrimRules, stored.nameTrimRules),
+    nameFoldRules: resolveOverride(defaults.nameFoldRules, stored.nameFoldRules),
+    nameFindRules: resolveOverride(defaults.nameFindRules, stored.nameFindRules),
+    nameExtractionPatterns: resolveOverride(defaults.nameExtractionPatterns, stored.nameExtractionPatterns),
+  };
 }
 
 export class SettingsManager {
   private static readonly STORAGE_KEY = 'stackgazer-settings';
   private settings: AppSettings;
+  private storedSettings: StoredSettings = {};
   private changeCallback: ((settings: AppSettings) => void) | null = null;
   private defaultSettings: AppSettings;
 
@@ -162,22 +189,6 @@ export class SettingsManager {
           }
         }
       }
-
-      // Additional validation for nameExtractionPatterns
-      if (key === 'nameExtractionPatterns' && Array.isArray(actualValue)) {
-        actualValue.forEach((pattern: any, index: number) => {
-          if (
-            !pattern ||
-            typeof pattern !== 'object' ||
-            typeof pattern.regex !== 'string' ||
-            typeof pattern.replacement !== 'string'
-          ) {
-            throw new Error(
-              `${source}: 'nameExtractionPatterns[${index}]' must have {regex: string, replacement: string}`
-            );
-          }
-        });
-      }
     }
   }
 
@@ -231,6 +242,7 @@ export class SettingsManager {
     return typeof value;
   }
 
+
   /**
    * Load settings from localStorage
    */
@@ -238,39 +250,24 @@ export class SettingsManager {
     try {
       const saved = localStorage.getItem(SettingsManager.STORAGE_KEY);
       if (saved) {
-        const parsed = JSON.parse(saved);
-        // Merge with defaults to handle new settings, but only include defined values from localStorage
-        this.settings = { ...this.defaultSettings };
-        Object.keys(parsed).forEach(key => {
-          if (parsed[key] !== undefined && key in this.defaultSettings) {
-            (this.settings as any)[key] = parsed[key];
-          }
-        });
+        this.storedSettings = JSON.parse(saved);
       } else {
-        // No saved settings, use defaults (which include custom defaults)
-        this.settings = { ...this.defaultSettings };
+        this.storedSettings = {};
       }
+      this.settings = resolveSettings(this.defaultSettings, this.storedSettings);
     } catch (error) {
       console.warn('Failed to load settings from localStorage:', error);
+      this.storedSettings = {};
       this.settings = { ...this.defaultSettings };
     }
   }
 
   /**
-   * Save settings to localStorage (only non-default values)
+   * Save settings to localStorage
    */
   private saveSettings(): void {
     try {
-      const overrides: Partial<AppSettings> = {};
-
-      // Only save values that differ from defaults
-      for (const key of Object.keys(this.settings) as Array<keyof AppSettings>) {
-        if (this.settings[key] !== this.defaultSettings[key]) {
-          (overrides as any)[key] = this.settings[key];
-        }
-      }
-
-      localStorage.setItem(SettingsManager.STORAGE_KEY, JSON.stringify(overrides));
+      localStorage.setItem(SettingsManager.STORAGE_KEY, JSON.stringify(this.storedSettings));
     } catch (error) {
       console.warn('Failed to save settings to localStorage:', error);
     }
@@ -283,33 +280,33 @@ export class SettingsManager {
     return { ...this.settings };
   }
 
-  /**
-   * Update a specific setting
-   */
-  updateSetting<K extends keyof AppSettings>(key: K, value: AppSettings[K]): void {
-    this.settings[key] = value;
+  updateSetting(key: keyof StoredSettings, override: Override): void {
+    // Only store if we have an override: ignoreDefault=true OR custom has values
+    if (override.ignoreDefault || (override.custom && override.custom.length > 0)) {
+      this.storedSettings[key] = override;
+    } else {
+      // No override needed - using defaults with no custom rules
+      delete this.storedSettings[key];
+    }
+        
+    this.settings = resolveSettings(this.defaultSettings, this.storedSettings);
     this.saveSettings();
     this.notifyChange();
   }
 
   /**
-   * Update multiple settings at once
+   * Get current stored settings
    */
-  updateSettings(updates: Partial<AppSettings>): void {
-    // Validate the updates before applying them
-    this.validateAppSettings(updates, 'updateSettings');
-
-    Object.assign(this.settings, updates);
-    this.saveSettings();
-    this.notifyChange();
+  getStoredSettings(): StoredSettings {
+    return { ...this.storedSettings };
   }
 
   /**
    * Reset all settings to defaults
    */
   resetToDefaults(): void {
+    this.storedSettings = {};
     this.settings = { ...this.defaultSettings };
-    // Clear localStorage so new defaults will be used on next load
     localStorage.removeItem(SettingsManager.STORAGE_KEY);
     this.notifyChange();
   }
@@ -362,58 +359,14 @@ export class SettingsManager {
   }
 
   /**
-   * Export settings as JSON string
-   */
-  exportSettings(): string {
-    return JSON.stringify(this.settings, null, 2);
-  }
-
-  /**
-   * Check if a setting has a non-default value
-   */
-  isModified(key: keyof AppSettings): boolean {
-    return this.settings[key] !== this.defaultSettings[key];
-  }
-
-  /**
-   * Get list of all modified settings
-   */
-  getModifiedSettings(): Array<{ key: keyof AppSettings; value: any; default: any }> {
-    const defaults = this.defaultSettings;
-    const modified: Array<{ key: keyof AppSettings; value: any; default: any }> = [];
-
-    for (const key of Object.keys(this.settings) as Array<keyof AppSettings>) {
-      if (this.settings[key] !== defaults[key]) {
-        modified.push({
-          key,
-          value: this.settings[key],
-          default: defaults[key],
-        });
-      }
-    }
-
-    return modified;
-  }
-
-  /**
-   * Parse comma-separated prefixes into an array
-   */
-  parsePrefixes(prefixString: string): string[] {
-    if (!prefixString || typeof prefixString !== 'string') {
-      return [];
-    }
-
-    return prefixString
-      .split(',')
-      .map(prefix => prefix.trim())
-      .filter(prefix => prefix.length > 0);
-  }
-
-  /**
    * Get parsed function trim prefixes as compiled regexes
    */
   getFunctionTrimPrefixes(): RegExp[] {
     return this.parseRegexPrefixes(this.settings.functionTrimPrefixes);
+  }
+
+  getZipFilePatterns(): RegExp[] {
+    return this.parseRegexPrefixes(this.settings.zipFilePatterns);
   }
 
   /**
@@ -427,12 +380,7 @@ export class SettingsManager {
    * Get category skip rules as array of strings
    */
   getCategorySkipRules(): string[] {
-    const combined = this.getCombinedCategorySkipRules();
-    if (!combined || combined.length === 0) {
-      return [];
-    }
-
-    return combined.map(rule => rule.trim()).filter(rule => rule.length > 0);
+    return this.settings.categorySkipRules.map(rule => rule.trim()).filter(rule => rule.length > 0);
   }
 
   /**
@@ -448,23 +396,20 @@ export class SettingsManager {
     }
 
     // Add match rules
-    const combinedMatchRules = this.getCombinedCategoryMatchRules();
-    if (combinedMatchRules && combinedMatchRules.length > 0) {
-      const matchLines = combinedMatchRules
-        .map(line => line.trim())
-        .filter(line => line.length > 0);
+    const matchLines = this.settings.categoryMatchRules
+      .map(line => line.trim())
+      .filter(line => line.length > 0);
 
-      for (const line of matchLines) {
-        if (line.startsWith('s|')) {
-          // Parse s|pattern|replacement| format and convert to match rule
-          const match = line.match(/^s\|([^|]+)\|([^|]*)\|$/);
-          if (match) {
-            const [, pattern] = match;
-            rules.push({ match: pattern });
-          }
-        } else {
-          rules.push({ match: line });
+    for (const line of matchLines) {
+      if (line.startsWith('s|')) {
+        // Parse s|pattern|replacement| format and convert to match rule
+        const match = line.match(/^s\|([^|]+)\|([^|]*)\|$/);
+        if (match) {
+          const [, pattern] = match;
+          rules.push({ match: pattern });
         }
+      } else {
+        rules.push({ match: line });
       }
     }
 
@@ -548,16 +493,16 @@ export class SettingsManager {
     const rules: TitleRule[] = [];
 
     // Add skip rules
-    rules.push(...this.parseTextRules(this.getCombinedNameSkipRules(), 'skip'));
+    rules.push(...this.parseTextRules(this.settings.nameSkipRules, 'skip'));
 
     // Add trim rules
-    rules.push(...this.parseTextRules(this.getCombinedNameTrimRules(), 'trim'));
+    rules.push(...this.parseTextRules(this.settings.nameTrimRules, 'trim'));
 
     // Add fold rules
-    rules.push(...this.parseTextRules(this.getCombinedNameFoldRules(), 'fold'));
+    rules.push(...this.parseTextRules(this.settings.nameFoldRules, 'fold'));
 
     // Add find rules
-    rules.push(...this.parseTextRules(this.getCombinedNameFindRules(), 'find'));
+    rules.push(...this.parseTextRules(this.settings.nameFindRules, 'find'));
 
     return rules;
   }
@@ -565,148 +510,29 @@ export class SettingsManager {
   /**
    * Get zip file pattern as regex
    */
-  getZipFilePatternRegex(): RegExp {
-    const pattern = this.settings.zipFilePattern;
-    if (!pattern || typeof pattern !== 'string') {
+  getZipFilePatternRegex(): RegExp[] {
+    const patterns = this.settings.zipFilePatterns;
+    if (!patterns || !Array.isArray(patterns) || patterns.length === 0) {
       // Default pattern for stacks.txt files
-      return /^(.*\/)?stacks\.txt$/;
+      return [/^(.*\/)?stacks\.txt$/];
     }
 
-    try {
-      return new RegExp(pattern);
-    } catch (e) {
-      console.warn(`Invalid zip file pattern regex "${pattern}":`, e);
-      // Fallback to default pattern
-      return /^(.*\/)?stacks\.txt$/;
-    }
+    return patterns.map(pattern => {
+      try {
+        return new RegExp(pattern);
+      } catch (e) {
+        console.warn(`Invalid zip file pattern regex "${pattern}":`, e);
+        // Fallback to default pattern
+        return /^(.*\/)?stacks\.txt$/;
+      }
+    });
   }
 
   /**
-   * Get default rule values from current defaults (including custom defaults from HTML)
+   * Get default settings
    */
-  getDefaultCategorySkipRulesArray(): string[] {
-    return this.defaultSettings.categorySkipRules;
+  getDefaults(): AppSettings {
+    return { ...this.defaultSettings };
   }
 
-  getDefaultCategoryMatchRulesArray(): string[] {
-    return this.defaultSettings.categoryMatchRules;
-  }
-
-  getDefaultNameSkipRulesArray(): string[] {
-    return this.defaultSettings.nameSkipRules;
-  }
-
-  getDefaultNameTrimRulesArray(): string[] {
-    return this.defaultSettings.nameTrimRules;
-  }
-
-  getDefaultNameFoldRulesArray(): string[] {
-    return this.defaultSettings.nameFoldRules;
-  }
-
-  getDefaultNameFindRulesArray(): string[] {
-    return this.defaultSettings.nameFindRules;
-  }
-
-  /**
-   * Get merged category skip rules (defaults + custom)
-   */
-  getCombinedCategorySkipRules(): string[] {
-    let combined: string[] = [];
-
-    if (this.settings.useDefaultCategorySkipRules) {
-      combined.push(...this.getDefaultCategorySkipRulesArray());
-    }
-
-    if (this.settings.customCategorySkipRules.length > 0) {
-      combined.push(...this.settings.customCategorySkipRules);
-    }
-
-    return combined;
-  }
-
-  /**
-   * Get merged category match rules (defaults + custom)
-   */
-  getCombinedCategoryMatchRules(): string[] {
-    let combined: string[] = [];
-
-    if (this.settings.useDefaultCategoryMatchRules) {
-      combined.push(...this.getDefaultCategoryMatchRulesArray());
-    }
-
-    if (this.settings.customCategoryMatchRules.length > 0) {
-      combined.push(...this.settings.customCategoryMatchRules);
-    }
-
-    return combined;
-  }
-
-  /**
-   * Get merged name skip rules (defaults + custom)
-   */
-  getCombinedNameSkipRules(): string[] {
-    let combined: string[] = [];
-
-    if (this.settings.useDefaultNameSkipRules) {
-      combined.push(...this.getDefaultNameSkipRulesArray());
-    }
-
-    if (this.settings.customNameSkipRules.length > 0) {
-      combined.push(...this.settings.customNameSkipRules);
-    }
-
-    return combined;
-  }
-
-  /**
-   * Get merged name trim rules (defaults + custom)
-   */
-  getCombinedNameTrimRules(): string[] {
-    let combined: string[] = [];
-
-    if (this.settings.useDefaultNameTrimRules) {
-      combined.push(...this.getDefaultNameTrimRulesArray());
-    }
-
-    if (this.settings.customNameTrimRules.length > 0) {
-      combined.push(...this.settings.customNameTrimRules);
-    }
-
-    return combined;
-  }
-
-  /**
-   * Get merged name fold rules (defaults + custom)
-   */
-  getCombinedNameFoldRules(): string[] {
-    let combined: string[] = [];
-
-    if (this.settings.useDefaultNameFoldRules) {
-      combined.push(...this.getDefaultNameFoldRulesArray());
-    }
-
-    if (this.settings.customNameFoldRules.length > 0) {
-      combined.push(...this.settings.customNameFoldRules);
-    }
-
-    return combined;
-  }
-
-  /**
-   * Get merged name find rules (defaults + custom)
-   */
-  getCombinedNameFindRules(): string[] {
-    let combined: string[] = [];
-
-    if (this.settings.useDefaultNameFindRules) {
-      combined.push(...this.getDefaultNameFindRulesArray());
-    }
-
-    if (this.settings.customNameFindRules.length > 0) {
-      combined.push(...this.settings.customNameFindRules);
-    }
-
-    return combined;
-  }
 }
