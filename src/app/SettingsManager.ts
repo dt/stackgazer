@@ -2,7 +2,7 @@
  * Manages application settings with localStorage persistence
  */
 
-import type { TitleRule, CategoryRule } from './ProfileCollection.js';
+import type { TitleRule, CategoryRule } from './naming.js';
 
 export const DEFAULT_SETTINGS: AppSettings = {
   // Parsing options
