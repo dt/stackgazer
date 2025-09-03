@@ -1,4 +1,4 @@
-# StackGazer - Go Stack Trace Analyzer
+# Stackgazer - Go Stack Trace Analyzer
 
 ## Build Process
 ```bash

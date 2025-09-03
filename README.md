@@ -6,7 +6,7 @@ Stackgazer designed to make browsing and searching profiles containing larger nu
 
 [**⚡ Live Demo**](https://davidt.io/stackgazer)
 
-![StackGazer Screenshot](examples/screenshot.png)
+![Stackgazer Screenshot](examples/screenshot.png)
 
 ## Features
 
@@ -147,7 +147,7 @@ The build process creates a single standalone HTML file in `dist/index-standalon
 
 ### Architecture
 
-StackGazer uses a three-layer architecture:
+The app uses a three-layer architecture:
 
 - **Parser Layer** (`src/parser/`): Handles parsing stack traces and ZIP files
 - **App Layer** (`src/app/`): Core data management, filtering, and business logic
