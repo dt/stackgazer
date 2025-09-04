@@ -38,6 +38,7 @@ export class StackgazerApp {
   private filterInputValue: string = '';
   private stackDisplayMode: 'combined' | 'side-by-side' | 'functions' | 'locations' = 'combined';
   private filterDebounceTimer: number | null = null;
+  private loadingDelayTimer: number | null = null;
   private tooltip!: HTMLElement;
   private currentTheme: 'dark' | 'light' = 'dark';
   private initialTheme?: 'dark' | 'light';
@@ -89,6 +90,9 @@ export class StackgazerApp {
       content: { cloneNode: (deep?: boolean) => DocumentFragment; firstElementChild: HTMLElement };
     };
     ancestryEmptyState: {
+      content: { cloneNode: (deep?: boolean) => DocumentFragment; firstElementChild: HTMLElement };
+    };
+    loadingOverlay: {
       content: { cloneNode: (deep?: boolean) => DocumentFragment; firstElementChild: HTMLElement };
     };
   };
@@ -171,6 +175,12 @@ export class StackgazerApp {
     ) as DocumentFragment;
     const settingsModalElement = settingsModalFragment.firstElementChild as HTMLElement;
 
+    // Create loading overlay
+    const loadingOverlayFragment = this.templates.loadingOverlay.content.cloneNode(
+      true
+    ) as DocumentFragment;
+    const loadingOverlayElement = loadingOverlayFragment.firstElementChild as HTMLElement;
+
     // Insert sidebar and main content into container
     const sidebarContainer = containerElement.querySelector('#sidebar') as HTMLElement;
     const mainContentContainer = containerElement.querySelector('#mainContent') as HTMLElement;
@@ -183,6 +193,7 @@ export class StackgazerApp {
     // Add everything to the main container
     this.container.appendChild(containerElement);
     this.container.appendChild(settingsModalElement);
+    this.container.appendChild(loadingOverlayElement);
   }
 
   private initializeUI(): void {
@@ -769,8 +780,27 @@ export class StackgazerApp {
   }
 
   private async handleFiles(files: File[]): Promise<void> {
+    const fileCount = files.length;
+    const fileNames = files.map(f => f.name).join(', ');
+    
+    // Show loading overlay
+    this.showLoadingOverlay(
+      fileCount === 1 ? 'Processing file...' : `Processing ${fileCount} files...`,
+      fileCount === 1 ? files[0].name : fileNames
+    );
+
     try {
-      for (const file of files) {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        
+        // Update progress
+        if (fileCount > 1) {
+          this.updateLoadingMessage(
+            `Processing file ${i + 1} of ${fileCount}...`,
+            file.name
+          );
+        }
+        
         // Check if it's a zip file
         if (file.name.toLowerCase().endsWith('.zip') || file.type === 'application/zip') {
           await this.handleZipFile(file);
@@ -786,18 +816,27 @@ export class StackgazerApp {
           } else {
             console.timeEnd(`📄 File Import: ${file.name}`);
             console.error(`Failed to parse ${file.name}:`, result.error);
+            this.hideLoadingOverlay();
             alert(`Failed to parse ${file.name}: ${result.error}`);
+            return;
           }
         }
       }
+
+      // Update loading message for rendering
+      this.updateLoadingMessage('Rendering results...', 'Organizing data and applying filters');
 
       // Render new content but preserve filter state
       this.render();
 
       // Always reapply current filter to ensure proper visibility state
       this.setFilter(this.buildCurrentFilter());
+      
+      // Hide loading overlay
+      this.hideLoadingOverlay();
     } catch (error) {
       console.error('Error handling files:', error);
+      this.hideLoadingOverlay();
       alert(`Error handling files: ${error}`);
     }
   }
@@ -805,13 +844,33 @@ export class StackgazerApp {
   private async handleZipFile(file: File): Promise<void> {
     try {
       console.time(`🗜 Zip Import: ${file.name}`);
+      
+      // Update loading message for ZIP extraction
+      this.updateLoadingMessage('Extracting ZIP file...', `Reading ${file.name}`);
 
       // Extract files using ZipHandler with settings pattern
       const pattern = this.settingsManager.getZipFilePatternRegex();
       const extractResult = await ZipHandler.extractFiles(file, pattern);
 
-      for (const zipFile of extractResult.files) {
+      if (extractResult.files.length === 0) {
+        console.warn(`No stack trace files found in zip matching pattern: ${pattern}`);
+        throw new Error(`No stack trace files found in zip file. Looking for files matching: ${pattern}`);
+      }
+
+      for (let i = 0; i < extractResult.files.length; i++) {
+        const zipFile = extractResult.files[i];
         const baseName = zipFile.path.split('/').pop() || zipFile.path;
+        
+        // Update progress for multiple files in ZIP
+        if (extractResult.files.length > 1) {
+          this.updateLoadingMessage(
+            `Processing ZIP entry ${i + 1} of ${extractResult.files.length}...`,
+            baseName
+          );
+        } else {
+          this.updateLoadingMessage('Processing ZIP entry...', baseName);
+        }
+        
         console.time(`  📄 Zip Entry: ${baseName}`);
         const result = await this.parser.parseFile(zipFile.content, baseName);
 
@@ -821,21 +880,18 @@ export class StackgazerApp {
         } else {
           console.timeEnd(`  📄 Zip Entry: ${baseName}`);
           console.error(`Failed to parse ${baseName} from zip:`, result.error);
-          alert(`Failed to parse ${baseName} from zip: ${result.error}`);
+          throw new Error(`Failed to parse ${baseName} from zip: ${result.error}`);
         }
       }
 
-      if (extractResult.files.length === 0) {
-        console.warn(`No stack trace files found in zip matching pattern: ${pattern}`);
-        alert(`No stack trace files found in zip file. Looking for files matching: ${pattern}`);
-      }
       console.timeEnd(`🗜 Zip Import: ${file.name}`);
     } catch (error) {
       console.timeEnd(`🗜 Zip Import: ${file.name}`);
       console.error(`Error processing zip file ${file.name}:`, error);
-      alert(`Failed to process zip file ${file.name}: ${error}`);
+      throw error; // Re-throw to be handled by handleFiles
     }
   }
+
 
   private debouncedSetFilter(query: string): void {
     // Clear any existing timer
@@ -2343,6 +2399,75 @@ export class StackgazerApp {
     fileNameSpan.addEventListener('blur', onBlur);
   }
 
+  private showLoadingOverlay(message: string, details?: string): void {
+    // Clear any existing delay timer
+    if (this.loadingDelayTimer !== null) {
+      clearTimeout(this.loadingDelayTimer);
+      this.loadingDelayTimer = null;
+    }
+
+    // Set up delayed showing with 300ms delay
+    this.loadingDelayTimer = window.setTimeout(() => {
+      const overlay = document.getElementById('loadingOverlay') as HTMLElement;
+      const messageEl = document.getElementById('loadingMessage') as HTMLElement;
+      const detailsEl = document.getElementById('loadingDetails') as HTMLElement;
+      
+      if (overlay && messageEl) {
+        messageEl.textContent = message;
+        if (detailsEl && details) {
+          detailsEl.textContent = details;
+          detailsEl.style.display = 'block';
+        } else if (detailsEl) {
+          detailsEl.style.display = 'none';
+        }
+        overlay.style.display = 'flex';
+      }
+      this.loadingDelayTimer = null;
+    }, 300);
+  }
+
+  private hideLoadingOverlay(): void {
+    // Cancel the delayed showing if it hasn't triggered yet
+    if (this.loadingDelayTimer !== null) {
+      clearTimeout(this.loadingDelayTimer);
+      this.loadingDelayTimer = null;
+    }
+
+    // Hide overlay if it's already shown
+    const overlay = document.getElementById('loadingOverlay') as HTMLElement;
+    if (overlay) {
+      overlay.style.display = 'none';
+    }
+  }
+
+  private updateLoadingMessage(message: string, details?: string): void {
+    // If we have a delay timer running, cancel it and show immediately
+    if (this.loadingDelayTimer !== null) {
+      clearTimeout(this.loadingDelayTimer);
+      this.loadingDelayTimer = null;
+      
+      // Show overlay immediately with updated message
+      const overlay = document.getElementById('loadingOverlay') as HTMLElement;
+      if (overlay) {
+        overlay.style.display = 'flex';
+      }
+    }
+
+    // Update the message content
+    const messageEl = document.getElementById('loadingMessage') as HTMLElement;
+    const detailsEl = document.getElementById('loadingDetails') as HTMLElement;
+    
+    if (messageEl) {
+      messageEl.textContent = message;
+    }
+    if (detailsEl && details) {
+      detailsEl.textContent = details;
+      detailsEl.style.display = 'block';
+    } else if (detailsEl) {
+      detailsEl.style.display = 'none';
+    }
+  }
+
   private setupDemoButtons(): void {
     const demoSingleBtn = document.getElementById('demoSingleBtn');
     const demoZipBtn = document.getElementById('demoZipBtn');
@@ -2350,6 +2475,7 @@ export class StackgazerApp {
     if (demoSingleBtn) {
       demoSingleBtn.addEventListener('click', async e => {
         e.preventDefault();
+        this.showLoadingOverlay('Loading demo file...', 'Downloading single node goroutine dump');
         try {
           const rawUrl =
             'https://raw.githubusercontent.com/dt/crdb-stacks-examples/refs/heads/main/stacks/files/1/stacks.txt';
@@ -2357,6 +2483,7 @@ export class StackgazerApp {
         } catch (error) {
           const msg = error && (error as any).message ? (error as any).message : String(error);
           console.error('Demo file load error:', error);
+          this.hideLoadingOverlay();
           alert(
             `Failed to load demo file. Please try again or check your internet connection (${msg}).`
           );
@@ -2367,12 +2494,14 @@ export class StackgazerApp {
     if (demoZipBtn) {
       demoZipBtn.addEventListener('click', async e => {
         e.preventDefault();
+        this.showLoadingOverlay('Loading demo ZIP...', 'Downloading ZIP file with 4 node stack dumps');
         try {
           const url =
             'https://raw.githubusercontent.com/dt/crdb-stacks-examples/refs/heads/main/stacks.zip';
           await this.loadFromUrl(url, 'crdb-demo.zip');
         } catch (error) {
           console.error('Demo zip load error:', error);
+          this.hideLoadingOverlay();
           alert(
             'Failed to load demo zip file. Please try again or check your internet connection.'
           );
@@ -2435,10 +2564,16 @@ export class StackgazerApp {
         }
       }
 
+      // Update loading message for rendering
+      this.updateLoadingMessage('Rendering results...', 'Organizing data and applying filters');
+
       this.render();
 
       // Always reapply current filter to ensure proper visibility state
       this.setFilter(this.buildCurrentFilter());
+      
+      // Hide loading overlay
+      this.hideLoadingOverlay();
     } catch (error) {
       // End any ongoing timers in case of error
       if (fileName.endsWith('.zip')) {

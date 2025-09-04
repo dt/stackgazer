@@ -305,6 +305,20 @@ const AncestryEmptyStateTemplate = (
   <p className="ancestry-empty-state">No ancestry data available</p>
 );
 
+// Loading Overlay Template
+const LoadingOverlayTemplate = (
+  <div className="loading-overlay" id="loadingOverlay" style="display: none;">
+    <div className="loading-content">
+      <div className="loading-spinner"></div>
+      <div className="loading-message" id="loadingMessage">Processing files...</div>
+      <div className="loading-details" id="loadingDetails"></div>
+      <div className="loading-progress" id="loadingProgressContainer" style="display: none;">
+        <div className="loading-progress-indeterminate" id="loadingProgressBar"></div>
+      </div>
+    </div>
+  </div>
+);
+
 // Helper function to create a unified setting component
 function createSettingComponent(config: {
   id: string;
@@ -476,6 +490,7 @@ export const templates = {
   settingsModal: createTemplateFromElement(SettingsModalTemplate),
   ancestryModal: createTemplateFromElement(AncestryModalTemplate),
   ancestryEmptyState: createTemplateFromElement(AncestryEmptyStateTemplate),
+  loadingOverlay: createTemplateFromElement(LoadingOverlayTemplate),
 };
 
 // Export helper functions for programmatic modal generation
