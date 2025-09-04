@@ -82,30 +82,6 @@ export interface UniqueStack {
   counts: Counts;
 }
 
-export interface File {
-  name: string;
-  stacks: UniqueStack[];
-}
-
-// Filtering change tracking
-export interface FilterChanges {
-  changedStacks: Set<string>; // Stack IDs that had visibility changes
-  changedGroups: Array<{
-    groupId: string;
-    visible: boolean;
-  }>;
-}
-
-// Settings and metadata types
-export interface AppSettings {
-  functionPrefixesToTrim: string[];
-  filePrefixesToTrim: string[];
-  titleManipulationRules: string[];
-  zipFilePattern: string;
-  nameExtractionPatterns: string[];
-  categoryIgnoredPrefixes: string[];
-}
-
 // State sorting utility
 const STATE_SORT_ORDER = [
   'running',

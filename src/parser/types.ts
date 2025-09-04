@@ -43,5 +43,5 @@ export interface ZipFile {
 
 export interface ExtractResult {
   files: ZipFile[];
-  totalSize: number;
+  totalSize: number; // Now supports values > 4GB with proper ZIP64 handling
 }
