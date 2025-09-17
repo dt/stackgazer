@@ -150,10 +150,11 @@ export class FileParser {
   }
 
   private detectFormat2(content: string): boolean {
-    // Format 2 has individual goroutine entries with "goroutine N ["
-    // Check if content starts with goroutine line OR contains goroutine lines (for test logs)
+    // Format 2 has individual goroutine entries with either:
+    // 1. Standard format: "goroutine N [state]:"
+    // 2. Runtime internal format: "goroutine N gp=0x... m=... mp=0x... [state]:"
     const trimmed = content.trim();
-    return /^goroutine \d+ \[/.test(trimmed) || /\ngoroutine \d+ \[/.test(content);
+    return /^goroutine \d+ (\[|gp=)/.test(trimmed) || /\ngoroutine \d+ (\[|gp=)/.test(content);
   }
 
   private async parseFormat0(blob: Blob, fileName: string): Promise<Result> {
@@ -294,10 +295,23 @@ export class FileParser {
         continue;
       }
 
-      // Parse goroutine header: "goroutine 123 [running, 5 minutes]:"
-      const match = line.match(
-        /^goroutine (\d+) \[([^,\]]+)(?:,\s*(\d+(?:\.\d+)?)\s*minutes?)?\]:/
+      // Parse goroutine header - two possible formats:
+      // 1. Standard: "goroutine 123 [running, 5 minutes]:"
+      // 2. Runtime internal: "goroutine 123 gp=0x... m=... mp=0x... [running]:"
+
+      // First try standard format - note: state can include parentheses like "GC worker (idle)"
+      let match = line.match(
+        /^goroutine (\d+) \[([^\]]+?)(?:,\s*(\d+(?:\.\d+)?)\s*minutes?)?\]:/
       );
+
+      // If standard format doesn't match, try runtime internal format
+      // This format has gp=, m=, mp= fields that can have various values (hex, decimal, nil)
+      if (!match) {
+        match = line.match(
+          /^goroutine (\d+) gp=\S+ m=\S+(?:\s+mp=\S+)? \[([^\]]+?)(?:,\s*(\d+(?:\.\d+)?)\s*minutes?)?\]:/
+        );
+      }
+
       if (!match) {
         i++;
         continue;
