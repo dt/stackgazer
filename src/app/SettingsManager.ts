@@ -11,6 +11,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   // Category rules
   categorySkipRules: [
     // Skip basic Go utilities that launch goroutines.
+    'runtime.goexit',
     'sync.',
     'internal/',
     'golang.org/x/sync/errgroup',
@@ -21,6 +22,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   // Title manipulation rules
   nameSkipRules: [
     // Skip common low-level runtime frames.
+    'runtime.gopark',
+    'runtime.selectgo',
     'sync.runtime_notifyListWait',
     'sync.runtime_Semacquire',
     'golang.org/x/sync/errgroup.(*Group).Wait',
