@@ -383,6 +383,18 @@ export class StackgazerApp {
       }
     });
 
+    // Global paste support for clipboard
+    window.addEventListener('paste', e => {
+      // Don't handle paste if user is typing in an input/textarea
+      const target = e.target as HTMLElement;
+      if (target.matches('input, textarea, [contenteditable="true"]')) {
+        return;
+      }
+
+      e.preventDefault();
+      this.handleClipboardPaste(e);
+    });
+
     // Back button
     const backBtn = document.getElementById('backBtn');
     if (backBtn) {
@@ -779,10 +791,31 @@ export class StackgazerApp {
     }
   }
 
+  private async handleClipboardPaste(e: ClipboardEvent): Promise<void> {
+    const clipboardData = e.clipboardData;
+    if (!clipboardData) return;
+
+    // Check for files first (e.g., screenshots or files copied from file explorer)
+    const files = clipboardData.files;
+    if (files && files.length > 0) {
+      await this.handleFiles(Array.from(files));
+      return;
+    }
+
+    // Check for text content (stack dump as string)
+    const text = clipboardData.getData('text/plain');
+    if (text && text.trim()) {
+      // Create a File object from the text content
+      const blob = new Blob([text], { type: 'text/plain' });
+      const file = new File([blob], 'clipboard-paste.txt', { type: 'text/plain' });
+      await this.handleFiles([file]);
+    }
+  }
+
   private async handleFiles(files: File[]): Promise<void> {
     const fileCount = files.length;
     const fileNames = files.map(f => f.name).join(', ');
-    
+
     // Show loading overlay
     this.showLoadingOverlay(
       fileCount === 1 ? 'Processing file...' : `Processing ${fileCount} files...`,
