@@ -24,6 +24,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     // Skip common low-level runtime frames.
     'runtime.gopark',
     'runtime.selectgo',
+    'runtime.semacquire1',
     'sync.runtime_notifyListWait',
     'sync.runtime_Semacquire',
     'golang.org/x/sync/errgroup.(*Group).Wait',

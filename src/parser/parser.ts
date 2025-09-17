@@ -277,7 +277,7 @@ export class FileParser {
     const lines = content.split('\n');
     const goroutineMap = new Map<string, boolean>(); // Track which goroutine IDs exist
     const createdMap = new Map<string, string[]>(); // Track which goroutine IDs were created
-    const parsedGoroutines: Array<{ goroutine: Goroutine; trace: Frame[] }> = [];
+    const parsedGoroutines: Array<{ goroutine: Goroutine; trace: Frame[]; labels: string[] }> = [];
     let extractedName: string | null = null;
 
     let i = 0;
@@ -299,16 +299,16 @@ export class FileParser {
       // 1. Standard: "goroutine 123 [running, 5 minutes]:"
       // 2. Runtime internal: "goroutine 123 gp=0x... m=... mp=0x... [running]:"
 
-      // First try standard format - note: state can include parentheses like "GC worker (idle)"
+      // First try standard format
       let match = line.match(
-        /^goroutine (\d+) \[([^\]]+?)(?:,\s*(\d+(?:\.\d+)?)\s*minutes?)?\]:/
+        /^goroutine (\d+) \[([^\]]+)\]:/
       );
 
       // If standard format doesn't match, try runtime internal format
       // This format has gp=, m=, mp= fields that can have various values (hex, decimal, nil)
       if (!match) {
         match = line.match(
-          /^goroutine (\d+) gp=\S+ m=\S+(?:\s+mp=\S+)? \[([^\]]+?)(?:,\s*(\d+(?:\.\d+)?)\s*minutes?)?\]:/
+          /^goroutine (\d+) gp=\S+ m=\S+(?:\s+mp=\S+)? \[([^\]]+)\]:/
         );
       }
 
@@ -317,9 +317,32 @@ export class FileParser {
         continue;
       }
 
-      const [, idStr, state, minutesStr] = match;
+      const [, idStr, fullStateStr] = match;
       const id = parseInt(idStr);
-      const waitMinutes = minutesStr ? parseFloat(minutesStr) : 0;
+
+      // Parse the state string which can be:
+      // - "running"
+      // - "select, 7 minutes"
+      // - "select, 7 minutes, locked to thread"
+      // - "GC worker (idle)"
+      // - "GC worker (idle), 5 minutes"
+      const stateParts = fullStateStr.split(',').map(s => s.trim());
+      const state = stateParts[0]; // First part is always the state
+
+      // Look for wait time and other attributes in the remaining parts
+      let waitMinutes = 0;
+      const additionalLabels: string[] = [];
+
+      for (let j = 1; j < stateParts.length; j++) {
+        const part = stateParts[j];
+        const timeMatch = part.match(/^(\d+(?:\.\d+)?)\s*minutes?$/);
+        if (timeMatch) {
+          waitMinutes = parseFloat(timeMatch[1]);
+        } else if (part) {
+          // Any other non-time attribute becomes a label
+          additionalLabels.push(part);
+        }
+      }
 
       // Parse stack trace
       i++;
@@ -390,26 +413,29 @@ export class FileParser {
         goroutineId
       );
 
-      // Store goroutine with its trace for grouping
-      parsedGoroutines.push({ goroutine, trace });
+      // Store goroutine with its trace and any additional labels for grouping
+      parsedGoroutines.push({ goroutine, trace, labels: additionalLabels });
     }
 
     // Group goroutines by stack trace fingerprint first, then by state
-    const stackMap = new Map<string, { trace: Frame[]; goroutines: Goroutine[] }>();
+    const stackMap = new Map<string, { trace: Frame[]; goroutines: Goroutine[]; allLabels: Set<string> }>();
 
-    for (const { goroutine, trace } of parsedGoroutines) {
+    for (const { goroutine, trace, labels } of parsedGoroutines) {
       const traceId = await fingerprint(trace);
 
       if (!stackMap.has(traceId)) {
-        stackMap.set(traceId, { trace, goroutines: [] });
+        stackMap.set(traceId, { trace, goroutines: [], allLabels: new Set<string>() });
       }
 
-      stackMap.get(traceId)!.goroutines.push(goroutine);
+      const entry = stackMap.get(traceId)!;
+      entry.goroutines.push(goroutine);
+      // Collect all unique labels for this stack
+      labels.forEach(label => entry.allLabels.add(label));
     }
 
     // Create final groups - group by state within each stack
     const groups: Group[] = [];
-    for (const [traceId, { trace, goroutines }] of stackMap) {
+    for (const [traceId, { trace, goroutines, allLabels }] of stackMap) {
       // Group goroutines by state within this stack trace
       const stateGroups = new Map<string, Goroutine[]>();
 
@@ -422,10 +448,15 @@ export class FileParser {
 
       // Create a separate group for each state within this stack
       for (const [state, stateGoroutines] of stateGroups) {
+        // Combine state label with any additional labels collected
+        const labels = [`state=${state}`];
+        // Add any additional labels (like "locked to thread") that were found
+        allLabels.forEach(label => labels.push(label));
+
         groups.push({
           traceId,
           count: stateGoroutines.length,
-          labels: [`state=${state}`], // Synthesized state label
+          labels,
           goroutines: stateGoroutines,
           trace,
         });
