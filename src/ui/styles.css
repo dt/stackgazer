@@ -1,21 +1,21 @@
-:root {
+#stackgazer {
     /* Dark theme colors (default) */
     --bg-primary: #1e1e1e;
     --bg-secondary: #252526;
     --bg-tertiary: #2d2d30;
     --bg-quaternary: #3c3c3c;
     --bg-overlay: rgba(0, 0, 0, 0.5);
-    
+
     --text-primary: #d4d4d4;
     --text-secondary: #bbb;
     --text-muted: #888;
     --text-link: #007acc;
     --text-link-hover: #4fc3f7;
-    
+
     --border-primary: #3e3e42;
     --border-secondary: #555;
     --border-light: #464647;
-    
+
     --accent-primary: #007acc;
     --accent-primary-hover: #0087d4;
     --header-hover-light: #4a4a4a;
@@ -23,7 +23,7 @@
     --accent-danger: #d73a49;
     --accent-danger-hover: #e03e53;
     --accent-success: #4caf50;
-    
+
     --code-function: #4ec9b0;
     --code-file: #9cdcfe;
     --code-line: #b5cea8;
@@ -32,24 +32,24 @@
     --code-bg: #2d2d30;
 }
 
-[data-theme="light"] {
+#stackgazer[data-theme="light"] {
     /* Light theme colors */
     --bg-primary: #ffffff;
     --bg-secondary: #f8f9fa;
     --bg-tertiary: #f5f7fa;
     --bg-quaternary: #e9ecef;
     --bg-overlay: rgba(255, 255, 255, 0.7);
-    
+
     --text-primary: #242a35;
     --text-secondary: #495057;
     --text-muted: #6c757d;
     --text-link: #6933ff;
     --text-link-hover: #5a2dd9;
-    
+
     --border-primary: #d6dbe7;
     --border-secondary: #ced4da;
     --border-light: #dee2e6;
-    
+
     --accent-primary: #6933ff;
     --accent-primary-hover: #5a2dd9;
     --header-hover-light: #e6f3ff;
@@ -57,7 +57,7 @@
     --accent-danger: #dc3545;
     --accent-danger-hover: #c82333;
     --accent-success: #28a745;
-    
+
     --code-function: #0969da;
     --code-file: #098658;
     --code-line: #0451a5;
@@ -66,22 +66,30 @@
     --code-bg: #f8f9fa;
 }
 
-* {
+#stackgazer * {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
 }
 
-body {
+#stackgazer {
     font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
     background: var(--bg-primary);
     color: var(--text-primary);
     height: 100vh;
+    width: 100%;
     overflow: hidden;
+    position: relative;
+    margin: 0;
+    padding: 0;
+    border: none;
+    outline: none;
+    box-sizing: border-box;
+    display: block;
 }
 
 /* Base button styles */
-.btn {
+#stackgazer .btn {
     background: var(--accent-primary);
     border: none;
     color: white;
@@ -93,32 +101,32 @@ body {
     transition: all 0.2s ease;
 }
 
-.btn:hover {
+#stackgazer .btn:hover {
     background: var(--accent-primary-hover);
 }
 
-.btn:disabled {
+#stackgazer .btn:disabled {
     background: var(--border-secondary);
     cursor: not-allowed;
     opacity: 0.5;
 }
 
-.btn:disabled:hover {
+#stackgazer .btn:disabled:hover {
     background: var(--border-secondary);
 }
 
-.btn-danger {
+#stackgazer .btn-danger {
     background: var(--accent-danger);
 }
 
-.btn-danger:hover {
+#stackgazer .btn-danger:hover {
     background: var(--accent-danger-hover);
 }
 
 /* Base modal styles */
-.modal {
+#stackgazer .modal {
     display: none;
-    position: fixed;
+    position: absolute;
     z-index: 10000;
     left: 0;
     top: 0;
@@ -127,7 +135,7 @@ body {
     background-color: var(--bg-overlay);
 }
 
-.modal-content {
+#stackgazer .modal-content {
     background-color: var(--bg-tertiary);
     margin: 5% auto;
     border: 1px solid var(--border-primary);
@@ -143,7 +151,7 @@ body {
     overflow: visible; /* Allow tooltips to escape modal bounds */
 }
 
-.modal-header {
+#stackgazer .modal-header {
     padding: 20px 25px 15px;
     border-bottom: 1px solid var(--border-primary);
     display: flex;
@@ -153,7 +161,7 @@ body {
     border-radius: 8px 8px 0 0;
 }
 
-.modal-close {
+#stackgazer .modal-close {
     background: none;
     border: none;
     color: var(--text-muted);
@@ -170,12 +178,12 @@ body {
     transition: all 0.2s ease;
 }
 
-.modal-close:hover {
+#stackgazer .modal-close:hover {
     background: var(--border-primary);
     color: var(--text-primary);
 }
 
-.modal-body {
+#stackgazer .modal-body {
     padding: 25px;
     color: var(--text-primary);
     line-height: 1.6;
@@ -184,12 +192,12 @@ body {
     overflow-x: visible; /* Allow tooltips to escape modal bounds */
 }
 
-.container {
+#stackgazer .container {
     display: flex;
     height: 100vh;
 }
 
-.sidebar {
+#stackgazer .sidebar {
     width: 300px;
     background: var(--bg-secondary);
     border-right: 1px solid var(--border-primary);
@@ -197,14 +205,14 @@ body {
     overflow-y: auto;
 }
 
-.main-content {
+#stackgazer .main-content {
     flex: 1;
     display: flex;
     flex-direction: column;
     overflow: hidden;
 }
 
-.view-controls-bar {
+#stackgazer .view-controls-bar {
     background: var(--bg-secondary);
     border-bottom: 1px solid var(--border-primary);
     padding: 10px 20px;
@@ -215,29 +223,27 @@ body {
     min-height: 50px;
 }
 
-
-
-.view-controls-bar .view-controls {
+#stackgazer .view-controls-bar .view-controls {
     display: flex;
     flex-direction: row;
     gap: 10px;
     flex-wrap: wrap;
 }
 
-.view-controls-bar .left-controls {
+#stackgazer .view-controls-bar .left-controls {
     display: flex;
     align-items: center;
     gap: 15px;
     flex: 1;
 }
 
-.view-controls-bar .right-controls {
+#stackgazer .view-controls-bar .right-controls {
     display: flex;
     align-items: center;
     gap: 10px;
 }
 
-.view-controls-bar select {
+#stackgazer .view-controls-bar select {
     background: var(--bg-quaternary);
     border: 1px solid var(--border-secondary);
     border-radius: 4px;
@@ -247,18 +253,18 @@ body {
     padding: 4px 8px;
 }
 
-.view-controls-bar select:focus {
+#stackgazer .view-controls-bar select:focus {
     outline: none;
     border-color: var(--accent-primary);
 }
 
-.view-controls-bar .control-btn {
+#stackgazer .view-controls-bar .control-btn {
     padding: 6px 12px;
     font-size: 11px;
     min-width: 80px;
 }
 
-.view-controls-bar label {
+#stackgazer .view-controls-bar label {
     display: flex;
     align-items: center;
     gap: 6px;
@@ -267,7 +273,7 @@ body {
     white-space: nowrap;
 }
 
-.drop-zone {
+#stackgazer .drop-zone {
     flex: 1;
     display: flex;
     align-items: center;
@@ -279,12 +285,12 @@ body {
     cursor: pointer;
 }
 
-.drop-zone.dragover {
+#stackgazer .drop-zone.dragover {
     border-color: var(--text-link-hover);
     background: color-mix(in srgb, var(--accent-primary) 10%, transparent);
 }
 
-.drop-zone.has-content {
+#stackgazer .drop-zone.has-content {
     align-items: flex-start;
     justify-content: flex-start;
     padding: 0;
@@ -294,23 +300,23 @@ body {
     overflow-y: auto;
 }
 
-.drop-message {
+#stackgazer .drop-message {
     text-align: center;
     color: var(--accent-primary);
     font-size: 18px;
 }
 
-.filter-section {
+#stackgazer .filter-section {
     margin-bottom: 20px;
 }
 
-.filter-section h3 {
+#stackgazer .filter-section h3 {
     color: var(--accent-primary);
     margin-bottom: 10px;
     font-size: 14px;
 }
 
-.filter-input {
+#stackgazer .filter-input {
     width: 100%;
     padding: 8px;
     background: var(--bg-quaternary);
@@ -321,17 +327,17 @@ body {
     margin-bottom: 10px;
 }
 
-.filter-input:focus {
+#stackgazer .filter-input:focus {
     outline: none;
     border-color: var(--accent-primary);
 }
 
-.filter-input.error {
+#stackgazer .filter-input.error {
     border-color: var(--accent-danger);
     background: color-mix(in srgb, var(--accent-danger) 10%, transparent);
 }
 
-.filter-error {
+#stackgazer .filter-error {
     font-size: 11px;
     color: var(--accent-danger);
     margin-top: 4px;
@@ -341,7 +347,7 @@ body {
     border: 1px solid var(--accent-danger);
 }
 
-.stack-display {
+#stackgazer .stack-display {
     width: 100%;
     height: 100%;
     overflow-y: auto;
@@ -352,9 +358,7 @@ body {
     box-sizing: border-box;
 }
 
-.stack-group,
-.stack-section,
-.section.stack-section {
+#stackgazer .stack-group, #stackgazer .stack-section, #stackgazer .section.stack-section{
     margin-bottom: 20px;
     border: 2px solid var(--accent-border);
     border-radius: 8px;
@@ -363,7 +367,7 @@ body {
     position: relative;
 }
 
-.header {
+#stackgazer .header {
     background: var(--accent-primary);
     color: white;
     padding: 12px 15px;
@@ -378,38 +382,36 @@ body {
     position: relative;
 }
 
-.header:hover {
+#stackgazer .header:hover {
     background: var(--accent-primary-hover);
 }
 
 /* File section headers should use neutral styling */
-.file-section .header {
+#stackgazer .file-section .header {
     background: var(--bg-quaternary);
     color: var(--text-primary);
 }
 
-.file-section .header:hover {
+#stackgazer .file-section .header:hover {
     background: var(--header-hover-light);
 }
 
 /* Hide file section headers only for single-group sections to avoid redundancy */
-.file-section.single-group > .header {
+#stackgazer .file-section.single-group > .header {
     display: none;
 }
 
 /* Style all group headers with file-like appearance since they contain filenames */
-.file-section .group-section .header {
+#stackgazer .file-section .group-section .header {
     background: var(--bg-quaternary);
     color: var(--text-primary);
 }
 
-.file-section .group-section .header:hover {
+#stackgazer .file-section .group-section .header:hover {
     background: var(--header-hover-light);
 }
 
-.group-title,
-.stack-title,
-.category-title {
+#stackgazer .group-title, #stackgazer .stack-title, #stackgazer .category-title{
     cursor: text;
     user-select: text;
     flex: 0 1 auto;
@@ -420,7 +422,7 @@ body {
 }
 
 /* Add downward arrow with rightward tip prefix to stack titles */
-.stack-title::before {
+#stackgazer .stack-title::before {
     content: "↳";
     margin-right: -4px;
     opacity: 1;
@@ -429,12 +431,12 @@ body {
     top: -3px;
 }
 
-.group-title-text {
+#stackgazer .group-title-text {
     font-weight: bold;
     color: white;
 }
 
-.group-title-summary {
+#stackgazer .group-title-summary {
     font-weight: normal;
     color: color-mix(in srgb, var(--text-primary) 80%, transparent);
     font-size: 13px;
@@ -442,19 +444,18 @@ body {
     border-left: 1px solid color-mix(in srgb, var(--text-primary) 30%, transparent);
 }
 
-.group-count,
-.stack-count {
+#stackgazer .group-count, #stackgazer .stack-count{
     font-weight: normal;
     font-size: 13px;
     text-align: right;
 }
 
-.group-controls {
+#stackgazer .group-controls {
     display: flex;
     gap: 5px;
 }
 
-.group-control-btn {
+#stackgazer .group-control-btn {
     background: color-mix(in srgb, var(--text-primary) 20%, transparent);
     border: none;
     color: white;
@@ -465,12 +466,12 @@ body {
     font-size: 10px;
 }
 
-.group-control-btn:hover {
+#stackgazer .group-control-btn:hover {
     background: color-mix(in srgb, var(--text-primary) 30%, transparent);
 }
 
 /* Generic pin button system - reusable across contexts */
-.pin-button {
+#stackgazer .pin-button {
     --pin-size: 28px;
     --pin-font: 16px;
     --pin-top: -14px;
@@ -505,7 +506,7 @@ body {
     z-index: var(--pin-z);
 }
 
-.pin-button.size-small {
+#stackgazer .pin-button.size-small {
     --pin-size: 18px;
     --pin-font: 10px;
     --pin-top: 3px;
@@ -523,13 +524,13 @@ body {
 }
 
 /* Hover reveal for unpinned pins */
-.section:hover > .header > .pin-button:not(.pinned),
-.goroutine-entry:hover > .pin-button:not(.pinned) {
+#stackgazer .section:hover > .header > .pin-button:not(.pinned),
+#stackgazer .goroutine-entry:hover > .pin-button:not(.pinned) {
     opacity: 0.7; /* Less dim on hover */
 }
 
 /* Expanded click targets */
-.pin-button::before {
+#stackgazer .pin-button::before {
     content: '';
     position: absolute;
     top: calc(var(--pin-target-size) * -1);
@@ -540,7 +541,7 @@ body {
 }
 
 /* Hover states */
-.pin-button:hover {
+#stackgazer .pin-button:hover {
     background: var(--bg-quaternary);
     border-color: var(--border-primary);
     color: var(--text-primary);
@@ -552,13 +553,13 @@ body {
     right: calc(var(--pin-right) - (var(--pin-hover-size) - var(--pin-size)) / 2);
 }
 
-.pin-button.size-small:hover {
+#stackgazer .pin-button.size-small:hover {
     top: calc(var(--pin-top) - (var(--pin-hover-size) - var(--pin-size)) / 2);
     right: calc(var(--pin-right) - (var(--pin-hover-size) - var(--pin-size)) / 2);
 }
 
 /* Pinned states */
-.pin-button.pinned {
+#stackgazer .pin-button.pinned {
     background: var(--bg-quaternary);
     opacity: 1 !important;
     border: 2px solid var(--border-primary);
@@ -570,12 +571,12 @@ body {
     right: var(--pin-right);
 }
 
-.pin-button.size-small.pinned {
+#stackgazer .pin-button.size-small.pinned {
     top: var(--pin-top);
 }
 
 /* Pinned hover states */
-.pin-button.pinned:hover {
+#stackgazer .pin-button.pinned:hover {
     color: var(--text-primary);
     border: 2px solid var(--text-primary);
     width: var(--pin-hover-size);
@@ -585,20 +586,20 @@ body {
     right: calc(var(--pin-right) - (var(--pin-hover-size) - var(--pin-pinned-size)) / 2);
 }
 
-.pin-button.size-small.pinned:hover {
+#stackgazer .pin-button.size-small.pinned:hover {
     top: calc(var(--pin-top) - (var(--pin-hover-size) - var(--pin-pinned-size)) / 2);
     right: calc(var(--pin-right) - (var(--pin-hover-size) - var(--pin-pinned-size)) / 2);
 }
 
 /* Consistent spacing to prevent text shifting */
-.header .counts {
+#stackgazer .header .counts {
     margin-right: 36px;
     cursor: text;
     user-select: text;
 }
 
 /* Header right container for count and stats */
-.header-right {
+#stackgazer .header-right {
     display: flex;
     flex-direction: column;
     align-items: flex-end;
@@ -606,8 +607,8 @@ body {
 }
 
 /* Stats display below counts in headers */
-.category-stats,
-.stack-stats {
+#stackgazer .category-stats,
+#stackgazer .stack-stats {
     font-size: 9px;
     color: color-mix(in srgb, white 60%, transparent);
     white-space: nowrap;
@@ -617,23 +618,20 @@ body {
     user-select: text;
 }
 
-.category-stats:empty,
-.stack-stats:empty {
+#stackgazer .category-stats:empty, #stackgazer .stack-stats:empty{
     display: none;
 }
 
-.group-content,
-.stack-content {
+#stackgazer .group-content, #stackgazer .stack-content{
     background: var(--bg-tertiary);
     padding-bottom: 1px;
 }
 
-.group-content.collapsed-container,
-.stack-content.collapsed-container {
+#stackgazer .group-content.collapsed-container, #stackgazer .stack-content.collapsed-container{
     display: none;
 }
 
-.unique-stack-view {
+#stackgazer .unique-stack-view {
     background: var(--bg-tertiary);
     border: 1px solid var(--border-primary);
     border-radius: 6px;
@@ -642,7 +640,7 @@ body {
     user-select: text;
 }
 
-.unique-stack-header {
+#stackgazer .unique-stack-header {
     background: var(--bg-quaternary);
     color: var(--text-primary);
     padding: 8px 15px;
@@ -654,20 +652,20 @@ body {
     user-select: text;
 }
 
-.unique-stack-content {
+#stackgazer .unique-stack-content {
     padding: 15px;
     cursor: text;
     user-select: text;
 }
 
-.state-group {
+#stackgazer .state-group {
     background: var(--bg-quaternary);
     margin: 10px;
     border-radius: 4px;
     overflow: visible;
 }
 
-.state-group-header {
+#stackgazer .state-group-header {
     background: var(--bg-quaternary);
     color: var(--text-primary);
     padding: 8px 12px;
@@ -680,27 +678,27 @@ body {
     align-items: center;
 }
 
-.state-group-header:hover {
+#stackgazer .state-group-header:hover {
     background: var(--header-hover-light);
 }
 
-.state-group-content {
+#stackgazer .state-group-content {
     display: block;
 }
 
-.state-group-content.collapsed-section {
+#stackgazer .state-group-content.collapsed-section {
     display: none;
 }
 
-.remaining-goroutines {
+#stackgazer .remaining-goroutines {
     display: block;
 }
 
-.remaining-goroutines.collapsed-section {
+#stackgazer .remaining-goroutines.collapsed-section {
     display: none;
 }
 
-.show-more-link {
+#stackgazer .show-more-link {
     padding: 6px 12px;
     margin: 0;
     background: transparent;
@@ -713,15 +711,15 @@ body {
     border-bottom: 1px dashed var(--border-primary);
 }
 
-.show-more-link:hover {
+#stackgazer .show-more-link:hover {
     color: var(--text-link-hover);
 }
 
-.show-more-text {
+#stackgazer .show-more-text {
     user-select: none;
 }
 
-.goroutine-entry {
+#stackgazer .goroutine-entry {
     background: transparent;
     border-bottom: 1px dashed var(--border-primary);
     overflow: visible;
@@ -730,16 +728,16 @@ body {
     position: relative;
 }
 
-.goroutine-entry:last-child {
+#stackgazer .goroutine-entry:last-child {
     border-bottom: none;
 }
 
-.goroutine-entry.highlighted {
+#stackgazer .goroutine-entry.highlighted {
     background: color-mix(in srgb, var(--accent-primary) 25%, transparent) !important;
     transition: background-color 0.3s ease;
 }
 
-.goroutine-header {
+#stackgazer .goroutine-header {
     background: transparent;
     color: var(--text-primary);
     padding: 6px 12px;
@@ -748,88 +746,88 @@ body {
     user-select: text;
 }
 
-.goroutine-header-first-line {
+#stackgazer .goroutine-header-first-line {
     display: flex;
     justify-content: space-between;
     align-items: center;
 }
 
-.goroutine-header-left {
+#stackgazer .goroutine-header-left {
     display: flex;
     align-items: center;
     gap: 4px;
 }
 
-.group-header-left {
+#stackgazer .group-header-left {
     display: flex;
     align-items: center;
     gap: 6px;
 }
 
-.goroutine-header-second-line {
+#stackgazer .goroutine-header-second-line {
     margin-top: 4px;
     font-size: 10px;
     color: var(--text-secondary);
     font-style: italic;
 }
 
-.created-goroutines-label {
+#stackgazer .created-goroutines-label {
     color: var(--text-muted);
 }
 
-.created-goroutines-more {
+#stackgazer .created-goroutines-more {
     color: var(--text-muted);
 }
 
-.created-goroutines-more.clickable {
+#stackgazer .created-goroutines-more.clickable {
     color: var(--text-link);
     cursor: pointer;
     text-decoration: underline;
 }
 
-.created-goroutines-more.clickable:hover {
+#stackgazer .created-goroutines-more.clickable:hover {
     color: var(--text-link-hover);
 }
 
-.goroutine-header:hover {
+#stackgazer .goroutine-header:hover {
     background: var(--bg-quaternary);
 }
 
-.goroutine-created-by {
+#stackgazer .goroutine-created-by {
     font-size: 10px;
     color: var(--text-muted);
     font-style: italic;
 }
 
-.goroutine-created-by .creator-link {
+#stackgazer .goroutine-created-by .creator-link {
     color: var(--text-link);
     cursor: pointer;
     text-decoration: underline;
 }
 
-.goroutine-created-by .creator-link:hover {
+#stackgazer .goroutine-created-by .creator-link:hover {
     color: var(--text-link-hover);
 }
 
-.goroutine-created-by .creator-missing {
+#stackgazer .goroutine-created-by .creator-missing {
     color: var(--text-muted);
     text-decoration: line-through;
 }
 
-.goroutine-stack {
+#stackgazer .goroutine-stack {
     padding: 10px 15px;
     display: none;
 }
 
-.goroutine-stack.expanded {
+#stackgazer .goroutine-stack.expanded {
     display: block;
 }
 
-.stack-line {
+#stackgazer .stack-line {
     margin-bottom: 2px;
 }
 
-.stack-trace {
+#stackgazer .stack-trace {
     background: var(--code-bg);
     margin: 10px;
     padding: 10px;
@@ -839,7 +837,7 @@ body {
     user-select: text;
 }
 
-.trace-header {
+#stackgazer .trace-header {
     font-weight: bold;
     color: var(--accent-primary);
     margin-bottom: 8px;
@@ -847,7 +845,7 @@ body {
 }
 
 /* Common section styles for both files and groups */
-.section {
+#stackgazer .section {
     background: var(--bg-tertiary);
     margin: 10px;
     border: 1px solid var(--border-primary);
@@ -856,7 +854,7 @@ body {
 }
 
 /* Remove margins for groups inside file sections so they fill completely */
-.file-section .group-section {
+#stackgazer .file-section .group-section {
     margin: 0 0 0 10px;
     border-radius: 0;
     border-left: none;
@@ -864,98 +862,96 @@ body {
 }
 
 /* For single-group file sections, remove left margin so header fills full width */
-.file-section.single-group .group-section {
+#stackgazer .file-section.single-group .group-section {
     margin-left: 0;
 }
 
 /* First group gets top border radius, last group gets bottom border radius */
-.file-section .group-section:first-child {
+#stackgazer .file-section .group-section:first-child {
     border-top-left-radius: 4px;
     border-top-right-radius: 4px;
     border-top: 1px solid var(--border-primary);
 }
 
-.file-section .group-section:last-child {
+#stackgazer .file-section .group-section:last-child {
     border-bottom-left-radius: 4px;
     border-bottom-right-radius: 4px;
     border-bottom: 1px solid var(--border-primary);
 }
 
 /* Only group gets all borders and radius */
-.file-section .group-section:only-child {
+#stackgazer .file-section .group-section:only-child {
     border: 1px solid var(--border-primary);
     border-radius: 4px;
 }
 
 /* Category sections get more prominent rounded corners */
-.category-section {
+#stackgazer .category-section {
     border-radius: 12px;
 }
 
 /* Sticky header styles */
-.category-section > .header {
+#stackgazer .category-section > .header {
     position: sticky;
     top: -23px; /* Account for section margin */
     z-index: 100;
     border-radius: 6px 6px 0 0;
 }
 
-.stack-section > .header {
+#stackgazer .stack-section > .header {
     position: sticky;
     top: 20px; /* Stack headers stick below category headers, accounting for margin */
     z-index: 90;
 }
 
 /* Adjust pin button positioning when headers are sticky to avoid overlap with controls bar */
-.category-section > .header .pin-button {
+#stackgazer .category-section > .header .pin-button {
     --pin-top: 5px; /* Move pin buttons down when header is sticky */
     --pin-hover-offset: -21px; /* Adjust hover state accordingly */
 }
 
-.stack-section > .header .pin-button {
+#stackgazer .stack-section > .header .pin-button {
     --pin-top: 5px; /* Move pin buttons down when header is sticky */
     --pin-hover-offset: -21px; /* Adjust hover state accordingly */
 }
 
-
-.section-content {
+#stackgazer .section-content {
     padding: 10px;
     transition: all 0.2s ease;
 }
 
 /* Remove padding from file section content so groups fill completely */
-.file-section > .section-content {
+#stackgazer .file-section > .section-content {
     padding: 0;
 }
 
 /* Expandable container states - specific for categories and stacks */
-.expandable.container-collapsed > .section-content {
+#stackgazer .expandable.container-collapsed > .section-content {
     display: none;
 }
 
 /* Expandable section states - specific for files and groups */  
-.expandable.section-collapsed > .section-content {
+#stackgazer .expandable.section-collapsed > .section-content {
     display: none;
 }
 
 /* Hide group section content when it has no children */
-.group-section .section-content:empty {
+#stackgazer .group-section .section-content:empty {
     display: none;
 }
 
 /* Expand/collapse icons using CSS content - reusable for any header */
-.expandable .expand-icon::before {
+#stackgazer .expandable .expand-icon::before {
     content: '▼';
     margin-right: 6px;
 }
 
-.expandable.container-collapsed .expand-icon::before,
-.expandable.section-collapsed .expand-icon::before {
+#stackgazer .expandable.container-collapsed .expand-icon::before, #stackgazer .expandable.section-collapsed .expand-icon::before{
     content: '▶';
 }
 
 /* Custom rules expand icons using CSS pseudo-elements */
-.custom-rules-section .custom-rules-title h5::before {
+#stackgazer .custom-rules-section .custom-rules-title h5::before {
     content: '▼';
     margin-right: 6px;
     font-size: 10px;
@@ -963,62 +959,62 @@ body {
     transition: transform 0.2s ease;
 }
 
-.custom-rules-section.settings-collapsed .custom-rules-title h5::before {
+#stackgazer .custom-rules-section.settings-collapsed .custom-rules-title h5::before {
     content: '▶';
 }
 
-.group-labels {
+#stackgazer .group-labels {
     margin-top: 8px;
     font-size: 10px;
     color: var(--text-muted);
     font-style: italic;
 }
 
-.function-name {
+#stackgazer .function-name {
     color: var(--code-function);
     word-break: break-all;
     overflow-wrap: break-word;
 }
 
-.file-path {
+#stackgazer .file-path {
     color: var(--code-file);
     word-break: break-all;
     overflow-wrap: break-word;
 }
 
-.line-number {
+#stackgazer .line-number {
     color: var(--code-line);
 }
 
-.function-args-short {
+#stackgazer .function-args-short {
     color: var(--text-secondary);
     font-size: 10px;
     cursor: pointer;
 }
 
-.function-args-short:hover {
+#stackgazer .function-args-short:hover {
     color: var(--text-muted);
 }
 
-.function-args-full {
+#stackgazer .function-args-full {
     color: var(--text-primary);
     font-size: 10px;
 }
 
-.creator-link {
+#stackgazer .creator-link {
     color: var(--code-keyword);
     cursor: pointer;
     text-decoration: underline;
     transition: color 0.2s ease;
 }
 
-.creator-link:hover {
+#stackgazer .creator-link:hover {
     color: var(--text-link-hover);
     text-decoration: underline;
 }
 
 /* Goroutine tooltip styles */
-.goroutine-tooltip {
+#stackgazer .goroutine-tooltip {
     position: absolute;
     background: var(--bg-tertiary);
     border: 1px solid var(--border-light);
@@ -1035,56 +1031,56 @@ body {
     text-overflow: ellipsis;
 }
 
-.goroutine-tooltip .tooltip-label {
+#stackgazer .goroutine-tooltip .tooltip-label {
     font-weight: bold;
     color: var(--code-keyword);
 }
 
-.goroutine-tooltip .tooltip-value {
+#stackgazer .goroutine-tooltip .tooltip-value {
     color: var(--code-string);
 }
 
-.goroutine-tooltip .tooltip-stack {
+#stackgazer .goroutine-tooltip .tooltip-stack {
     margin-top: 4px;
     font-family: 'Courier New', monospace;
     font-size: 11px;
     color: var(--code-file);
 }
 
-.creator-missing {
+#stackgazer .creator-missing {
     text-decoration: line-through;
 }
 
-.created-by-line {
+#stackgazer .created-by-line {
     margin-top: 5px;
     padding-top: 5px;
     border-top: 1px solid var(--border-primary);
 }
 
-.created-by-text {
+#stackgazer .created-by-text {
     color: var(--text-muted);
 }
 
-.stats {
+#stackgazer .stats {
     background: var(--bg-tertiary);
     padding: 15px;
     border-bottom: 1px solid var(--border-primary);
     font-size: 12px;
 }
 
-.stats-item {
+#stackgazer .stats-item {
     margin-bottom: 5px;
     display: flex;
     justify-content: space-between;
 }
 
-.state-stats {
+#stackgazer .state-stats {
     margin-top: 10px;
     padding-top: 10px;
     border-top: 1px solid var(--border-light);
 }
 
-.state-stats div {
+#stackgazer .state-stats div {
     display: flex;
     justify-content: space-between;
     margin-bottom: 2px;
@@ -1092,45 +1088,44 @@ body {
     color: var(--text-secondary);
 }
 
-.state-stat-item {
+#stackgazer .state-stat-item {
     margin-bottom: 3px;
     font-size: 11px;
     color: var(--text-secondary);
 }
 
-
-.state-item {
+#stackgazer .state-item {
     cursor: pointer;
     padding: 2px 4px;
     border-radius: 2px;
     transition: background-color 0.2s;
 }
 
-.state-item:hover {
+#stackgazer .state-item:hover {
     background-color: var(--border-primary);
 }
 
-.state-item.state-only {
+#stackgazer .state-item.state-only {
     background-color: color-mix(in srgb, var(--accent-primary) 20%, transparent);
     color: var(--accent-primary);
     font-weight: bold;
 }
 
-.state-item.state-excluded {
+#stackgazer .state-item.state-excluded {
     text-decoration: line-through;
     color: var(--accent-danger);
 }
 
-.state-item.state-grayed {
+#stackgazer .state-item.state-grayed {
     opacity: 0.5;
     color: var(--text-secondary);
 }
 
-.sidebar .view-controls {
+#stackgazer .sidebar .view-controls {
     display: none;
 }
 
-.control-btn {
+#stackgazer .control-btn {
     background: var(--accent-primary);
     border: none;
     color: white;
@@ -1142,32 +1137,32 @@ body {
     transition: all 0.2s ease;
 }
 
-.control-btn:hover {
+#stackgazer .control-btn:hover {
     background: var(--accent-primary-hover);
 }
 
-.control-btn:disabled {
+#stackgazer .control-btn:disabled {
     background: var(--border-secondary);
     cursor: not-allowed;
     opacity: 0.5;
 }
 
-.control-btn:disabled:hover {
+#stackgazer .control-btn:disabled:hover {
     background: var(--border-secondary);
 }
 
-.clear-btn {
+#stackgazer .clear-btn {
     /* Uses .btn .btn-danger base classes */
     padding: 8px 16px;
     width: 100%;
     margin-top: 10px;
 }
 
-.file-section {
+#stackgazer .file-section {
     margin-bottom: 10px;
 }
 
-.file-list-container {
+#stackgazer .file-list-container {
     border: 1px solid var(--border-secondary);
     border-radius: 6px;
     background: var(--bg-tertiary);
@@ -1175,18 +1170,18 @@ body {
     min-height: 40px;
 }
 
-.file-list-container.dragover {
+#stackgazer .file-list-container.dragover {
     border-color: var(--accent-primary);
     background: color-mix(in srgb, var(--accent-primary) 10%, transparent);
 }
 
-.file-list {
+#stackgazer .file-list {
     max-height: 200px;
     overflow-y: auto;
     overflow-x: hidden;
 }
 
-.file-item {
+#stackgazer .file-item {
     display: flex;
     align-items: center;
     background: var(--bg-quaternary);
@@ -1197,29 +1192,29 @@ body {
     gap: 8px;
 }
 
-.file-item:last-child {
+#stackgazer .file-item:last-child {
     margin-bottom: 5px;
 }
 
-.file-item.file-hidden {
+#stackgazer .file-item.file-hidden {
     opacity: 0.5;
     background: var(--bg-secondary);
 }
 
-.file-item.file-hidden .file-name-text {
+#stackgazer .file-item.file-hidden .file-name-text {
     color: var(--text-muted);
     text-decoration: line-through;
 }
 
-.file-item:hover {
+#stackgazer .file-item:hover {
     background: var(--border-primary);
 }
 
-.file-item.file-hidden:hover {
+#stackgazer .file-item.file-hidden:hover {
     background: var(--bg-quaternary);
 }
 
-.file-name-text {
+#stackgazer .file-name-text {
     flex: 1;
     margin-right: 8px;
     overflow: hidden;
@@ -1227,7 +1222,7 @@ body {
     text-overflow: ellipsis;
 }
 
-.file-name-text {
+#stackgazer .file-name-text {
     display: inline-block;
     cursor: pointer;
     border-radius: 2px;
@@ -1236,12 +1231,12 @@ body {
     position: relative;
 }
 
-.file-name-text:hover {
+#stackgazer .file-name-text:hover {
     background-color: color-mix(in srgb, var(--text-primary) 10%, transparent);
     transform: translateY(-1px);
 }
 
-.file-name-text:hover::after {
+#stackgazer .file-name-text:hover::after {
     content: "✏️";
     position: absolute;
     right: -16px;
@@ -1251,7 +1246,7 @@ body {
     opacity: 0.7;
 }
 
-.file-name-text.editing {
+#stackgazer .file-name-text.editing {
     background-color: var(--accent-primary);
     color: white;
     outline: 2px solid var(--text-link-hover);
@@ -1262,13 +1257,13 @@ body {
     box-shadow: 0 0 8px color-mix(in srgb, var(--text-link-hover) 40%, transparent);
 }
 
-.file-name-text.editing:focus {
+#stackgazer .file-name-text.editing:focus {
     background-color: var(--accent-primary-hover);
     outline-color: var(--text-link-hover);
     box-shadow: 0 0 12px color-mix(in srgb, var(--text-link-hover) 60%, transparent);
 }
 
-.file-remove-btn {
+#stackgazer .file-remove-btn {
     background: var(--accent-danger);
     border: none;
     color: white;
@@ -1285,19 +1280,19 @@ body {
     transition: all 0.2s ease;
 }
 
-.file-remove-btn:hover {
+#stackgazer .file-remove-btn:hover {
     background: var(--accent-danger-hover);
     transform: scale(1.1);
 }
 
-.file-stats {
+#stackgazer .file-stats {
     font-size: 10px;
     color: var(--text-muted);
     white-space: nowrap;
     flex-shrink: 0;
 }
 
-.file-drop-area {
+#stackgazer .file-drop-area {
     padding: 8px;
     text-align: center;
     color: var(--text-muted);
@@ -1309,16 +1304,15 @@ body {
     display: none;
 }
 
-.file-list-container:hover .file-drop-area,
-.file-list-container.dragover .file-drop-area {
+#stackgazer .file-list-container:hover .file-drop-area, #stackgazer .file-list-container.dragover .file-drop-area{
     opacity: 1;
 }
 
-.file-list-container.has-files .file-drop-area {
+#stackgazer .file-list-container.has-files .file-drop-area {
     display: block;
 }
 
-.empty-state {
+#stackgazer .empty-state {
     padding: 15px;
     text-align: center;
     color: var(--text-muted);
@@ -1326,7 +1320,7 @@ body {
 }
 
 /* Add File Button */
-.add-file-btn {
+#stackgazer .add-file-btn {
     background: transparent;
     border: 1px solid var(--border-secondary);
     color: var(--text-muted);
@@ -1345,14 +1339,14 @@ body {
     opacity: 0.6;
 }
 
-.add-file-btn:hover {
+#stackgazer .add-file-btn:hover {
     background: var(--border-primary);
     color: var(--text-primary);
     border-color: var(--text-muted);
     opacity: 1;
 }
 
-.clear-all-btn {
+#stackgazer .clear-all-btn {
     background: transparent;
     border: 1px solid var(--accent-danger);
     color: var(--accent-danger);
@@ -1372,26 +1366,26 @@ body {
     opacity: 0.7;
 }
 
-.clear-all-btn:hover {
+#stackgazer .clear-all-btn:hover {
     background: var(--accent-danger);
     color: white;
     opacity: 1;
 }
 
-.files-header, .filter-header {
+#stackgazer .files-header, #stackgazer .filter-header{
     display: flex;
     align-items: center;
     justify-content: space-between;
     width: 100%;
 }
 
-.files-title {
+#stackgazer .files-title {
     display: flex;
     align-items: center;
 }
 
 /* Filter Help Button - small and subtle */
-.filter-help-btn {
+#stackgazer .filter-help-btn {
     background: transparent;
     border: 1px solid var(--border-secondary);
     color: var(--text-secondary);
@@ -1410,7 +1404,7 @@ body {
     opacity: 0.6;
 }
 
-.filter-help-btn:hover {
+#stackgazer .filter-help-btn:hover {
     background: var(--border-primary);
     color: var(--text-primary);
     border-color: var(--text-secondary);
@@ -1418,13 +1412,13 @@ body {
 }
 
 /* Modal header titles */
-.modal-header h3 {
+#stackgazer .modal-header h3 {
     color: var(--accent-primary);
     margin: 0;
     font-size: 18px;
 }
 
-.modal-body h4 {
+#stackgazer .modal-body h4 {
     color: var(--accent-primary);
     margin: 20px 0 10px 0;
     font-size: 14px;
@@ -1432,21 +1426,21 @@ body {
     padding-bottom: 5px;
 }
 
-.modal-body h4:first-child {
+#stackgazer .modal-body h4:first-child {
     margin-top: 0;
 }
 
-.modal-body ul {
+#stackgazer .modal-body ul {
     margin: 10px 0 20px 20px;
     padding: 0;
 }
 
-.modal-body li {
+#stackgazer .modal-body li {
     margin-bottom: 8px;
     list-style-type: disc;
 }
 
-.modal-body code {
+#stackgazer .modal-body code {
     background: var(--bg-quaternary);
     border: 1px solid var(--border-secondary);
     border-radius: 3px;
@@ -1456,26 +1450,26 @@ body {
     color: var(--code-function);
 }
 
-.modal-body p {
+#stackgazer .modal-body p {
     margin: 10px 0;
 }
 
-.modal-body strong {
+#stackgazer .modal-body strong {
     color: var(--accent-success);
 }
 
 /* Side-by-side stack display styles */
-.side-by-side-container {
+#stackgazer .side-by-side-container {
     width: 100%;
 }
 
-.side-by-side-headers {
+#stackgazer .side-by-side-headers {
     display: flex;
     gap: 20px;
     margin-bottom: 5px;
 }
 
-.side-by-side-headers .column-header {
+#stackgazer .side-by-side-headers .column-header {
     flex: 1;
     background: var(--bg-quaternary);
     color: var(--text-primary);
@@ -1485,14 +1479,14 @@ body {
     border-radius: 4px 4px 0 0;
 }
 
-.side-by-side-row {
+#stackgazer .side-by-side-row {
     display: flex;
     gap: 20px;
     margin-bottom: 1px;
     align-items: flex-start;
 }
 
-.function-side, .location-side {
+#stackgazer .function-side, #stackgazer .location-side{
     flex: 1;
     padding: 2px 10px;
     border-left: 2px solid var(--accent-primary);
@@ -1505,21 +1499,21 @@ body {
     min-width: 0;
 }
 
-.function-side {
+#stackgazer .function-side {
     background: color-mix(in srgb, var(--code-function) 10%, transparent);
 }
 
-.location-side {
+#stackgazer .location-side {
     background: color-mix(in srgb, var(--code-file) 10%, transparent);
 }
 
-.creator-function {
+#stackgazer .creator-function {
     color: var(--code-function);
     font-weight: bold;
 }
 
 /* Settings gear icon */
-.settings-container {
+#stackgazer .settings-container {
     position: absolute;
     bottom: 15px;
     left: 15px;
@@ -1527,7 +1521,7 @@ body {
     gap: 10px;
 }
 
-.settings-btn {
+#stackgazer .settings-btn {
     background: transparent;
     border: 1px solid var(--border-secondary);
     color: var(--text-muted);
@@ -1543,7 +1537,7 @@ body {
     transition: all 0.2s ease;
 }
 
-.settings-btn:hover {
+#stackgazer .settings-btn:hover {
     background: var(--border-primary);
     color: var(--text-primary);
     border-color: var(--text-muted);
@@ -1552,7 +1546,7 @@ body {
 }
 
 /* Theme toggle button */
-.theme-toggle-btn {
+#stackgazer .theme-toggle-btn {
     background: transparent;
     border: 1px solid var(--border-secondary);
     color: var(--text-muted);
@@ -1568,7 +1562,7 @@ body {
     transition: all 0.2s ease;
 }
 
-.theme-toggle-btn:hover {
+#stackgazer .theme-toggle-btn:hover {
     background: var(--border-primary);
     color: var(--text-primary);
     border-color: var(--text-muted);
@@ -1576,7 +1570,7 @@ body {
 }
 
 /* GitHub link */
-.github-btn {
+#stackgazer .github-btn {
     background: transparent;
     border: 1px solid var(--border-secondary);
     color: var(--text-secondary);
@@ -1594,7 +1588,7 @@ body {
     position: relative;
 }
 
-.github-btn::after {
+#stackgazer .github-btn::after {
     content: "";
     width: 16px;
     height: 16px;
@@ -1604,7 +1598,7 @@ body {
     background-position: center;
 }
 
-.github-btn:hover {
+#stackgazer .github-btn:hover {
     background: var(--border-primary);
     color: var(--text-primary);
     border-color: var(--text-muted);
@@ -1612,7 +1606,7 @@ body {
 }
 
 /* Settings modal specific styles */
-.setting-group {
+#stackgazer .setting-group {
     margin-bottom: 20px;
     padding: 15px;
     background: var(--bg-quaternary);
@@ -1620,7 +1614,7 @@ body {
     border: 1px solid var(--border-secondary);
 }
 
-.setting-title {
+#stackgazer .setting-title {
     display: flex;
     align-items: center;
     gap: 6px;
@@ -1630,7 +1624,7 @@ body {
     font-size: 14px;
 }
 
-.setting-help-icon {
+#stackgazer .setting-help-icon {
     background: transparent;
     border: 1px solid var(--text-muted);
     color: var(--text-muted);
@@ -1648,7 +1642,7 @@ body {
     transition: all 0.2s ease;
 }
 
-.setting-help-icon:hover {
+#stackgazer .setting-help-icon:hover {
     background: var(--bg-quaternary);
     color: var(--text-primary);
     border-color: var(--text-secondary);
@@ -1656,7 +1650,7 @@ body {
 }
 
 /* Tooltip styles */
-.setting-help-icon[data-tooltip]:hover::after {
+#stackgazer .setting-help-icon[data-tooltip]:hover::after {
     content: attr(data-tooltip);
     position: absolute;
     left: 0; /* Align to left edge of help icon */
@@ -1677,7 +1671,7 @@ body {
     pointer-events: none;
 }
 
-.setting-help-icon[data-tooltip]:hover::before {
+#stackgazer .setting-help-icon[data-tooltip]:hover::before {
     content: '';
     position: absolute;
     left: 8px; /* Position arrow above help icon center */
@@ -1688,14 +1682,14 @@ body {
     pointer-events: none;
 }
 
-.setting-label {
+#stackgazer .setting-label {
     display: block;
     cursor: pointer;
     color: var(--text-primary);
     font-size: 13px;
 }
 
-.setting-checkbox-label {
+#stackgazer .setting-checkbox-label {
     display: flex;
     align-items: center;
     gap: 8px;
@@ -1704,30 +1698,30 @@ body {
     font-size: 13px;
 }
 
-.setting-checkbox-text {
+#stackgazer .setting-checkbox-text {
     color: var(--text-primary);
 }
 
-.setting-text {
+#stackgazer .setting-text {
     font-weight: bold;
     margin-left: 8px;
 }
 
-.setting-description {
+#stackgazer .setting-description {
     font-size: 11px;
     color: var(--text-muted);
     margin-top: 8px;
     line-height: 1.4;
 }
 
-.setting-checkbox {
+#stackgazer .setting-checkbox {
     width: 16px;
     height: 16px;
     margin: 0;
     vertical-align: middle;
 }
 
-.setting-input {
+#stackgazer .setting-input {
     background: var(--bg-tertiary);
     border: 1px solid var(--border-secondary);
     border-radius: 4px;
@@ -1739,12 +1733,12 @@ body {
     margin-top: 4px;
 }
 
-.setting-input:focus {
+#stackgazer .setting-input:focus {
     outline: none;
     border-color: var(--accent-primary);
 }
 
-.setting-text-input {
+#stackgazer .setting-text-input {
     background: var(--bg-tertiary);
     border: 1px solid var(--border-secondary);
     border-radius: 4px;
@@ -1756,17 +1750,17 @@ body {
     margin-top: 4px;
 }
 
-.setting-text-input:focus {
+#stackgazer .setting-text-input:focus {
     outline: none;
     border-color: var(--accent-primary);
 }
 
-.setting-text-input::placeholder {
+#stackgazer .setting-text-input::placeholder {
     color: var(--text-muted);
     font-style: italic;
 }
 
-.setting-textarea {
+#stackgazer .setting-textarea {
     background: var(--bg-tertiary);
     border: 1px solid var(--border-secondary);
     border-radius: 4px;
@@ -1780,18 +1774,18 @@ body {
     min-height: 60px;
 }
 
-.setting-textarea:focus {
+#stackgazer .setting-textarea:focus {
     outline: none;
     border-color: var(--accent-primary);
 }
 
-.setting-textarea::placeholder {
+#stackgazer .setting-textarea::placeholder {
     color: var(--text-muted);
     font-style: italic;
 }
 
 /* Rule Editor Styles */
-.rules-editor {
+#stackgazer .rules-editor {
     border: 1px solid var(--border-secondary);
     border-radius: 4px;
     background: var(--bg-secondary);
@@ -1800,7 +1794,7 @@ body {
     padding: 0;
 }
 
-.rules-list {
+#stackgazer .rules-list {
     border: none;
     border-radius: 0;
     background: transparent;
@@ -1808,7 +1802,7 @@ body {
     overflow: hidden;
 }
 
-.rule-item {
+#stackgazer .rule-item {
     background: transparent;
     border: none;
     border-bottom: 1px solid var(--border-secondary);
@@ -1821,16 +1815,15 @@ body {
     min-height: 20px;
 }
 
-.rule-item:last-child {
+#stackgazer .rule-item:last-child {
     border-bottom: none;
 }
 
-.rule-item:hover {
+#stackgazer .rule-item:hover {
     background: var(--bg-quaternary);
 }
 
-
-.rule-controls {
+#stackgazer .rule-controls {
     display: flex;
     align-items: center;
     gap: 8px;
@@ -1840,7 +1833,7 @@ body {
     padding: 0;
 }
 
-.rule-type-select {
+#stackgazer .rule-type-select {
     background: var(--bg-secondary);
     color: var(--text-primary);
     border: 1px solid var(--border-primary);
@@ -1850,7 +1843,7 @@ body {
     min-width: 80px;
 }
 
-.rule-pattern, .rule-to, .rule-while-custom {
+#stackgazer .rule-pattern, #stackgazer .rule-to, #stackgazer .rule-while-custom{
     background: var(--bg-secondary);
     color: var(--text-primary);
     border: 1px solid var(--border-primary);
@@ -1861,15 +1854,15 @@ body {
     min-width: 120px;
 }
 
-.rule-pattern {
+#stackgazer .rule-pattern {
     min-width: 180px;
 }
 
-.rule-to {
+#stackgazer .rule-to {
     min-width: 100px;
 }
 
-.rule-while {
+#stackgazer .rule-while {
     background: var(--bg-secondary);
     color: var(--text-primary);
     border: 1px solid var(--border-primary);
@@ -1879,11 +1872,11 @@ body {
     min-width: 90px;
 }
 
-.rule-while-custom {
+#stackgazer .rule-while-custom {
     min-width: 100px;
 }
 
-.remove-rule-btn {
+#stackgazer .remove-rule-btn {
     background: transparent;
     color: var(--text-muted);
     border: none;
@@ -1899,12 +1892,12 @@ body {
     opacity: 0.6;
 }
 
-.remove-rule-btn:hover {
+#stackgazer .remove-rule-btn:hover {
     color: var(--accent-danger);
     opacity: 1;
 }
 
-.footer-buttons {
+#stackgazer .footer-buttons {
     display: flex;
     gap: 4px;
     padding: 6px 12px;
@@ -1912,12 +1905,12 @@ body {
 }
 
 /* Collapse behavior: hide rule-list and footer-buttons when rules-editor has collapsed-settings class */
-.rules-editor.collapsed-settings .rules-list,
-.rules-editor.collapsed-settings .footer-buttons {
+#stackgazer .rules-editor.collapsed-settings .rules-list,
+#stackgazer .rules-editor.collapsed-settings .footer-buttons {
     display: none;
 }
 
-.add-rule-btn {
+#stackgazer .add-rule-btn {
     background: transparent;
     color: var(--text-secondary);
     border: 1px solid var(--border-secondary);
@@ -1929,13 +1922,13 @@ body {
     flex: 1;
 }
 
-.add-rule-btn:hover {
+#stackgazer .add-rule-btn:hover {
     background: var(--accent-primary);
     color: white;
     border-color: var(--accent-primary);
 }
 
-.rule-input-container {
+#stackgazer .rule-input-container {
     position: relative;
     flex: 1;
     min-width: 120px;
@@ -1943,7 +1936,7 @@ body {
     padding: 0;
 }
 
-.rule-type-prefix {
+#stackgazer .rule-type-prefix {
     position: absolute;
     left: 0;
     top: 0;
@@ -1964,15 +1957,15 @@ body {
     justify-content: center;
 }
 
-.rule-replacement-line .rule-type-prefix {
+#stackgazer .rule-replacement-line .rule-type-prefix {
     min-width: 60px; /* width for "→" prefix */
 }
 
-.rule-while-container .rule-type-prefix {
+#stackgazer .rule-while-container .rule-type-prefix {
     min-width: 60px; /* width for "while:" prefix */
 }
 
-.rule-input {
+#stackgazer .rule-input {
     background: transparent;
     color: var(--text-primary);
     border: none;
@@ -1985,28 +1978,27 @@ body {
     line-height: 16px;
 }
 
-.skip-rule .rule-input {
+#stackgazer .skip-rule .rule-input {
     padding-left: 52px; /* space for "skip:" prefix */
 }
 
-.trim-rule .rule-input {
+#stackgazer .trim-rule .rule-input {
     padding-left: 52px; /* space for "trim:" prefix */
 }
 
-.fold-rule .rule-pattern-input {
+#stackgazer .fold-rule .rule-pattern-input {
     padding-left: 52px; /* space for "fold:" prefix */
 }
 
-.fold-rule .rule-replacement-input {
+#stackgazer .fold-rule .rule-replacement-input {
     padding-left: 64px; /* space for "→" prefix */
 }
 
-.fold-rule .rule-while-input {
+#stackgazer .fold-rule .rule-while-input {
     padding-left: 64px; /* space for "while:" prefix */
 }
 
-
-.unknown-rule .rule-json-input {
+#stackgazer .unknown-rule .rule-json-input {
     width: 100%;
     padding: 2px 4px;
     font-size: 11px;
@@ -2015,48 +2007,48 @@ body {
     min-height: 36px;
 }
 
-.rule-replacement-line {
+#stackgazer .rule-replacement-line {
     margin-top: 1px;
     display: flex;
     gap: 8px;
 }
 
-.rule-replacement-line .rule-input-container:first-child {
+#stackgazer .rule-replacement-line .rule-input-container:first-child {
     flex: 1;
     max-width: 250px;
 }
 
-.rule-while-container {
+#stackgazer .rule-while-container {
     flex: 1;
     min-width: 120px;
 }
 
-.rule-category-container {
+#stackgazer .rule-category-container {
     flex: 1;
     min-width: 150px;
 }
 
-.match-rule .rule-pattern-input {
+#stackgazer .match-rule .rule-pattern-input {
     padding-left: 64px; /* space for "match:" prefix */
 }
 
-.match-rule .rule-category-input {
+#stackgazer .match-rule .rule-category-input {
     padding-left: 32px; /* space for "→" prefix */
 }
 
-.fold-rule-content {
+#stackgazer .fold-rule-content {
     flex: 1;
     display: flex;
     flex-direction: column;
     gap: 0px;
 }
 
-.fold-rule .rule-controls {
+#stackgazer .fold-rule .rule-controls {
     flex-wrap: nowrap;
     width: 100%;
 }
 
-.find-rule-content {
+#stackgazer .find-rule-content {
     flex: 1;
     display: flex;
     flex-direction: column;
@@ -2064,28 +2056,26 @@ body {
 }
 
 /* Ancestry Tree Modal */
-.ancestry-modal {
-    position: fixed;
+#stackgazer .ancestry-modal {
+    position: absolute;
     top: 0;
     left: 0;
-    width: 100vw;
-    height: 100vh;
+    width: 100%;
+    height: 100%;
     background: rgba(0, 0, 0, 0.8);
-    display: flex;
-    justify-content: center;
-    align-items: center;
     z-index: 1000;
     padding: 20px;
     box-sizing: border-box;
 }
 
-.ancestry-modal-content {
+#stackgazer .ancestry-modal-content {
     background: var(--bg-primary);
     border: 1px solid var(--border-primary);
     border-radius: 8px;
-    width: 95vw;
-    height: 90vh;
+    width: 95%;
+    height: 90%;
     max-width: none;
+    margin: 2.5% auto;
     display: flex;
     flex-direction: column;
     overflow: visible;
@@ -2093,7 +2083,7 @@ body {
     position: relative;
 }
 
-.ancestry-modal-header {
+#stackgazer .ancestry-modal-header {
     padding: 1rem;
     border-bottom: 1px solid var(--border-primary);
     display: flex;
@@ -2101,12 +2091,12 @@ body {
     align-items: center;
 }
 
-.ancestry-modal-title {
+#stackgazer .ancestry-modal-title {
     margin: 0;
     color: var(--text-primary);
 }
 
-.ancestry-modal-close {
+#stackgazer .ancestry-modal-close {
     position: absolute;
     top: -18px;
     right: -18px;
@@ -2126,13 +2116,13 @@ body {
     transition: all 0.2s ease;
 }
 
-.ancestry-modal-close:hover {
+#stackgazer .ancestry-modal-close:hover {
     background: var(--bg-quaternary);
     border-color: var(--accent-primary);
     transform: scale(1.1);
 }
 
-.ancestry-tree-container {
+#stackgazer .ancestry-tree-container {
     flex: 1;
     overflow: auto;
     padding: 20px;
@@ -2144,7 +2134,7 @@ body {
     -ms-user-select: none;
 }
 
-.ancestry-zoom-controls {
+#stackgazer .ancestry-zoom-controls {
     position: absolute;
     top: 20px;
     right: 20px;
@@ -2154,7 +2144,7 @@ body {
     z-index: 10;
 }
 
-.ancestry-zoom-controls button {
+#stackgazer .ancestry-zoom-controls button {
     background: var(--bg-tertiary);
     border: 1px solid var(--border-primary);
     color: var(--text-primary);
@@ -2164,12 +2154,12 @@ body {
     font-size: 14px;
 }
 
-.ancestry-zoom-controls button:hover {
+#stackgazer .ancestry-zoom-controls button:hover {
     background: var(--bg-quaternary);
 }
 
 /* Ancestry Tree SVG and Node Styles */
-.ancestry-tree-svg {
+#stackgazer .ancestry-tree-svg {
     display: block;
     background: var(--bg-secondary, #2a2a2a);
     cursor: grab;
@@ -2179,20 +2169,20 @@ body {
     -ms-user-select: none;
 }
 
-.ancestry-tree-svg.grabbing {
+#stackgazer .ancestry-tree-svg.grabbing {
     cursor: grabbing;
 }
 
-.ancestry-node {
+#stackgazer .ancestry-node {
     cursor: pointer;
 }
 
-.ancestry-node-id {
+#stackgazer .ancestry-node-id {
     cursor: pointer;
     text-decoration: underline;
 }
 
-.ancestry-node-label {
+#stackgazer .ancestry-node-label {
     font-size: 11px;
     text-align: center;
     line-height: 1.2;
@@ -2206,46 +2196,46 @@ body {
     -webkit-box-orient: vertical;
 }
 
-.ancestry-node-label.target {
+#stackgazer .ancestry-node-label.target {
     color: #000;
 }
 
-.ancestry-node-label.normal {
+#stackgazer .ancestry-node-label.normal {
     color: var(--text-muted, #999);
 }
 
-.ancestry-empty-state {
+#stackgazer .ancestry-empty-state {
     color: var(--text-primary, #fff);
     text-align: center;
     padding: 2rem;
     margin: 0;
 }
 
-.find-rule .rule-controls {
+#stackgazer .find-rule .rule-controls {
     flex-wrap: nowrap;
     width: 100%;
 }
 
-.skipwhile-rule-content {
+#stackgazer .skipwhile-rule-content {
     flex: 1;
     display: flex;
     flex-direction: column;
     gap: 0px;
 }
 
-.skipwhile-rule .rule-controls {
+#stackgazer .skipwhile-rule .rule-controls {
     flex-wrap: nowrap;
     width: 100%;
 }
 
 /* Collapsible sections */
-.collapsible-group {
+#stackgazer .collapsible-group {
     border: 1px solid var(--border-secondary);
     border-radius: 4px;
     margin-bottom: 16px;
 }
 
-.rules-editor-header.collapsible-header {
+#stackgazer .rules-editor-header.collapsible-header {
     cursor: pointer;
     display: flex;
     align-items: center;
@@ -2261,68 +2251,67 @@ body {
     margin: 0;
 }
 
-.rules-editor-header.collapsible-header:hover {
+#stackgazer .rules-editor-header.collapsible-header:hover {
     background: var(--bg-secondary);
     color: var(--text-secondary);
 }
 
-.expand-icon {
+#stackgazer .expand-icon {
     font-size: 10px;
     color: var(--text-muted);
     transition: transform 0.2s ease;
 }
 
-.collapsible-header.collapsed-settings .expand-icon {
+#stackgazer .collapsible-header.collapsed-settings .expand-icon {
     transform: rotate(-90deg);
 }
 
-.collapsible-content {
+#stackgazer .collapsible-content {
     padding: 0;
 }
 
-.collapsible-content.collapsed-settings {
+#stackgazer .collapsible-content.collapsed-settings {
     display: none;
 }
 
-.setting-description-prose {
+#stackgazer .setting-description-prose {
     margin-bottom: 16px;
 }
 
-.setting-description-prose p {
+#stackgazer .setting-description-prose p {
     margin: 0;
     font-size: 12px;
     line-height: 1.4;
     color: var(--text-secondary);
 }
 
-.setting-description-prose strong {
+#stackgazer .setting-description-prose strong {
     color: var(--text-primary);
     font-weight: 600;
 }
 
 /* Responsive rule layout */
-@media (max-width: 768px) {
-    .footer-buttons {
+@media (max-width: 768px) {#stackgazer .footer-buttons {
         flex-direction: column;
     }
-    
-    .rule-controls {
+
+#stackgazer .rule-controls {
         flex-direction: column;
         align-items: stretch;
         gap: 4px;
     }
-    
-    .rule-type-label {
+
+#stackgazer .rule-type-label {
         min-width: auto;
     }
-    
-    .rule-input {
+
+#stackgazer .rule-input {
         min-width: auto;
         width: 100%;
     }
 }
 
-.settings-actions {
+#stackgazer .settings-actions {
     padding: 20px 25px;
     border-top: 1px solid var(--border-primary);
     background: var(--bg-secondary);
@@ -2333,18 +2322,18 @@ body {
     flex-shrink: 0;
 }
 
-.settings-reset-btn {
+#stackgazer .settings-reset-btn {
     /* Uses .btn .btn-danger base classes */
     padding: 8px 16px;
 }
 
-.settings-save-btn {
+#stackgazer .settings-save-btn {
     /* Uses .btn base class */
     padding: 8px 16px;
 }
 
 /* Demo link styles */
-.demo-link {
+#stackgazer .demo-link {
     color: var(--code-keyword);
     text-decoration: none;
     cursor: pointer;
@@ -2352,41 +2341,41 @@ body {
     font-size: 14px;
 }
 
-.demo-link:hover {
+#stackgazer .demo-link:hover {
     color: var(--text-link-hover);
     text-decoration: underline;
 }
 
 /* Essential utility classes */
-.hidden {
+#stackgazer .hidden {
     display: none !important;
 }
 
-.cursor-pointer {
+#stackgazer .cursor-pointer {
     cursor: pointer;
 }
 
 /* Filtering system: hide filtered elements when main-content has .filtered class */
-.main-content.filtered .filtered {
+#stackgazer .main-content.filtered .filtered {
     display: none !important;
 }
 
-.modal-visible {
+#stackgazer .modal-visible {
     display: block !important;
 }
 
-.modal-hidden {
+#stackgazer .modal-hidden {
     display: none !important;
 }
 
 /* File header specific styles */
-.file-section .header {
+#stackgazer .file-section .header {
     cursor: pointer;
     display: flex;
     justify-content: space-between;
 }
 
-.file-section .header .title {
+#stackgazer .file-section .header .title {
     font-weight: 700;
     font-size: 14px;
     display: flex;
@@ -2395,7 +2384,7 @@ body {
 }
 
 /* Group sub header styles */
-.group-sub-header {
+#stackgazer .group-sub-header {
     font-size: 1em;
     color: var(--text-primary);
     font-weight: 500;
@@ -2407,49 +2396,49 @@ body {
     border-radius: 3px;
 }
 
-.group-sub-header-label {
+#stackgazer .group-sub-header-label {
     font-weight: 700;
     font-size: 1.2em;
     color: var(--text-primary);
     margin-top: 4px;
 }
 
-.group-sub-header-label.unlabeled {
+#stackgazer .group-sub-header-label.unlabeled {
     font-style: italic;
     color: var(--text-muted);
 }
 
-.group-sub-header-count {
+#stackgazer .group-sub-header-count {
     color: var(--text-secondary);
     font-size: 0.95em;
     font-weight: 500;
 }
 
-.group-sub-section {
+#stackgazer .group-sub-section {
     margin-top: 6px;
 }
 
 /* Demo message styles */
-.demo-add-files, .demo-try-demo {
+#stackgazer .demo-add-files, #stackgazer .demo-try-demo {
     font-size: 14px;
     color: var(--text-muted);
 }
 
-.demo-add-files {
+#stackgazer .demo-add-files {
     margin-top: 10px;
 }
 
-.demo-try-demo {
+#stackgazer .demo-try-demo {
     margin: 20px 0 10px 0;
 }
 
-.demo-section-divider {
+#stackgazer .demo-section-divider {
     margin-top: 25px;
     padding-top: 5px;
     border-top: 1px solid var(--border-secondary);
 }
 
-.demo-buttons {
+#stackgazer .demo-buttons {
     text-align: center;
     margin-top: 10px;
     gap: 20px;
@@ -2458,20 +2447,19 @@ body {
 }
 
 /* Custom/Default Rules Sections */
-.custom-rules-section,
-.default-rules-section {
+#stackgazer .custom-rules-section,
+#stackgazer .default-rules-section {
     margin: 12px 0;
 }
 
-.custom-rules-section h5,
-.default-rules-section h5 {
+#stackgazer .custom-rules-section h5, #stackgazer .default-rules-section h5{
     font-size: 12px;
     font-weight: 600;
     color: var(--text-primary);
     margin: 0 0 6px 0;
 }
 
-.default-rules-header {
+#stackgazer .default-rules-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -2480,67 +2468,66 @@ body {
     margin-bottom: 6px;
 }
 
-.default-rules-title {
+#stackgazer .default-rules-title {
     display: flex;
     align-items: center;
     gap: 6px;
 }
 
-.default-rules-title .expand-icon {
+#stackgazer .default-rules-title .expand-icon {
     font-size: 10px;
     color: var(--text-muted);
     transition: transform 0.2s ease;
 }
 
 /* Triangle points right when content is collapsed, down when expanded */
-.default-rules-section:has(.default-rules-content.collapsed-settings) .expand-icon {
+#stackgazer .default-rules-section:has(.default-rules-content.collapsed-settings) .expand-icon {
     transform: rotate(-90deg);
 }
 
 /* Fallback for browsers without :has() support - use a class on the section */
-.default-rules-section.settings-collapsed .expand-icon {
+#stackgazer .default-rules-section.settings-collapsed .expand-icon {
     transform: rotate(-90deg);
 }
 
-.default-rules-header h5 {
+#stackgazer .default-rules-header h5 {
     margin: 0;
     transition: color 0.2s ease;
 }
 
-.default-rules-header.disabled h5 {
+#stackgazer .default-rules-header.disabled h5 {
     color: var(--text-muted);
 }
 
-.default-rules-content {
+#stackgazer .default-rules-content {
     transition: all 0.2s ease;
 }
 
-.default-rules-content.collapsed-settings,
-.custom-rules-content.collapsed-settings {
+#stackgazer .default-rules-content.collapsed-settings, #stackgazer .custom-rules-content.collapsed-settings{
     display: none;
 }
 
-.default-rules-textarea {
+#stackgazer .default-rules-textarea {
     background: var(--bg-tertiary);
     color: var(--text-muted);
     border-color: var(--border-secondary);
 }
 
 /* Toggle Switch */
-.toggle-switch {
+#stackgazer .toggle-switch {
     position: relative;
     width: 34px;
     height: 18px;
     display: inline-block;
 }
 
-.toggle-switch input {
+#stackgazer .toggle-switch input {
     opacity: 0;
     width: 0;
     height: 0;
 }
 
-.toggle-slider {
+#stackgazer .toggle-slider {
     position: absolute;
     cursor: pointer;
     top: 0;
@@ -2552,7 +2539,7 @@ body {
     border-radius: 18px;
 }
 
-.toggle-slider:before {
+#stackgazer .toggle-slider:before {
     position: absolute;
     content: "";
     height: 14px;
@@ -2564,16 +2551,16 @@ body {
     border-radius: 50%;
 }
 
-input:checked + .toggle-slider {
+#stackgazer input:checked + .toggle-slider {
     background-color: var(--accent-primary);
 }
 
-input:checked + .toggle-slider:before {
+#stackgazer input:checked + .toggle-slider:before {
     transform: translateX(16px);
 }
 
 /* Copy button system - similar to pin button but positioned below */
-.copy-button {
+#stackgazer .copy-button {
     --copy-size: 28px;
     --copy-font: 16px;
     --copy-top: 50px; /* Further below pin button */
@@ -2605,7 +2592,7 @@ input:checked + .toggle-slider:before {
     z-index: var(--copy-z);
 }
 
-.copy-button.size-small {
+#stackgazer .copy-button.size-small {
     --copy-size: 18px;
     --copy-font: 10px;
     --copy-top: 40px; /* Moved further down */
@@ -2619,18 +2606,18 @@ input:checked + .toggle-slider:before {
 }
 
 /* Hide copy buttons when containers are collapsed - use direct child selector to avoid deep traversal */
-.section.container-collapsed > .header > .copy-button {
+#stackgazer .section.container-collapsed > .header > .copy-button {
     display: none;
 }
 
 /* Hover reveal for copy buttons */
-.section:hover > .header > .copy-button:not(.pinned),
-.goroutine-entry:hover > .copy-button:not(.pinned) {
+#stackgazer .section:hover > .header > .copy-button:not(.pinned),
+#stackgazer .goroutine-entry:hover > .copy-button:not(.pinned) {
     opacity: 0.7; /* Less dim on hover, matching pin button */
 }
 
 /* Direct copy button hover takes precedence for size changes */
-.copy-button:hover {
+#stackgazer .copy-button:hover {
     background: var(--bg-quaternary);
     border-color: var(--border-primary);
     color: var(--text-primary);
@@ -2643,7 +2630,7 @@ input:checked + .toggle-slider:before {
 }
 
 /* Expanded click targets */
-.copy-button::before {
+#stackgazer .copy-button::before {
     content: '';
     position: absolute;
     top: -16px;
@@ -2653,48 +2640,47 @@ input:checked + .toggle-slider:before {
     border-radius: 50%;
 }
 
-
-.copy-button.size-small:hover {
+#stackgazer .copy-button.size-small:hover {
     top: var(--copy-hover-top);
     right: var(--copy-hover-right);
 }
 
 /* Hide narrow screen elements by default on desktop */
-.narrow-menu-btn,
-.narrow-filter-container,
-.narrow-controls,
-.narrow-controls-header,
-.narrow-close-btn,
-.narrow-back-btn {
+#stackgazer .narrow-menu-btn,
+#stackgazer .narrow-filter-container,
+#stackgazer .narrow-controls,
+#stackgazer .narrow-controls-header,
+#stackgazer .narrow-close-btn,
+#stackgazer .narrow-back-btn {
     display: none !important;
 }
 
 /* Narrow screen responsive styles */
 @media (max-width: 900px) {
     /* Show narrow screen elements */
-    .narrow-menu-btn,
-    .narrow-filter-container,
-    .narrow-controls,
-    .narrow-controls-header,
-    .narrow-close-btn {
+    #stackgazer .narrow-menu-btn,
+    #stackgazer .narrow-filter-container,
+    #stackgazer .narrow-controls,
+    #stackgazer .narrow-controls-header,
+    #stackgazer .narrow-close-btn {
         display: flex !important;
     }
-    
-    .narrow-controls-header,
-    .narrow-close-btn {
+
+#stackgazer .narrow-controls-header, #stackgazer .narrow-close-btn{
         display: block !important;
     }
     
     /* Show floating back button only when enabled */
-    .narrow-back-btn:not(:disabled) {
+    #stackgazer .narrow-back-btn:not(:disabled) {
         display: flex !important;
     }
-    .container {
+
+#stackgazer .container {
         position: relative;
     }
     
     /* Hide sidebar by default on narrow screens */
-    .sidebar {
+    #stackgazer .sidebar {
         position: fixed;
         top: 0;
         left: -300px; /* Hide off-screen */
@@ -2708,12 +2694,12 @@ input:checked + .toggle-slider:before {
     }
     
     /* Show sidebar when active */
-    .sidebar.narrow-open {
+    #stackgazer .sidebar.narrow-open {
         left: 0;
     }
     
     /* Add overlay when sidebar is open */
-    .sidebar-overlay {
+    #stackgazer .sidebar-overlay {
         position: fixed;
         top: 0;
         left: 0;
@@ -2725,35 +2711,35 @@ input:checked + .toggle-slider:before {
         visibility: hidden;
         transition: opacity 0.3s ease, visibility 0.3s ease;
     }
-    
-    .sidebar-overlay.active {
+
+#stackgazer .sidebar-overlay.active {
         opacity: 1;
         visibility: visible;
     }
     
     /* Main content takes full width */
-    .main-content {
+    #stackgazer .main-content {
         width: 100%;
     }
     
     /* This old CSS block was wrong - menu button should be inline in top bar, not floating */
     
     /* Narrow screen filter in top bar */
-    .view-controls-bar {
+    #stackgazer .view-controls-bar {
         flex-direction: column;
         gap: 10px;
         padding: 10px 15px;
     }
-    
-    .narrow-filter-container {
+
+#stackgazer .narrow-filter-container {
         width: 100%;
         order: -1; /* Show filter first */
         display: flex;
         gap: 8px;
         align-items: center;
     }
-    
-    .narrow-menu-btn {
+
+#stackgazer .narrow-menu-btn {
         background: var(--accent-primary);
         border: none;
         border-radius: 6px;
@@ -2764,18 +2750,18 @@ input:checked + .toggle-slider:before {
         transition: all 0.2s ease;
         flex-shrink: 0;
     }
-    
-    .narrow-menu-btn:hover {
+
+#stackgazer .narrow-menu-btn:hover {
         background: var(--accent-primary-hover);
         transform: scale(1.05);
     }
-    
-    .narrow-menu-btn.active {
+
+#stackgazer .narrow-menu-btn.active {
         background: var(--accent-danger);
         transform: scale(0.95);
     }
-    
-    .narrow-filter-input {
+
+#stackgazer .narrow-filter-input {
         flex: 1;
         padding: 8px 12px;
         background: var(--bg-quaternary);
@@ -2785,18 +2771,18 @@ input:checked + .toggle-slider:before {
         font-family: inherit;
         font-size: 14px;
     }
-    
-    .narrow-filter-input:focus {
+
+#stackgazer .narrow-filter-input:focus {
         outline: none;
         border-color: var(--accent-primary);
     }
-    
-    .narrow-filter-input::placeholder {
+
+#stackgazer .narrow-filter-input::placeholder {
         color: var(--text-muted);
     }
     
     /* Floating back button for narrow screens */
-    .narrow-back-btn {
+    #stackgazer .narrow-back-btn {
         position: fixed;
         bottom: 20px;
         left: 20px;
@@ -2815,13 +2801,13 @@ input:checked + .toggle-slider:before {
         align-items: center;
         justify-content: center;
     }
-    
-    .narrow-back-btn:hover:not(:disabled) {
+
+#stackgazer .narrow-back-btn:hover:not(:disabled) {
         background: var(--accent-primary-hover);
         transform: scale(1.1);
     }
-    
-    .narrow-back-btn:disabled {
+
+#stackgazer .narrow-back-btn:disabled {
         background: var(--border-secondary);
         cursor: not-allowed;
         opacity: 0.5;
@@ -2830,28 +2816,28 @@ input:checked + .toggle-slider:before {
     /* In narrow mode, show the normal sidebar content when open - no need to hide anything */
     
     /* Hide controls that move to sidebar or are replaced in narrow mode */
-    .view-controls-bar #expandAllBtn,
-    .view-controls-bar #collapseAllBtn,
-    .view-controls-bar #unpinAllBtn,
-    .view-controls-bar #stackDisplayModeSelect,
-    .view-controls-bar #backBtn {
+    #stackgazer .view-controls-bar #expandAllBtn,
+    #stackgazer .view-controls-bar #collapseAllBtn,
+    #stackgazer .view-controls-bar #unpinAllBtn,
+    #stackgazer .view-controls-bar #stackDisplayModeSelect,
+    #stackgazer .view-controls-bar #backBtn {
         display: none;
     }
     
     /* Adjust remaining controls for narrow screens */
-    .view-controls-bar .left-controls,
-    .view-controls-bar .right-controls {
+    #stackgazer .view-controls-bar .left-controls,
+    #stackgazer .view-controls-bar .right-controls {
         flex-wrap: wrap;
         gap: 8px;
     }
-    
-    .view-controls-bar .control-btn {
+
+#stackgazer .view-controls-bar .control-btn {
         font-size: 12px;
         padding: 6px 10px;
         min-width: auto;
     }
-    
-    .view-controls-bar select {
+
+#stackgazer .view-controls-bar select {
         font-size: 12px;
         padding: 6px 8px;
     }
@@ -2865,21 +2851,21 @@ input:checked + .toggle-slider:before {
         border-radius: 6px;
         margin-bottom: 15px;
     }
-    
-    .narrow-controls-row {
+
+#stackgazer .narrow-controls-row {
         display: flex;
         gap: 8px;
         flex-wrap: wrap;
     }
-    
-    .narrow-controls .control-btn {
+
+#stackgazer .narrow-controls .control-btn {
         flex: 1;
         min-width: 80px;
         font-size: 11px;
         padding: 8px 12px;
     }
-    
-    .narrow-select {
+
+#stackgazer .narrow-select {
         width: 100%;
         background: var(--bg-tertiary);
         border: 1px solid var(--border-secondary);
@@ -2889,14 +2875,14 @@ input:checked + .toggle-slider:before {
         font-size: 11px;
         padding: 8px 12px;
     }
-    
-    .narrow-select:focus {
+
+#stackgazer .narrow-select:focus {
         outline: none;
         border-color: var(--accent-primary);
     }
     
     /* Hide button for narrow sidebar - positioned outside sidebar to avoid clipping */
-    .narrow-close-btn {
+    #stackgazer .narrow-close-btn {
         position: fixed;
         top: 20px;
         left: -18px; /* Start hidden with sidebar */
@@ -2919,13 +2905,13 @@ input:checked + .toggle-slider:before {
     }
     
     /* Show and position button when visible */
-    .narrow-close-btn.visible {
+    #stackgazer .narrow-close-btn.visible {
         opacity: 1;
         visibility: visible;
         left: 282px; /* 300px sidebar width - 18px (half button width) */
     }
-    
-    .narrow-close-btn:hover {
+
+#stackgazer .narrow-close-btn:hover {
         background: var(--bg-secondary);
         color: var(--text-primary);
         border-color: var(--accent-primary);
@@ -2934,55 +2920,54 @@ input:checked + .toggle-slider:before {
     }
     
     /* Adjust main content padding */
-    .drop-zone {
+    #stackgazer .drop-zone {
         margin: 10px;
     }
-    
-    .drop-zone.has-content {
+
+#stackgazer .drop-zone.has-content {
         padding: 10px;
     }
 }
 
 /* Very narrow screens - wrap header content */
-@media (max-width: 400px) {
-    .header {
+@media (max-width: 400px) {#stackgazer .header {
         flex-wrap: wrap;
         align-items: flex-start;
         gap: 4px;
     }
-    
-    .header-right {
+
+#stackgazer .header-right {
         width: 100%;
         align-items: flex-start;
         margin-top: 4px;
     }
-    
-    .header .counts {
+
+#stackgazer .header .counts {
         margin-right: 0;
         font-size: 12px;
     }
-    
-    .state-summary {
+
+#stackgazer .state-summary {
         font-size: 11px;
     }
 }
 
 /* Rule validation feedback */
-.rule-validation-feedback {
+#stackgazer .rule-validation-feedback {
   margin-top: 8px;
   font-size: 12px;
   line-height: 1.4;
 }
 
-.rule-errors {
+#stackgazer .rule-errors {
   margin-bottom: 4px;
 }
 
-.rule-warnings {
+#stackgazer .rule-warnings {
   margin-bottom: 4px;
 }
 
-.rule-error-item {
+#stackgazer .rule-error-item {
   color: var(--accent-error);
   margin: 2px 0;
   padding: 2px 4px;
@@ -2990,7 +2975,7 @@ input:checked + .toggle-slider:before {
   border-radius: 3px;
 }
 
-.rule-warning-item {
+#stackgazer .rule-warning-item {
   color: var(--accent-warning, #fd7e14);
   margin: 2px 0;
   padding: 2px 4px;
@@ -2999,19 +2984,19 @@ input:checked + .toggle-slider:before {
 }
 
 /* Textarea styling for validation states */
-textarea.rule-error {
+#stackgazer textarea.rule-error {
   border-color: var(--accent-error) !important;
   box-shadow: 0 0 0 2px rgba(220, 53, 69, 0.2);
 }
 
-textarea.rule-warning {
+#stackgazer textarea.rule-warning {
   border-color: var(--accent-warning, #fd7e14) !important;
   box-shadow: 0 0 0 2px rgba(253, 126, 20, 0.2);
 }
 
 /* Copy notification */
-.copy-notification {
-  position: fixed;
+#stackgazer .copy-notification {
+  position: absolute;
   top: 20px;
   right: 20px;
   background: var(--accent-success);
@@ -3025,13 +3010,13 @@ textarea.rule-warning {
   transition: opacity 0.3s ease;
 }
 
-.copy-notification.show {
+#stackgazer .copy-notification.show {
   opacity: 1;
 }
 
 /* Loading spinner and overlay */
-.loading-overlay {
-  position: fixed;
+#stackgazer .loading-overlay {
+  position: absolute;
   top: 0;
   left: 0;
   width: 100%;
@@ -3044,7 +3029,7 @@ textarea.rule-warning {
   pointer-events: auto;
 }
 
-.loading-spinner {
+#stackgazer .loading-spinner {
   width: 60px;
   height: 60px;
   border: 4px solid var(--bg-tertiary);
@@ -3053,7 +3038,7 @@ textarea.rule-warning {
   animation: spin 1s linear infinite;
 }
 
-.loading-content {
+#stackgazer .loading-content {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -3067,18 +3052,18 @@ textarea.rule-warning {
   text-align: center;
 }
 
-.loading-message {
+#stackgazer .loading-message {
   font-size: 16px;
   font-weight: 500;
 }
 
-.loading-details {
+#stackgazer .loading-details {
   font-size: 14px;
   color: var(--text-secondary);
   opacity: 0.8;
 }
 
-.loading-progress {
+#stackgazer .loading-progress {
   width: 100%;
   max-width: 250px;
   height: 8px;
@@ -3087,7 +3072,7 @@ textarea.rule-warning {
   overflow: hidden;
 }
 
-.loading-progress-bar {
+#stackgazer .loading-progress-bar {
   height: 100%;
   background: var(--accent-primary);
   border-radius: 4px;
@@ -3095,7 +3080,7 @@ textarea.rule-warning {
   transition: width 0.3s ease;
 }
 
-.loading-progress-indeterminate {
+#stackgazer .loading-progress-indeterminate {
   height: 100%;
   background: linear-gradient(90deg, transparent, var(--accent-primary), transparent);
   border-radius: 4px;

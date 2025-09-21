@@ -3052,7 +3052,7 @@ export class StackgazerApp {
     this.tooltip = document.createElement('div');
     this.tooltip.className = 'goroutine-tooltip';
     this.tooltip.classList.add('hidden');
-    document.body.appendChild(this.tooltip);
+    this.container!.appendChild(this.tooltip);
   }
 
   private showGoroutinePreviewTooltip(goroutineId: string, event: MouseEvent): void {
@@ -3529,7 +3529,7 @@ export class StackgazerApp {
     textarea.value = combinedText;
     textarea.style.position = 'fixed';
     textarea.style.left = '-9999px';
-    document.body.appendChild(textarea);
+    this.container!.appendChild(textarea);
 
     try {
       textarea.select();
@@ -3672,7 +3672,7 @@ export class StackgazerApp {
     };
     document.addEventListener('keydown', closeOnEscape);
 
-    document.body.appendChild(modal);
+    this.container!.appendChild(modal);
 
     // Render the tree
     this.renderAncestryTree(svgContainer, treeData, targetGoroutine);
