@@ -1742,9 +1742,13 @@ export class StackgazerApp {
       fileNameSpan.addEventListener('click', this.handleFileRenameClick.bind(this));
 
       // Set file statistics
-      const stats = fileStatsByName.get(fileName) || { visible: 0, total: 0 };
+      const stats = fileStatsByName.get(fileName) || { visible: 0, total: 0, potential: 0 };
       const statsDiv = fileItem.querySelector('.file-stats') as HTMLElement;
-      statsDiv.textContent = `${stats.visible} / ${stats.total} goroutines`;
+
+      // Show potential matches for hidden files, actual matches for visible files
+      const isHidden = this.hiddenFiles.has(fileName);
+      const displayCount = isHidden ? stats.potential : stats.visible;
+      statsDiv.textContent = `${displayCount} / ${stats.total} goroutines`;
 
       // Setup file item click for toggle (clicking anywhere except name or remove button)
       fileItem.addEventListener('click', this.handleFileToggleClick.bind(this));
@@ -2361,14 +2365,17 @@ export class StackgazerApp {
       if (fileName) {
         const statsElement = fileItem.querySelector('.file-stats');
         if (statsElement) {
-          const stats = fileStatsByName.get(fileName) || { visible: 0, total: 0 };
-          statsElement.textContent = `${stats.visible} / ${stats.total} goroutines`;
+          const stats = fileStatsByName.get(fileName) || { visible: 0, total: 0, potential: 0 };
+          // Show potential matches for hidden files, actual matches for visible files
+          const isHidden = this.hiddenFiles.has(fileName);
+          const displayCount = isHidden ? stats.potential : stats.visible;
+          statsElement.textContent = `${displayCount} / ${stats.total} goroutines`;
         }
       }
     });
   }
 
-  private getFileStatistics(): Map<string, { visible: number; total: number }> {
+  private getFileStatistics(): Map<string, { visible: number; total: number; potential: number }> {
     return this.profileCollection.getFileStatistics();
   }
 

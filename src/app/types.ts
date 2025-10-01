@@ -14,6 +14,7 @@ export interface Counts {
   maxWait: number;
   minMatchingWait: number;
   maxMatchingWait: number;
+  potentialMatches: number; // matches ignoring file filter (for excluded files)
   states: Map<string, number>; // state -> count
   matchingStates: Map<string, number>; // state -> count
 }

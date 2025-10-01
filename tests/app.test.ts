@@ -2133,6 +2133,11 @@ main.worker()
       throw new Error('file2.txt should be hidden after solo');
     }
 
+    // Verify file2 has potential matches (would be visible if not excluded)
+    if (file2StatsAfterSolo.potential === 0) {
+      throw new Error('file2.txt should have potential matches when excluded');
+    }
+
     // Simulate unsolo (double-click on already-solo file): show all files (no excluded files)
     collection.setFilter({ filterString: '' });
 

@@ -144,6 +144,7 @@ export class ProfileCollection {
             maxWait: -Infinity,
             minMatchingWait: Infinity,
             maxMatchingWait: -Infinity,
+            potentialMatches: 0,
             states: new Map<string, number>(),
             matchingStates: new Map<string, number>(),
           },
@@ -169,6 +170,7 @@ export class ProfileCollection {
               maxWait: -Infinity,
               minMatchingWait: Infinity,
               maxMatchingWait: -Infinity,
+              potentialMatches: 0,
               states: new Map<string, number>(),
               matchingStates: new Map<string, number>(),
             },
@@ -194,6 +196,7 @@ export class ProfileCollection {
           maxWait: -Infinity,
           minMatchingWait: Infinity,
           maxMatchingWait: -Infinity,
+          potentialMatches: group.count,
           states: new Map<string, number>(),
           matchingStates: new Map<string, number>(),
         },
@@ -271,6 +274,7 @@ export class ProfileCollection {
             maxWait: g.counts.maxWait,
             minMatchingWait: g.counts.minMatchingWait,
             maxMatchingWait: g.counts.maxMatchingWait,
+            potentialMatches: g.counts.potentialMatches,
             states: new Map(g.counts.states),
             matchingStates: new Map(g.counts.matchingStates),
           },
@@ -628,6 +632,7 @@ export class ProfileCollection {
             for (const fileSection of stack.files) {
               fileSection.counts.matches = 0;
               fileSection.counts.filterMatches = 0;
+              fileSection.counts.potentialMatches = 0;
               fileSection.counts.minMatchingWait = Infinity;
               fileSection.counts.maxMatchingWait = -Infinity;
               fileSection.counts.matchingStates.clear();
@@ -647,12 +652,22 @@ export class ProfileCollection {
                     (filterObj.maxWait === undefined || goroutine.waitMinutes <= filterObj.maxWait);
                   let stateMatches =
                     filterObj.states === undefined || filterObj.states.has(goroutine.state);
+
+                  // Check all constraints except file filter
+                  let matchesBeforeFileFilter = waitMatches && stateMatches;
+
+                  // Apply file filter last
                   let fileMatches =
                     filterObj.excludedFiles === undefined || !filterObj.excludedFiles.has(fileSection.fileName);
 
+                  // Track potential matches for excluded files
+                  if (matchesBeforeFileFilter && !fileMatches) {
+                    fileSection.counts.potentialMatches++;
+                  }
+
                   this.setGoroutineVisibility(
                     goroutine,
-                    waitMatches && stateMatches && fileMatches,
+                    matchesBeforeFileFilter && fileMatches,
                     group,
                     fileSection,
                     stack,
@@ -752,6 +767,7 @@ export class ProfileCollection {
           for (const fileSection of stack.files) {
             fileSection.counts.matches = 0;
             fileSection.counts.filterMatches = 0;
+            fileSection.counts.potentialMatches = 0;
             // Reset file section matching statistics
             fileSection.counts.minMatchingWait = Infinity;
             fileSection.counts.maxMatchingWait = -Infinity;
@@ -802,12 +818,22 @@ export class ProfileCollection {
                         goroutine.waitMinutes <= filterObj.maxWait);
                     let stateMatches =
                       filterObj.states === undefined || filterObj.states.has(goroutine.state);
+
+                    // Check all constraints except file filter
+                    let matchesBeforeFileFilter = waitMatches && stateMatches;
+
+                    // Apply file filter last
                     let fileMatches =
                       filterObj.excludedFiles === undefined || !filterObj.excludedFiles.has(fileSection.fileName);
 
+                    // Track potential matches for excluded files
+                    if (matchesBeforeFileFilter && !fileMatches) {
+                      fileSection.counts.potentialMatches++;
+                    }
+
                     this.setGoroutineVisibility(
                       goroutine,
-                      waitMatches && stateMatches && fileMatches,
+                      matchesBeforeFileFilter && fileMatches,
                       group,
                       fileSection,
                       stack,
@@ -855,12 +881,22 @@ export class ProfileCollection {
                     (filterObj.maxWait === undefined || goroutine.waitMinutes <= filterObj.maxWait);
                   let stateMatches =
                     filterObj.states === undefined || filterObj.states.has(goroutine.state);
+
+                  // Check all constraints except file filter
+                  let matchesBeforeFileFilter = textMatches && waitMatches && stateMatches;
+
+                  // Apply file filter last
                   let fileMatches =
                     filterObj.excludedFiles === undefined || !filterObj.excludedFiles.has(fileSection.fileName);
 
+                  // Track potential matches for excluded files
+                  if (matchesBeforeFileFilter && !fileMatches) {
+                    fileSection.counts.potentialMatches++;
+                  }
+
                   this.setGoroutineVisibility(
                     goroutine,
-                    textMatches && waitMatches && stateMatches && fileMatches,
+                    matchesBeforeFileFilter && fileMatches,
                     group,
                     fileSection,
                     stack,
@@ -1341,20 +1377,21 @@ export class ProfileCollection {
   }
 
   /**
-   * Get statistics about goroutines by file (total vs visible)
+   * Get statistics about goroutines by file (total vs visible vs potential)
    */
-  getFileStatistics(): Map<string, { visible: number; total: number }> {
-    const stats = new Map<string, { visible: number; total: number }>();
+  getFileStatistics(): Map<string, { visible: number; total: number; potential: number }> {
+    const stats = new Map<string, { visible: number; total: number; potential: number }>();
 
     for (const category of this.categories) {
       for (const stack of category.stacks) {
         for (const file of stack.files) {
           if (!stats.has(file.fileName)) {
-            stats.set(file.fileName, { visible: 0, total: 0 });
+            stats.set(file.fileName, { visible: 0, total: 0, potential: 0 });
           }
           const fileStat = stats.get(file.fileName)!;
           fileStat.total += file.counts.total;
           fileStat.visible += file.counts.matches;
+          fileStat.potential += file.counts.potentialMatches;
         }
       }
     }
