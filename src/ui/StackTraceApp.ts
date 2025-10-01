@@ -743,6 +743,38 @@ export class StackgazerApp {
     this.renderFiles();
   }
 
+  private handleFileSoloClick(e: Event): void {
+    const target = e.target as HTMLElement;
+    const fileItem = e.currentTarget as HTMLElement;
+
+    // Don't solo if clicking on the name text or remove button
+    if (target.classList.contains('file-name-text') ||
+        target.classList.contains('file-remove-btn')) {
+      return;
+    }
+
+    e.stopPropagation();
+    const fileName = fileItem.dataset.fileName;
+    if (!fileName) return;
+
+    // Get all file names
+    const allFiles = this.profileCollection.getFileNames();
+
+    // Hide all other files (keep only this one visible)
+    this.hiddenFiles.clear();
+    allFiles.forEach(name => {
+      if (name !== fileName) {
+        this.hiddenFiles.add(name);
+      }
+    });
+
+    // Update filter and UI
+    this.setFilter(this.buildCurrentFilter());
+    this.updateVisibility();
+    this.updateStats();
+    this.renderFiles();
+  }
+
   private handleFileRemoveClick(e: Event): void {
     e.stopPropagation();
     const removeBtn = e.currentTarget as HTMLElement;
@@ -1707,6 +1739,7 @@ export class StackgazerApp {
 
       // Setup file item click for toggle (clicking anywhere except name or remove button)
       fileItem.addEventListener('click', this.handleFileToggleClick.bind(this));
+      fileItem.addEventListener('dblclick', this.handleFileSoloClick.bind(this));
 
       // Setup remove button
       const removeBtn = fileItem.querySelector('.file-remove-btn') as HTMLButtonElement;
