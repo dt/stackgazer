@@ -760,13 +760,22 @@ export class StackgazerApp {
     // Get all file names
     const allFiles = this.profileCollection.getFileNames();
 
-    // Hide all other files (keep only this one visible)
-    this.hiddenFiles.clear();
-    allFiles.forEach(name => {
-      if (name !== fileName) {
-        this.hiddenFiles.add(name);
-      }
-    });
+    // Check if this file is already the only visible file
+    const visibleFiles = allFiles.filter(name => !this.hiddenFiles.has(name));
+    const isAlreadySolo = visibleFiles.length === 1 && visibleFiles[0] === fileName;
+
+    if (isAlreadySolo) {
+      // Unsolo: show all files
+      this.hiddenFiles.clear();
+    } else {
+      // Solo: hide all other files (keep only this one visible)
+      this.hiddenFiles.clear();
+      allFiles.forEach(name => {
+        if (name !== fileName) {
+          this.hiddenFiles.add(name);
+        }
+      });
+    }
 
     // Update filter and UI
     this.setFilter(this.buildCurrentFilter());

@@ -2108,6 +2108,51 @@ main.worker()
     }
   });
 
+  // Test double-click solo/unsolo toggle
+  await test('Double-click solo/unsolo toggle', async () => {
+    const collection = new ProfileCollection(DEFAULT_SETTINGS);
+    await addFile(collection, TEST_DATA.format2, 'file1.txt');
+    await addFile(collection, TEST_DATA.format1, 'file2.txt');
+
+    const allFiles = collection.getFileNames();
+    if (allFiles.length !== 2) {
+      throw new Error(`Expected 2 files, got ${allFiles.length}`);
+    }
+
+    // Simulate solo: hide all except file1 (exclude file2)
+    collection.setFilter({ filterString: '', excludedFiles: new Set(['file2.txt']) });
+
+    // Verify only file1 is visible
+    let fileStats = collection.getFileStatistics();
+    const file1StatsAfterSolo = fileStats.get('file1.txt');
+    const file2StatsAfterSolo = fileStats.get('file2.txt');
+    if (!file1StatsAfterSolo || file1StatsAfterSolo.visible === 0) {
+      throw new Error('file1.txt should be visible after solo');
+    }
+    if (!file2StatsAfterSolo || file2StatsAfterSolo.visible !== 0) {
+      throw new Error('file2.txt should be hidden after solo');
+    }
+
+    // Simulate unsolo (double-click on already-solo file): show all files (no excluded files)
+    collection.setFilter({ filterString: '' });
+
+    // Both files should be visible after unsolo
+    fileStats = collection.getFileStatistics();
+    const file1StatsAfterUnsolo = fileStats.get('file1.txt');
+    const file2StatsAfterUnsolo = fileStats.get('file2.txt');
+    if (!file1StatsAfterUnsolo || file1StatsAfterUnsolo.visible === 0) {
+      throw new Error('file1.txt should be visible after unsolo');
+    }
+    if (!file2StatsAfterUnsolo) {
+      throw new Error('file2.txt stats not found');
+    }
+    if (file2StatsAfterUnsolo.visible === 0) {
+      throw new Error(
+        `file2.txt should be visible after unsolo (got ${file2StatsAfterUnsolo.visible}/${file2StatsAfterUnsolo.total})`
+      );
+    }
+  });
+
   console.log('\n✅ All comprehensive tests passed');
 }
 
