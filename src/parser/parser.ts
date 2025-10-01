@@ -69,7 +69,12 @@ export class FileParser {
     const isGzipped = bytes.length >= 2 && bytes[0] === 0x1f && bytes[1] === 0x8b;
 
     // Use provided fileName or default
-    const name = fileName || 'unknown';
+    let name = fileName || 'unknown';
+
+    // If name is strictly digits, prepend 'n'
+    if (/^\d+$/.test(name)) {
+      name = 'n' + name;
+    }
 
     if (isGzipped) {
       // Binary format0 - stream decompression
@@ -473,7 +478,8 @@ export class FileParser {
 
     const result: ParsedFile = { originalName: fileName, groups };
     if (extractedName) {
-      result.extractedName = extractedName;
+      // If extracted name is strictly digits, prepend 'n'
+      result.extractedName = /^\d+$/.test(extractedName) ? 'n' + extractedName : extractedName;
     }
     return { success: true, data: result };
   }
@@ -568,7 +574,8 @@ export class FileParser {
 
     const result: ParsedFile = { originalName: fileName, totalGoroutines, groups };
     if (extractedName) {
-      result.extractedName = extractedName;
+      // If extracted name is strictly digits, prepend 'n'
+      result.extractedName = /^\d+$/.test(extractedName) ? 'n' + extractedName : extractedName;
     }
     return { success: true, data: result };
   }

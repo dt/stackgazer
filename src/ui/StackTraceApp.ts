@@ -874,6 +874,34 @@ export class StackgazerApp {
     }
   }
 
+  private findCommonPrefix(paths: string[]): string {
+    if (paths.length === 0) return '';
+    if (paths.length === 1) return '';
+
+    let prefix = paths[0];
+    for (let i = 1; i < paths.length; i++) {
+      while (paths[i].indexOf(prefix) !== 0) {
+        prefix = prefix.substring(0, prefix.length - 1);
+        if (prefix === '') return '';
+      }
+    }
+    return prefix;
+  }
+
+  private findCommonSuffix(paths: string[]): string {
+    if (paths.length === 0) return '';
+    if (paths.length === 1) return '';
+
+    let suffix = paths[0];
+    for (let i = 1; i < paths.length; i++) {
+      while (!paths[i].endsWith(suffix)) {
+        suffix = suffix.substring(1);
+        if (suffix === '') return '';
+      }
+    }
+    return suffix;
+  }
+
   private async handleZipFile(file: File): Promise<void> {
     try {
       console.time(`🗜 Zip Import: ${file.name}`);
@@ -890,10 +918,24 @@ export class StackgazerApp {
         throw new Error(`No stack trace files found in zip file. Looking for files matching: ${pattern}`);
       }
 
+      // Find common prefix and suffix across all paths
+      const paths = extractResult.files.map(f => f.path);
+      const commonPrefix = this.findCommonPrefix(paths);
+      const commonSuffix = this.findCommonSuffix(paths);
+
       for (let i = 0; i < extractResult.files.length; i++) {
         const zipFile = extractResult.files[i];
         const baseName = zipFile.path.split('/').pop() || zipFile.path;
-        
+
+        // Strip common prefix and suffix from full path
+        let trimmedPath = zipFile.path;
+        if (commonPrefix) {
+          trimmedPath = trimmedPath.substring(commonPrefix.length);
+        }
+        if (commonSuffix) {
+          trimmedPath = trimmedPath.substring(0, trimmedPath.length - commonSuffix.length);
+        }
+
         // Update progress for multiple files in ZIP
         if (extractResult.files.length > 1) {
           this.updateLoadingMessage(
@@ -903,9 +945,9 @@ export class StackgazerApp {
         } else {
           this.updateLoadingMessage('Processing ZIP entry...', baseName);
         }
-        
+
         console.time(`  📄 Zip Entry: ${baseName}`);
-        const result = await this.parser.parseFile(zipFile.content, baseName);
+        const result = await this.parser.parseFile(zipFile.content, trimmedPath);
 
         if (result.success) {
           this.profileCollection.addFile(result.data);
@@ -2560,10 +2602,25 @@ export class StackgazerApp {
         const pattern = this.settingsManager.getZipFilePatternRegex();
         const extractResult = await ZipHandler.extractFiles(file, pattern);
 
+        // Find common prefix and suffix across all paths
+        const paths = extractResult.files.map(f => f.path);
+        const commonPrefix = this.findCommonPrefix(paths);
+        const commonSuffix = this.findCommonSuffix(paths);
+
         for (const zipFile of extractResult.files) {
           const baseName = zipFile.path.split('/').pop() || zipFile.path;
+
+          // Strip common prefix and suffix from full path
+          let trimmedPath = zipFile.path;
+          if (commonPrefix) {
+            trimmedPath = trimmedPath.substring(commonPrefix.length);
+          }
+          if (commonSuffix) {
+            trimmedPath = trimmedPath.substring(0, trimmedPath.length - commonSuffix.length);
+          }
+
           console.time(`  📄 URL Zip Entry: ${baseName}`);
-          const result = await this.parser.parseFile(zipFile.content, baseName);
+          const result = await this.parser.parseFile(zipFile.content, trimmedPath);
 
           if (result.success) {
             this.profileCollection.addFile(result.data); // Let extractedName take precedence
