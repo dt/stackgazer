@@ -870,7 +870,7 @@ export class StackgazerApp {
     if (text && text.trim()) {
       // Create a File object from the text content
       const blob = new Blob([text], { type: 'text/plain' });
-      const file = new File([blob], 'clipboard-paste.txt', { type: 'text/plain' });
+      const file = new File([blob], 'paste', { type: 'text/plain' });
       await this.handleFiles([file]);
     }
   }
@@ -904,7 +904,7 @@ export class StackgazerApp {
           // Handle regular file - parser handles binary detection
           console.time(`📄 File Import: ${file.name}`);
 
-          const result = await this.parser.parseFile(file);
+          const result = await this.parser.parseFile(file, file.name);
 
           if (result.success) {
             this.profileCollection.addFile(result.data);
@@ -2716,7 +2716,7 @@ export class StackgazerApp {
 
         // Create File object to use consistent parsing API
         const file = new File([arrayBuffer], fileName);
-        const result = await this.parser.parseFile(file);
+        const result = await this.parser.parseFile(file, fileName);
 
         if (result.success) {
           this.profileCollection.addFile(result.data);

@@ -62,7 +62,7 @@ export class FileParser {
   /**
    * Parse a Blob or File (handles binary detection and decompression)
    */
-  async parseFile(blob: Blob, fileName?: string): Promise<Result> {
+  async parseFile(blob: Blob, fileName: string): Promise<Result> {
     // Read first 2 bytes to detect gzip magic bytes
     const chunk = await blob.slice(0, 2).arrayBuffer();
     const bytes = new Uint8Array(chunk);
