@@ -2072,6 +2072,42 @@ main.worker()
     console.log('✅ Time range handling with Infinity values works correctly');
   });
 
+  // Test numeric file sorting for files matching n[0-9]+ pattern
+  await test('Numeric file sorting for n[0-9]+ pattern', async () => {
+    const collection = new ProfileCollection(DEFAULT_SETTINGS);
+
+    // Add files with numeric names in reverse order
+    await addFile(collection, TEST_DATA.format2, 'n2', 'n2');
+    await addFile(collection, TEST_DATA.format1, 'n10', 'n10');
+    await addFile(collection, TEST_DATA.format2, 'n1', 'n1');
+    await addFile(collection, TEST_DATA.format1, 'n20', 'n20');
+    await addFile(collection, TEST_DATA.format2, 'n3', 'n3');
+
+    // Check that files are sorted numerically, not lexicographically
+    const stack = collection.getCategories()[0].stacks[0];
+    const fileNames = stack.files.map(f => f.fileName);
+
+    const expected = ['n1', 'n2', 'n3', 'n10', 'n20'];
+    if (JSON.stringify(fileNames) !== JSON.stringify(expected)) {
+      throw new Error(`Expected ${expected}, got ${fileNames}`);
+    }
+
+    // Test mixed pattern (should use lexicographic sorting)
+    const collection2 = new ProfileCollection(DEFAULT_SETTINGS);
+    await addFile(collection2, TEST_DATA.format2, 'n2', 'n2');
+    await addFile(collection2, TEST_DATA.format1, 'file10', 'file10');
+    await addFile(collection2, TEST_DATA.format2, 'n1', 'n1');
+
+    const stack2 = collection2.getCategories()[0].stacks[0];
+    const fileNames2 = stack2.files.map(f => f.fileName);
+
+    // Mixed pattern should fall back to lexicographic sort
+    const expected2 = ['file10', 'n1', 'n2'];
+    if (JSON.stringify(fileNames2) !== JSON.stringify(expected2)) {
+      throw new Error(`Expected ${expected2}, got ${fileNames2}`);
+    }
+  });
+
   console.log('\n✅ All comprehensive tests passed');
 }
 

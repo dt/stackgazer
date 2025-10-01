@@ -24,6 +24,7 @@ export interface Filter {
   minWait?: number;
   maxWait?: number;
   states?: Set<string>;
+  excludedFiles?: Set<string>;
 }
 
 export interface Goroutine {

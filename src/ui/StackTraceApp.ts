@@ -37,6 +37,7 @@ export class StackgazerApp {
   private appState: AppState;
   private filterInputValue: string = '';
   private stackDisplayMode: 'combined' | 'side-by-side' | 'functions' | 'locations' = 'combined';
+  private hiddenFiles: Set<string> = new Set();
   private filterDebounceTimer: number | null = null;
   private loadingDelayTimer: number | null = null;
   private tooltip!: HTMLElement;
@@ -712,6 +713,36 @@ export class StackgazerApp {
     }
   }
 
+  private handleFileToggleClick(e: Event): void {
+    const target = e.target as HTMLElement;
+    const fileItem = e.currentTarget as HTMLElement;
+    // Don't toggle if clicking on the name text or remove button
+    // Allow toggle when clicking on stats or the file-item background
+    if (target.classList.contains('file-name-text') ||
+        target.classList.contains('file-remove-btn')) {
+      return;
+    }
+
+    e.stopPropagation();
+    const fileName = fileItem.dataset.fileName;
+    if (!fileName) {
+      return;
+    }
+
+    // Toggle hidden state
+    if (this.hiddenFiles.has(fileName)) {
+      this.hiddenFiles.delete(fileName);
+    } else {
+      this.hiddenFiles.add(fileName);
+    }
+
+    // Update filter and UI
+    this.setFilter(this.buildCurrentFilter());
+    this.updateVisibility();
+    this.updateStats();
+    this.renderFiles();
+  }
+
   private handleFileRemoveClick(e: Event): void {
     e.stopPropagation();
     const removeBtn = e.currentTarget as HTMLElement;
@@ -1192,12 +1223,14 @@ export class StackgazerApp {
 
   private buildCurrentFilter(overrides: Partial<Filter> = {}): Filter {
     const parsed = this.parseFilterString(this.filterInputValue);
-    return {
+    const filter = {
       filterString: parsed.filterString,
       minWait: parsed.minWait,
       maxWait: parsed.maxWait,
+      excludedFiles: this.hiddenFiles.size > 0 ? this.hiddenFiles : undefined,
       ...overrides,
     };
+    return filter;
   }
 
   private clearFilter(): void {
@@ -1656,6 +1689,11 @@ export class StackgazerApp {
 
       fileItem.dataset.fileName = fileName; // Store fileName for lookups
 
+      // Apply hidden state styling
+      if (this.hiddenFiles.has(fileName)) {
+        fileItem.classList.add('file-hidden');
+      }
+
       // Set file name
       const fileNameSpan = fileItem.querySelector('.file-name-text') as HTMLElement;
       fileNameSpan.textContent = fileName;
@@ -1666,6 +1704,9 @@ export class StackgazerApp {
       const stats = fileStatsByName.get(fileName) || { visible: 0, total: 0 };
       const statsDiv = fileItem.querySelector('.file-stats') as HTMLElement;
       statsDiv.textContent = `${stats.visible} / ${stats.total} goroutines`;
+
+      // Setup file item click for toggle (clicking anywhere except name or remove button)
+      fileItem.addEventListener('click', this.handleFileToggleClick.bind(this));
 
       // Setup remove button
       const removeBtn = fileItem.querySelector('.file-remove-btn') as HTMLButtonElement;

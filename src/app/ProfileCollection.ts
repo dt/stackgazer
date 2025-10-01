@@ -368,7 +368,19 @@ export class ProfileCollection {
     for (const category of this.categories) {
       category.stacks.sort((a, b) => a.name.localeCompare(b.name));
       for (const stack of category.stacks) {
-        stack.files.sort((a, b) => a.fileName.localeCompare(b.fileName));
+        // Special case: if all files match n[0-9]+ pattern, sort numerically
+        const numericPattern = /^n(\d+)$/;
+        const allNumeric = stack.files.every(f => numericPattern.test(f.fileName));
+
+        if (allNumeric) {
+          stack.files.sort((a, b) => {
+            const aNum = parseInt(a.fileName.match(numericPattern)![1], 10);
+            const bNum = parseInt(b.fileName.match(numericPattern)![1], 10);
+            return aNum - bNum;
+          });
+        } else {
+          stack.files.sort((a, b) => a.fileName.localeCompare(b.fileName));
+        }
       }
     }
   }
@@ -387,9 +399,22 @@ export class ProfileCollection {
 
   /**
    * Get list of file names in the collection, sorted alphabetically
+   * Special case: if all files match n[0-9]+ pattern, sort numerically
    */
   getFileNames(): string[] {
-    return Array.from(this.parsedFiles.keys()).sort();
+    const names = Array.from(this.parsedFiles.keys());
+    const numericPattern = /^n(\d+)$/;
+    const allNumeric = names.every(name => numericPattern.test(name));
+
+    if (allNumeric) {
+      return names.sort((a, b) => {
+        const aNum = parseInt(a.match(numericPattern)![1], 10);
+        const bNum = parseInt(b.match(numericPattern)![1], 10);
+        return aNum - bNum;
+      });
+    } else {
+      return names.sort();
+    }
   }
 
   lookupGoroutine(id: string): Goroutine | undefined {
@@ -557,11 +582,12 @@ export class ProfileCollection {
         // If the stack itself matches text filter, still need to check wait/state constraints
         const stackTextMatches = filter == null || stack.searchableText.includes(filter);
         if (stackTextMatches) {
-          // If there are no wait/state constraints, all goroutines match
+          // If there are no wait/state/file constraints, all goroutines match
           if (
             filterObj.minWait === undefined &&
             filterObj.maxWait === undefined &&
-            filterObj.states === undefined
+            filterObj.states === undefined &&
+            filterObj.excludedFiles === undefined
           ) {
             stack.counts.matches = stack.counts.total;
             stack.counts.filterMatches = stack.counts.total;
@@ -614,17 +640,19 @@ export class ProfileCollection {
                 group.counts.matchingStates.clear();
 
                 for (const goroutine of group.goroutines) {
-                  // Text already matches stack, check wait/state constraints
+                  // Text already matches stack, check wait/state/file constraints
                   let waitMatches =
                     (filterObj.minWait === undefined ||
                       goroutine.waitMinutes >= filterObj.minWait) &&
                     (filterObj.maxWait === undefined || goroutine.waitMinutes <= filterObj.maxWait);
                   let stateMatches =
                     filterObj.states === undefined || filterObj.states.has(goroutine.state);
+                  let fileMatches =
+                    filterObj.excludedFiles === undefined || !filterObj.excludedFiles.has(fileSection.fileName);
 
                   this.setGoroutineVisibility(
                     goroutine,
-                    waitMatches && stateMatches,
+                    waitMatches && stateMatches && fileMatches,
                     group,
                     fileSection,
                     stack,
@@ -732,13 +760,14 @@ export class ProfileCollection {
             for (const group of fileSection.groups) {
               const groupMatches = group.labels.some(label => label.toLowerCase().includes(filter));
               if (groupMatches) {
-                // Group matches text, but still need to check wait/state constraints
+                // Group matches text, but still need to check wait/state/file constraints
                 if (
                   filterObj.minWait === undefined &&
                   filterObj.maxWait === undefined &&
-                  filterObj.states === undefined
+                  filterObj.states === undefined &&
+                  filterObj.excludedFiles === undefined
                 ) {
-                  // No wait/state constraints, all goroutines match
+                  // No wait/state/file constraints, all goroutines match
                   group.counts.matches = group.counts.total;
                   group.counts.filterMatches = group.counts.total;
                   // Copy all statistics from total to matching
@@ -765,7 +794,7 @@ export class ProfileCollection {
                   group.counts.matchingStates.clear();
 
                   for (const goroutine of group.goroutines) {
-                    // Text already matches group, check wait/state constraints
+                    // Text already matches group, check wait/state/file constraints
                     let waitMatches =
                       (filterObj.minWait === undefined ||
                         goroutine.waitMinutes >= filterObj.minWait) &&
@@ -773,10 +802,12 @@ export class ProfileCollection {
                         goroutine.waitMinutes <= filterObj.maxWait);
                     let stateMatches =
                       filterObj.states === undefined || filterObj.states.has(goroutine.state);
+                    let fileMatches =
+                      filterObj.excludedFiles === undefined || !filterObj.excludedFiles.has(fileSection.fileName);
 
                     this.setGoroutineVisibility(
                       goroutine,
-                      waitMatches && stateMatches,
+                      waitMatches && stateMatches && fileMatches,
                       group,
                       fileSection,
                       stack,
@@ -824,10 +855,12 @@ export class ProfileCollection {
                     (filterObj.maxWait === undefined || goroutine.waitMinutes <= filterObj.maxWait);
                   let stateMatches =
                     filterObj.states === undefined || filterObj.states.has(goroutine.state);
+                  let fileMatches =
+                    filterObj.excludedFiles === undefined || !filterObj.excludedFiles.has(fileSection.fileName);
 
                   this.setGoroutineVisibility(
                     goroutine,
-                    textMatches && waitMatches && stateMatches,
+                    textMatches && waitMatches && stateMatches && fileMatches,
                     group,
                     fileSection,
                     stack,
@@ -841,10 +874,12 @@ export class ProfileCollection {
                     goroutine.pinned ||
                     (filterObj.forcedGoroutine && goroutine.id === filterObj.forcedGoroutine)
                   ) {
-                    // Matches, but not due to filter.
+                    // Matches, but not due to filter - still check file constraint
+                    let pinnedFileMatches =
+                      filterObj.excludedFiles === undefined || !filterObj.excludedFiles.has(fileSection.fileName);
                     this.setGoroutineVisibility(
                       goroutine,
-                      true,
+                      pinnedFileMatches,
                       group,
                       fileSection,
                       stack,
