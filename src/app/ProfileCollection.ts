@@ -609,7 +609,9 @@ export class ProfileCollection {
               fileSection.counts.matchingStates = new Map(fileSection.counts.states);
 
               for (const group of fileSection.groups) {
-                group.counts.matches = group.counts.total;
+                // Set visibility BEFORE mutating counts to properly detect changes
+                this.setGroupVisibility(group, group.counts.total, fileSection, stack, category);
+
                 group.counts.filterMatches = group.counts.total;
                 // Copy all statistics from total to matching
                 group.counts.minMatchingWait = group.counts.minWait;

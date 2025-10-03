@@ -1057,11 +1057,8 @@ export class StackgazerApp {
         // Re-parse the current filter value to handle rapid changes
         const currentParsed = this.parseFilterString(this.filterInputValue);
         if (!currentParsed.error) {
-          this.setFilter({
-            filterString: currentParsed.filterString,
-            minWait: currentParsed.minWait,
-            maxWait: currentParsed.maxWait,
-          });
+          // Use buildCurrentFilter to preserve file exclusions
+          this.setFilter(this.buildCurrentFilter());
         }
         this.saveUIState();
         this.filterDebounceTimer = null;
