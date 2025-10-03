@@ -2443,7 +2443,7 @@ export class StackgazerApp {
       html += `<span class="function-name">${this.escapeHtml(frame.func)}</span>`;
       html += '</div>';
       html += '<div class="location-side">';
-      html += `<span class="file-path">${this.escapeHtml(frame.file)}</span>:<span class="line-number">${frame.line}</span>`;
+      html += `<span class="file-location"><span class="file-path">${this.escapeHtml(frame.file)}</span>:<span class="line-number">${frame.line}</span></span>`;
       html += '</div>';
       html += '</div>';
     }
