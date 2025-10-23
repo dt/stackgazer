@@ -693,6 +693,25 @@ export class ProfileCollection {
                   }
                 }
 
+                // Handle groups without individual goroutines (debug=1)
+                if (group.goroutines.length === 0 && group.counts.total > 0) {
+                  // Apply file filter to the group
+                  let fileMatches =
+                    filterObj.excludedFiles === undefined || !filterObj.excludedFiles.has(fileSection.fileName);
+
+                  if (fileMatches) {
+                    // Group matches - set counts
+                    this.setGroupVisibility(group, group.counts.total, fileSection, stack, category);
+                    group.counts.filterMatches = group.counts.total;
+                    group.counts.minMatchingWait = group.counts.minWait;
+                    group.counts.maxMatchingWait = group.counts.maxWait;
+                    group.counts.matchingStates = new Map(group.counts.states);
+                  } else {
+                    // Track potential matches for excluded files
+                    fileSection.counts.potentialMatches += group.counts.total;
+                  }
+                }
+
                 // Reset bounds if no matches at group level
                 if (group.counts.matches === 0) {
                   group.counts.minMatchingWait = Infinity;
@@ -857,6 +876,25 @@ export class ProfileCollection {
                     }
                   }
 
+                  // Handle groups without individual goroutines (debug=1)
+                  if (group.goroutines.length === 0 && group.counts.total > 0) {
+                    // Apply file filter to the group
+                    let fileMatches =
+                      filterObj.excludedFiles === undefined || !filterObj.excludedFiles.has(fileSection.fileName);
+
+                    if (fileMatches) {
+                      // Group matches - set counts
+                      this.setGroupVisibility(group, group.counts.total, fileSection, stack, category);
+                      group.counts.filterMatches = group.counts.total;
+                      group.counts.minMatchingWait = group.counts.minWait;
+                      group.counts.maxMatchingWait = group.counts.maxWait;
+                      group.counts.matchingStates = new Map(group.counts.states);
+                    } else {
+                      // Track potential matches for excluded files
+                      fileSection.counts.potentialMatches += group.counts.total;
+                    }
+                  }
+
                   // Reset bounds if no matches
                   if (group.counts.matches === 0) {
                     group.counts.minMatchingWait = Infinity;
@@ -949,12 +987,22 @@ export class ProfileCollection {
                 }
 
                 // If we don't have individual goroutines we need to set matches directly.
-                if (group.goroutines.length === 0 && isPinned) {
-                  this.setGroupVisibility(group, group.counts.total, fileSection, stack, category);
-                  // Copy statistics since all are matching
-                  group.counts.minMatchingWait = group.counts.minWait;
-                  group.counts.maxMatchingWait = group.counts.maxWait;
-                  group.counts.matchingStates = new Map(group.counts.states);
+                if (group.goroutines.length === 0 && group.counts.total > 0) {
+                  // Check file filter for groups without individual goroutines
+                  let fileMatches =
+                    filterObj.excludedFiles === undefined || !filterObj.excludedFiles.has(fileSection.fileName);
+
+                  if (isPinned && fileMatches) {
+                    // Pinned groups match if file is not excluded
+                    this.setGroupVisibility(group, group.counts.total, fileSection, stack, category);
+                    // Copy statistics since all are matching
+                    group.counts.minMatchingWait = group.counts.minWait;
+                    group.counts.maxMatchingWait = group.counts.maxWait;
+                    group.counts.matchingStates = new Map(group.counts.states);
+                  } else if (isPinned && !fileMatches) {
+                    // Track potential matches for excluded files
+                    fileSection.counts.potentialMatches += group.counts.total;
+                  }
                 }
 
                 // Calculate pinned count for group

@@ -2260,6 +2260,49 @@ main.worker()
     }
   });
 
+  // Test file filtering with debug=1 format (groups without individual goroutines)
+  await test('File filter with debug=1 goroutine groups', async () => {
+    const collection = new ProfileCollection(DEFAULT_SETTINGS);
+    // format1 has groups without individual goroutines (debug=1)
+    await addFile(collection, TEST_DATA.format1, 'file1.txt');
+    await addFile(collection, TEST_DATA.format1, 'file2.txt');
+
+    // Before filtering, both files should be visible with their total counts
+    let fileStats = collection.getFileStatistics();
+    const file1Before = fileStats.get('file1.txt');
+    const file2Before = fileStats.get('file2.txt');
+
+    console.log(`Before filter - file1: visible=${file1Before?.visible}, total=${file1Before?.total}`);
+    console.log(`Before filter - file2: visible=${file2Before?.visible}, total=${file2Before?.total}`);
+
+    if (!file1Before || file1Before.visible === 0) {
+      throw new Error('file1.txt should have visible goroutines before filter');
+    }
+    if (!file2Before || file2Before.visible === 0) {
+      throw new Error('file2.txt should have visible goroutines before filter');
+    }
+
+    // Solo file1 (exclude file2)
+    collection.setFilter({ filterString: '', excludedFiles: new Set(['file2.txt']) });
+
+    // file1 should still show its goroutines (not 0 / N)
+    fileStats = collection.getFileStatistics();
+    const file1After = fileStats.get('file1.txt');
+    const file2After = fileStats.get('file2.txt');
+
+    console.log(`After solo - file1: visible=${file1After?.visible}, total=${file1After?.total}`);
+    console.log(`After solo - file2: visible=${file2After?.visible}, total=${file2After?.total}`);
+
+    // BUG: file1 shows 0 visible instead of its actual count
+    if (!file1After || file1After.visible === 0) {
+      throw new Error(`file1.txt should show ${file1Before.total} visible goroutines after solo, but got ${file1After?.visible}`);
+    }
+
+    if (!file2After || file2After.visible !== 0) {
+      throw new Error('file2.txt should be hidden after solo');
+    }
+  });
+
   console.log('\n✅ All tests passed');
 }
 
