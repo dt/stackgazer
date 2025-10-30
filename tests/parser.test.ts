@@ -4,9 +4,10 @@
 
 import { FileParser, ZipHandler } from '../src/parser/index.js';
 // Compression functions removed - they were causing memory usage to double
-import { zip } from 'fflate';
+import { zip, gzip } from 'fflate';
 import { TEST_DATA, parser, test } from './shared-test-data.js';
 import { readFileSync } from 'fs';
+import { Profile, StringTable } from 'pprof-format';
 
 // Test table
 const parseTests = [
@@ -340,6 +341,349 @@ await test('Format0 stack trace structure', async () => {
   }
   
   console.log(`✓ Verified stack trace structure for ${groupWithFrames.trace.length} frames`);
+});
+
+await test('Debug=3 format parsing and regrouping', async () => {
+  // Create a synthetic pprof profile with debug=3 labels (go::goroutine*)
+  // This simulates what Go would produce with a hypothetical debug=3 format
+
+  // Create StringTable properly
+  const stringTable = new StringTable();
+  // StringTable indices (dedup adds strings and returns their index)
+  stringTable.dedup('');  // 0 - always empty
+  const goroutinesIdx = stringTable.dedup('goroutines');  // 1
+  const countIdx = stringTable.dedup('count');  // 2
+  const workerFuncIdx = stringTable.dedup('main.worker');  // 3
+  const fileIdx = stringTable.dedup('main.go');  // 4
+  const fetchFuncIdx = stringTable.dedup('main.fetch');  // 5
+  const goGoroutineIdx = stringTable.dedup('go::goroutine');  // 6
+  const goCreatorIdx = stringTable.dedup('go::goroutine_created_by');  // 7
+  const goStateIdx = stringTable.dedup('go::goroutine_state');  // 8
+  const goWaitIdx = stringTable.dedup('go::goroutine_wait_minutes');  // 9
+  const chanRecvIdx = stringTable.dedup('chan receive');  // 10
+  const runningIdx = stringTable.dedup('running');  // 11
+  const clusterIdx = stringTable.dedup('cluster');  // 12
+  const prodIdx = stringTable.dedup('prod');  // 13
+
+  const profile = new Profile({
+    stringTable,
+    sampleType: [{ type: goroutinesIdx, unit: countIdx }],
+    function: [
+      { id: 1, name: workerFuncIdx, filename: fileIdx, startLine: 10 },
+      { id: 2, name: fetchFuncIdx, filename: fileIdx, startLine: 20 },
+    ],
+    location: [
+      { id: 1, line: [{ functionId: 1, line: 15 }] },
+      { id: 2, line: [{ functionId: 2, line: 25 }] },
+    ],
+    sample: [
+      // Three goroutines with same stack (main.worker) and state (chan receive)
+      {
+        locationId: [1],
+        value: [1],
+        label: [
+          { key: goGoroutineIdx, num: 100 },  // go::goroutine=100
+          { key: goCreatorIdx, num: 1 },    // go::goroutine_created_by=1
+          { key: goStateIdx, str: chanRecvIdx },   // go::goroutine_state=chan receive
+          { key: goWaitIdx, num: 5 },    // go::goroutine_wait_minutes=5
+          { key: clusterIdx, str: prodIdx },  // cluster=prod (should be preserved)
+        ],
+      },
+      {
+        locationId: [1],
+        value: [1],
+        label: [
+          { key: goGoroutineIdx, num: 101 },
+          { key: goCreatorIdx, num: 1 },
+          { key: goStateIdx, str: chanRecvIdx },
+          { key: goWaitIdx, num: 3 },
+          { key: clusterIdx, str: prodIdx },
+        ],
+      },
+      {
+        locationId: [1],
+        value: [1],
+        label: [
+          { key: goGoroutineIdx, num: 102 },
+          { key: goCreatorIdx, num: 1 },
+          { key: goStateIdx, str: chanRecvIdx },
+          { key: goWaitIdx, num: 7 },
+          { key: clusterIdx, str: prodIdx },
+        ],
+      },
+      // Two goroutines with same stack (main.worker) but different state (running)
+      {
+        locationId: [1],
+        value: [1],
+        label: [
+          { key: goGoroutineIdx, num: 103 },
+          { key: goCreatorIdx, num: 1 },
+          { key: goStateIdx, str: runningIdx },  // running
+          { key: clusterIdx, str: prodIdx },
+        ],
+      },
+      {
+        locationId: [1],
+        value: [1],
+        label: [
+          { key: goGoroutineIdx, num: 104 },
+          { key: goCreatorIdx, num: 1 },
+          { key: goStateIdx, str: runningIdx },
+          { key: clusterIdx, str: prodIdx },
+        ],
+      },
+      // One goroutine with different stack (main.fetch)
+      {
+        locationId: [2],
+        value: [1],
+        label: [
+          { key: goGoroutineIdx, num: 105 },
+          { key: goCreatorIdx, num: 100 },  // created by goroutine 100
+          { key: goStateIdx, str: chanRecvIdx },
+          { key: clusterIdx, str: prodIdx },
+        ],
+      },
+    ],
+  });
+
+  // Encode and gzip the profile
+  const encoded = profile.encode();
+  const gzipped = await new Promise<Uint8Array>((resolve, reject) => {
+    gzip(encoded, (err, data) => {
+      if (err) reject(err);
+      else resolve(data);
+    });
+  });
+
+  // Convert to ArrayBuffer for Blob
+  const arrayBuffer = new ArrayBuffer(gzipped.length);
+  const view = new Uint8Array(arrayBuffer);
+  view.set(gzipped);
+  const blob = new Blob([arrayBuffer], { type: 'application/octet-stream' });
+  const result = await parser.parseFile(blob, 'debug3.pb.gz');
+
+  if (!result.success) {
+    throw new Error(`Debug=3 parse failed: ${result.error}`);
+  }
+
+  // Should have 3 groups:
+  // 1. main.worker + chan receive (3 goroutines: 100, 101, 102)
+  // 2. main.worker + running (2 goroutines: 103, 104)
+  // 3. main.fetch + chan receive (1 goroutine: 105)
+  if (result.data.groups.length !== 3) {
+    throw new Error(`Expected 3 groups, got ${result.data.groups.length}`);
+  }
+
+  // Find the groups
+  const workerChanRecv = result.data.groups.find(g =>
+    g.trace[0]?.func === 'main.worker' && g.labels.includes('state=chan receive')
+  );
+  const workerRunning = result.data.groups.find(g =>
+    g.trace[0]?.func === 'main.worker' && g.labels.includes('state=running')
+  );
+  const fetchChanRecv = result.data.groups.find(g =>
+    g.trace[0]?.func === 'main.fetch'
+  );
+
+  if (!workerChanRecv || !workerRunning || !fetchChanRecv) {
+    throw new Error('Missing expected groups');
+  }
+
+  // Verify counts
+  if (workerChanRecv.count !== 3) {
+    throw new Error(`Expected worker/chan_receive count=3, got ${workerChanRecv.count}`);
+  }
+  if (workerRunning.count !== 2) {
+    throw new Error(`Expected worker/running count=2, got ${workerRunning.count}`);
+  }
+  if (fetchChanRecv.count !== 1) {
+    throw new Error(`Expected fetch/chan_receive count=1, got ${fetchChanRecv.count}`);
+  }
+
+  // Verify goroutines array is populated
+  if (workerChanRecv.goroutines.length !== 3) {
+    throw new Error(`Expected 3 goroutines in worker/chan_receive, got ${workerChanRecv.goroutines.length}`);
+  }
+
+  // Verify goroutine metadata
+  const g100 = workerChanRecv.goroutines.find(g => g.id === '100');
+  if (!g100) {
+    throw new Error('Missing goroutine 100');
+  }
+  if (g100.state !== 'chan receive') {
+    throw new Error(`Expected state='chan receive', got '${g100.state}'`);
+  }
+  if (g100.waitMinutes !== 5) {
+    throw new Error(`Expected waitMinutes=5, got ${g100.waitMinutes}`);
+  }
+  if (g100.creator !== '1') {
+    throw new Error(`Expected creator='1', got '${g100.creator}'`);
+  }
+
+  // Verify creator relationships
+  const g105 = fetchChanRecv.goroutines[0];
+  if (g105.creator !== '100') {
+    throw new Error(`Expected g105.creator='100', got '${g105.creator}'`);
+  }
+  if (g105.creatorExists !== true) {
+    throw new Error(`Expected g105.creatorExists=true, got ${g105.creatorExists}`);
+  }
+  if (!g100.created.includes('105')) {
+    throw new Error(`Expected g100.created to include '105', got ${JSON.stringify(g100.created)}`);
+  }
+
+  // Verify non-goroutine labels are preserved
+  if (!workerChanRecv.labels.includes('cluster=prod')) {
+    throw new Error(`Expected 'cluster=prod' label to be preserved, got ${JSON.stringify(workerChanRecv.labels)}`);
+  }
+
+  // Verify go::goroutine* labels are NOT in the labels array
+  const hasGoroutineLabel = workerChanRecv.labels.some(l => l.startsWith('go::goroutine'));
+  if (hasGoroutineLabel) {
+    throw new Error(`go::goroutine* labels should be extracted, not preserved in labels array`);
+  }
+
+  console.log('✓ Debug=3 format: regrouping works correctly');
+  console.log(`✓ Debug=3 format: goroutine metadata extracted (id=${g100.id}, state=${g100.state}, wait=${g100.waitMinutes})`);
+  console.log(`✓ Debug=3 format: creator relationships preserved (${g105.id} created by ${g105.creator})`);
+  console.log(`✓ Debug=3 format: non-goroutine labels preserved (cluster=prod)`);
+});
+
+await test('Format2 quoted label parsing', async () => {
+  const testCases = [
+    {
+      name: 'Basic quoted label',
+      content: `goroutine 123 [running, "app":"myapp"]:
+main.worker()
+\t/main.go:10`,
+      expectLabels: ['state=running', 'app=myapp'],
+      expectState: 'running',
+    },
+    {
+      name: 'Quoted label with commas in value',
+      content: `goroutine 124 [select, "env":"prod,staging"]:
+main.worker()
+\t/main.go:10`,
+      expectLabels: ['state=select', 'env=prod,staging'],
+      expectState: 'select',
+    },
+    {
+      name: 'Multiple quoted labels and flags',
+      content: `goroutine 125 [sync.Cond.Wait, 12 minutes, bubble, leaked, "app":"myapp", "region":"us-west-1"]:
+main.worker()
+\t/main.go:10`,
+      expectLabels: ['state=wait', 'bubble', 'leaked', 'app=myapp', 'region=us-west-1'],
+      expectState: 'wait',
+      expectWaitMinutes: 12,
+    },
+    {
+      name: 'Quoted label with colons in value',
+      content: `goroutine 126 [running, "url":"http://example.com:8080"]:
+main.worker()
+\t/main.go:10`,
+      expectLabels: ['state=running', 'url=http://example.com:8080'],
+      expectState: 'running',
+    },
+    {
+      name: 'Mixed flags and quoted labels with commas',
+      content: `goroutine 127 [select, 5 minutes, locked to thread, "tags":"foo,bar,baz"]:
+main.worker()
+\t/main.go:10`,
+      expectLabels: ['state=select', 'locked to thread', 'tags=foo,bar,baz'],
+      expectState: 'select',
+      expectWaitMinutes: 5,
+    },
+  ];
+
+  for (const tc of testCases) {
+    const result = await parser.parseString(tc.content, 'test.txt');
+    if (!result.success) {
+      throw new Error(`${tc.name}: parse failed - ${result.error}`);
+    }
+
+    if (result.data.groups.length !== 1) {
+      throw new Error(`${tc.name}: expected 1 group, got ${result.data.groups.length}`);
+    }
+
+    const group = result.data.groups[0];
+    const goroutine = group.goroutines[0];
+
+    // Check state
+    if (goroutine.state !== tc.expectState) {
+      throw new Error(
+        `${tc.name}: expected state='${tc.expectState}', got '${goroutine.state}'`
+      );
+    }
+
+    // Check wait time if specified
+    if (tc.expectWaitMinutes !== undefined && goroutine.waitMinutes !== tc.expectWaitMinutes) {
+      throw new Error(
+        `${tc.name}: expected waitMinutes=${tc.expectWaitMinutes}, got ${goroutine.waitMinutes}`
+      );
+    }
+
+    // Check labels
+    const actualLabels = group.labels.slice().sort();
+    const expectedLabels = tc.expectLabels.slice().sort();
+    if (JSON.stringify(actualLabels) !== JSON.stringify(expectedLabels)) {
+      throw new Error(
+        `${tc.name}: expected labels ${JSON.stringify(expectedLabels)}, got ${JSON.stringify(actualLabels)}`
+      );
+    }
+  }
+
+  console.log('✓ Format2 quoted labels: all test cases passed');
+});
+
+await test('Format2 goroutines with different labels are not merged', async () => {
+  // Test that goroutines with same stack and state but different labels create separate groups
+  const content = `goroutine 1 [running, "app":"foo"]:
+main.worker()
+\t/main.go:10
+
+goroutine 2 [running, "app":"bar"]:
+main.worker()
+\t/main.go:10
+
+goroutine 3 [running, "app":"foo"]:
+main.worker()
+\t/main.go:10`;
+
+  const result = await parser.parseString(content, 'test.txt');
+  if (!result.success) {
+    throw new Error(`Parse failed: ${result.error}`);
+  }
+
+  // Should have 2 groups (same stack + state, but different labels)
+  if (result.data.groups.length !== 2) {
+    throw new Error(`Expected 2 groups, got ${result.data.groups.length}`);
+  }
+
+  // Find the groups
+  const fooGroup = result.data.groups.find(g => g.labels.includes('app=foo'));
+  const barGroup = result.data.groups.find(g => g.labels.includes('app=bar'));
+
+  if (!fooGroup || !barGroup) {
+    throw new Error('Expected to find groups with app=foo and app=bar labels');
+  }
+
+  // Verify counts
+  if (fooGroup.count !== 2) {
+    throw new Error(`Expected app=foo group to have 2 goroutines, got ${fooGroup.count}`);
+  }
+  if (barGroup.count !== 1) {
+    throw new Error(`Expected app=bar group to have 1 goroutine, got ${barGroup.count}`);
+  }
+
+  // Verify labels are not merged
+  if (fooGroup.labels.includes('app=bar')) {
+    throw new Error('app=foo group should not contain app=bar label');
+  }
+  if (barGroup.labels.includes('app=foo')) {
+    throw new Error('app=bar group should not contain app=foo label');
+  }
+
+  console.log('✓ Format2 label grouping: goroutines with different labels kept separate');
 });
 
 console.log('🎉 All parser tests completed!');

@@ -162,6 +162,60 @@ export class FileParser {
     return /^goroutine \d+ (\[|gp=)/.test(trimmed) || /\ngoroutine \d+ (\[|gp=)/.test(content);
   }
 
+  /**
+   * Extract goroutine metadata from go::goroutine* labels (debug=3 format)
+   * Returns null if this is not a debug=3 sample (no go::goroutine label)
+   */
+  private extractGoroutineFromLabels(labels: string[]): { goroutine: Goroutine; filteredLabels: string[] } | null {
+    let goroutineId: string | null = null;
+    let creatorId = '';
+    let state = '';
+    let waitMinutes = 0;
+    const filteredLabels: string[] = [];
+
+    for (const label of labels) {
+      const [key, value] = label.split('=', 2);
+
+      switch (key) {
+        case 'go::goroutine':
+          goroutineId = value;
+          break;
+        case 'go::goroutine_created_by':
+          creatorId = value;
+          break;
+        case 'go::goroutine_state':
+          state = value;
+          break;
+        case 'go::goroutine_wait_minutes':
+          waitMinutes = parseFloat(value) || 0;
+          break;
+        default:
+          // Keep all other labels
+          filteredLabels.push(label);
+          break;
+      }
+    }
+
+    // If no go::goroutine label found, this is not debug=3
+    if (goroutineId === null) {
+      return null;
+    }
+
+    // Transform state like format2 does
+    const transformedState = this.transformState(state);
+
+    const goroutine: Goroutine = {
+      id: goroutineId,
+      state: transformedState,
+      waitMinutes,
+      creator: creatorId,
+      creatorExists: false, // Will be set during post-processing
+      created: [], // Will be set during post-processing
+    };
+
+    return { goroutine, filteredLabels };
+  }
+
   private async parseFormat0(blob: Blob, fileName: string): Promise<Result> {
     try {
       // Stream decompression - much cleaner!
@@ -175,6 +229,8 @@ export class FileParser {
 
       // Convert pprof data to our internal format
       const groups: Group[] = [];
+      // For debug=3 format, collect samples for regrouping
+      const debug3Samples: Array<{ traceId: string; trace: Frame[]; goroutine: Goroutine; labels: string[] }> = [];
 
       // Process samples - each sample represents a stack trace with count
       for (const sample of profile.sample) {
@@ -189,7 +245,13 @@ export class FileParser {
         if (sample.label) {
           for (const label of sample.label) {
             const key = stringTable[Number(label.key) || 0] || '';
-            const value = stringTable[Number(label.str) || 0] || '';
+            // Check for numeric value first, then fall back to string value
+            let value: string;
+            if (label.num !== undefined && label.num !== 0) {
+              value = String(Number(label.num));
+            } else {
+              value = stringTable[Number(label.str) || 0] || '';
+            }
             if (key && value) {
               labels.push(`${key}=${value}`);
             } else if (key) {
@@ -231,25 +293,103 @@ export class FileParser {
           }
         }
 
-        // Add synthesized label for the last skipped runtime frame
-        if (lastSkippedRuntimeFrame) {
-          const label = this.synthesizeRuntimeLabel(lastSkippedRuntimeFrame);
-          if (label) {
-            labels.push(label);
+        // Check if this is debug=3 format (has go::goroutine labels)
+        if (frames.length > 0) {
+          const traceId = await fingerprint(frames);
+
+          // Check for debug=3 first before synthesizing labels
+          const isDebug3 = labels.some(l => l.startsWith('go::goroutine='));
+
+          // Add synthesized label for the last skipped runtime frame
+          // Only do this for non-debug=3 profiles (debug=0/debug=1)
+          if (!isDebug3) {
+            if (lastSkippedRuntimeFrame) {
+              const label = this.synthesizeRuntimeLabel(lastSkippedRuntimeFrame);
+              if (label) {
+                labels.push(label);
+              }
+            } else if (frames[0] && this.isSyscallFrame(frames[0].func)) {
+              // If first frame is a syscall (not skipped), synthesize syscall state
+              labels.push('state=syscall');
+            }
+          }
+
+          const goroutineData = this.extractGoroutineFromLabels(labels);
+
+          if (goroutineData) {
+            // Debug=3: Collect for regrouping
+            debug3Samples.push({
+              traceId,
+              trace: frames,
+              goroutine: goroutineData.goroutine,
+              labels: goroutineData.filteredLabels,
+            });
+          } else {
+            // Debug=0: Create group immediately with original behavior
+            groups.push({
+              traceId,
+              count,
+              labels,
+              goroutines: [],
+              trace: frames,
+            });
+          }
+        }
+      }
+
+      // Regroup debug=3 samples by (traceId, state, labels)
+      if (debug3Samples.length > 0) {
+        const regroupMap = new Map<string, { trace: Frame[]; goroutines: Goroutine[]; labels: string[] }>();
+        const goroutineMap = new Map<string, boolean>();
+        const createdMap = new Map<string, string[]>();
+
+        // First pass: build maps for creator relationships
+        for (const sample of debug3Samples) {
+          goroutineMap.set(sample.goroutine.id, true);
+          const creatorId = sample.goroutine.creator;
+          if (creatorId) {
+            (createdMap.get(creatorId) ?? createdMap.set(creatorId, []).get(creatorId))!.push(
+              sample.goroutine.id
+            );
           }
         }
 
-        // Create group for this stack trace
-        if (frames.length > 0) {
-          const traceId = await fingerprint(frames);
+        // Second pass: regroup by stack+state+labels
+        for (const sample of debug3Samples) {
+          // Create grouping key from traceId, state, and sorted labels
+          const labelKey = sample.labels.slice().sort().join(',');
+          const groupKey = `${sample.traceId}:${sample.goroutine.state}:${labelKey}`;
+
+          if (!regroupMap.has(groupKey)) {
+            regroupMap.set(groupKey, {
+              trace: sample.trace,
+              goroutines: [],
+              labels: [`state=${sample.goroutine.state}`, ...sample.labels],
+            });
+          }
+
+          regroupMap.get(groupKey)!.goroutines.push(sample.goroutine);
+        }
+
+        // Convert regrouped data to Groups
+        for (const [groupKey, data] of regroupMap) {
+          const traceId = groupKey.split(':')[0];
           groups.push({
             traceId,
-            count,
-            labels,
-            goroutines: [],
-            trace: frames,
+            count: data.goroutines.length,
+            labels: data.labels,
+            goroutines: data.goroutines,
+            trace: data.trace,
           });
         }
+
+        // Post-processing: Set creatorExists and created fields
+        groups.forEach(group =>
+          group.goroutines.forEach(goroutine => {
+            goroutine.creatorExists = goroutine.creator ? goroutineMap.has(goroutine.creator) : false;
+            goroutine.created = createdMap.get(goroutine.id) ?? [];
+          })
+        );
       }
 
       // Try to extract a custom name from labels
@@ -331,20 +471,50 @@ export class FileParser {
       // - "select, 7 minutes, locked to thread"
       // - "GC worker (idle)"
       // - "GC worker (idle), 5 minutes"
-      const stateParts = fullStateStr.split(',').map(s => s.trim());
-      const state = stateParts[0]; // First part is always the state
+      // - "sync.Cond.Wait, 12 minutes, bubble, \"app\":\"myapp\", \"env\":\"prod,staging\""
 
-      // Look for wait time and other attributes in the remaining parts
+      // First split on comma, then recombine quoted strings that contain commas
+      const rawParts = fullStateStr.split(',').map(s => s.trim());
+      const parts: string[] = [];
+      let i_part = 0;
+      while (i_part < rawParts.length) {
+        let part = rawParts[i_part];
+        // Check if this starts with a quote but doesn't end with one
+        if (part.startsWith('"') && !part.endsWith('"')) {
+          // Recombine with subsequent parts until we find the closing quote
+          while (i_part + 1 < rawParts.length) {
+            i_part++;
+            part += ',' + rawParts[i_part];
+            if (rawParts[i_part].endsWith('"')) break;
+          }
+        }
+        parts.push(part);
+        i_part++;
+      }
+
+      const state = parts[0]; // First part is always the state
+
+      // Look for wait time, quoted labels, and other attributes in the remaining parts
       let waitMinutes = 0;
       const additionalLabels: string[] = [];
 
-      for (let j = 1; j < stateParts.length; j++) {
-        const part = stateParts[j];
+      for (let j = 1; j < parts.length; j++) {
+        const part = parts[j];
+
+        // Check for quoted label pattern: "key":"value"
+        const quotedLabelMatch = part.match(/^"([^"]+)":"([^"]+)"$/);
+        if (quotedLabelMatch) {
+          const [, key, value] = quotedLabelMatch;
+          additionalLabels.push(`${key}=${value}`);
+          continue;
+        }
+
+        // Check for time pattern
         const timeMatch = part.match(/^(\d+(?:\.\d+)?)\s*minutes?$/);
         if (timeMatch) {
           waitMinutes = parseFloat(timeMatch[1]);
         } else if (part) {
-          // Any other non-time attribute becomes a label
+          // Any other non-time attribute becomes a label (flags like "bubble", "locked to thread")
           additionalLabels.push(part);
         }
       }
@@ -422,50 +592,43 @@ export class FileParser {
       parsedGoroutines.push({ goroutine, trace, labels: additionalLabels });
     }
 
-    // Group goroutines by stack trace fingerprint first, then by state
-    const stackMap = new Map<string, { trace: Frame[]; goroutines: Goroutine[]; allLabels: Set<string> }>();
+    // Group goroutines by (stack trace, state, labels)
+    const groupMap = new Map<string, { trace: Frame[]; goroutines: Goroutine[]; labels: string[] }>();
 
     for (const { goroutine, trace, labels } of parsedGoroutines) {
       const traceId = await fingerprint(trace);
 
-      if (!stackMap.has(traceId)) {
-        stackMap.set(traceId, { trace, goroutines: [], allLabels: new Set<string>() });
-      }
+      // Create grouping key from traceId, state, and sorted labels
+      const labelKey = labels.slice().sort().join(',');
+      const groupKey = `${traceId}:${goroutine.state}:${labelKey}`;
 
-      const entry = stackMap.get(traceId)!;
-      entry.goroutines.push(goroutine);
-      // Collect all unique labels for this stack
-      labels.forEach(label => entry.allLabels.add(label));
-    }
+      if (!groupMap.has(groupKey)) {
+        // Combine state label with any additional labels
+        const groupLabels = [`state=${goroutine.state}`];
+        groupLabels.push(...labels);
 
-    // Create final groups - group by state within each stack
-    const groups: Group[] = [];
-    for (const [traceId, { trace, goroutines, allLabels }] of stackMap) {
-      // Group goroutines by state within this stack trace
-      const stateGroups = new Map<string, Goroutine[]>();
-
-      for (const goroutine of goroutines) {
-        if (!stateGroups.has(goroutine.state)) {
-          stateGroups.set(goroutine.state, []);
-        }
-        stateGroups.get(goroutine.state)!.push(goroutine);
-      }
-
-      // Create a separate group for each state within this stack
-      for (const [state, stateGoroutines] of stateGroups) {
-        // Combine state label with any additional labels collected
-        const labels = [`state=${state}`];
-        // Add any additional labels (like "locked to thread") that were found
-        allLabels.forEach(label => labels.push(label));
-
-        groups.push({
-          traceId,
-          count: stateGoroutines.length,
-          labels,
-          goroutines: stateGoroutines,
+        groupMap.set(groupKey, {
           trace,
+          goroutines: [],
+          labels: groupLabels,
         });
       }
+
+      groupMap.get(groupKey)!.goroutines.push(goroutine);
+    }
+
+    // Create final groups from the grouped goroutines
+    const groups: Group[] = [];
+    for (const [groupKey, { trace, goroutines, labels }] of groupMap) {
+      const traceId = groupKey.split(':')[0];
+
+      groups.push({
+        traceId,
+        count: goroutines.length,
+        labels,
+        goroutines,
+        trace,
+      });
     }
 
     // Post-processing: Set creatorExists based on the goroutineMap
@@ -612,7 +775,21 @@ export class FileParser {
       functionName === 'runtime.semacquire' ||
       functionName === 'runtime.semacquire1' ||
       functionName === 'runtime.netpollblock' ||
-      functionName === 'runtime.notetsleepg'
+      functionName === 'runtime.notetsleepg' ||
+      functionName === 'runtime.sigNoteSleep'
+    );
+  }
+
+  /**
+   * Check if a function is a syscall frame that should generate a state label
+   */
+  private isSyscallFrame(functionName: string): boolean {
+    return (
+      functionName === 'syscall.syscall6' ||
+      functionName === 'syscall.Syscall' ||
+      functionName === 'syscall.Syscall6' ||
+      functionName === 'syscall.RawSyscall' ||
+      functionName === 'syscall.RawSyscall6'
     );
   }
 
@@ -639,6 +816,8 @@ export class FileParser {
         return 'state=netpoll';
       case 'runtime.notetsleepg':
         return 'state=sleep';
+      case 'runtime.sigNoteSleep':
+        return 'state=signal';
       default:
         return null;
     }

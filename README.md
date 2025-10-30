@@ -101,7 +101,7 @@ Settings can be customized in the UI, and default settings can be customized whe
 
 ### Prerequisites
 
-- Node.js (version 18 or higher)
+- Node.js (version 22 or higher)
 - npm
 
 ### Building
