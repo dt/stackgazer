@@ -3476,53 +3476,57 @@ export class StackgazerApp {
       // Add markdown title with # prefix, including category
       const stackTitle = `# ${category.name} → ${stack.name}`;
 
-      // Group goroutines by file, then by state and wait time
+      // Groups are already organized by file → (state+labels) → goroutines
+      // Within each group, subgroup by wait time for cleaner output
       let goroutineInfo = '';
 
       if (stack.files.length > 0) {
         const goroutineLines: string[] = [];
 
         for (const fileSection of stack.files) {
-          // Group goroutines within this file by state and wait
-          const fileGroups = new Map<string, Goroutine[]>();
-
-          for (const group of fileSection.groups) {
-            for (const goroutine of group.goroutines) {
-              const waitText = goroutine.waitMinutes > 0 ? `, ${goroutine.waitMinutes}m` : '';
-              const key = `${goroutine.state}${waitText}`;
-
-              if (!fileGroups.has(key)) {
-                fileGroups.set(key, []);
-              }
-              fileGroups.get(key)!.push(goroutine);
-            }
+          // Add file header if there are multiple files
+          if (stack.files.length > 1) {
+            goroutineLines.push(`# ${fileSection.fileName}`);
           }
 
-          if (fileGroups.size > 0) {
-            // Add file header if there are multiple files
-            if (stack.files.length > 1) {
-              goroutineLines.push(`# ${fileSection.fileName}`);
+          // Process each group separately - groups are already defined by state+labels
+          for (const group of fileSection.groups) {
+            if (group.goroutines.length === 0) continue;
+
+            // All goroutines in a group share the same state (it's part of the group key)
+            // Only subgroup by wait time since that can vary within a group
+            const waitGroups = new Map<number, Goroutine[]>();
+
+            for (const goroutine of group.goroutines) {
+              const waitMinutes = goroutine.waitMinutes;
+
+              if (!waitGroups.has(waitMinutes)) {
+                waitGroups.set(waitMinutes, []);
+              }
+              waitGroups.get(waitMinutes)!.push(goroutine);
             }
 
-            // Sort groups by state then by wait time (ascending)
-            const sortedEntries = Array.from(fileGroups.entries()).sort(
-              ([, goroutinesA], [, goroutinesB]) => {
-                const stateA = goroutinesA[0].state;
-                const stateB = goroutinesB[0].state;
-                const waitA = goroutinesA[0].waitMinutes;
-                const waitB = goroutinesB[0].waitMinutes;
-
-                // First sort by state
-                if (stateA !== stateB) {
-                  return stateA.localeCompare(stateB);
-                }
-
-                // Then sort by wait time (ascending)
-                return waitA - waitB;
-              }
+            // Sort by wait time (ascending)
+            const sortedWaitGroups = Array.from(waitGroups.entries()).sort(
+              ([waitA], [waitB]) => waitA - waitB
             );
 
-            for (const [stateWait, goroutines] of sortedEntries) {
+            for (const [waitMinutes, goroutines] of sortedWaitGroups) {
+              const state = goroutines[0].state; // All have same state
+
+              // Build label list in debug=2 format: [state, wait, label1=val1, label2=val2]
+              const labelParts: string[] = [state];
+              if (waitMinutes > 0) {
+                labelParts.push(`${waitMinutes}m`);
+              }
+              // Add non-state labels from the group
+              for (const label of group.labels) {
+                if (!label.startsWith('state=')) {
+                  labelParts.push(label);
+                }
+              }
+              const labelSection = labelParts.join(', ');
+
               const ids = goroutines.map(g => g.id);
 
               // If more than 12 goroutines, chunk them
@@ -3530,11 +3534,11 @@ export class StackgazerApp {
                 for (let i = 0; i < ids.length; i += 12) {
                   const chunk = ids.slice(i, i + 12);
                   const chunkIds = chunk.join(',');
-                  goroutineLines.push(`goroutine ${chunkIds} [${stateWait}]:`);
+                  goroutineLines.push(`goroutine ${chunkIds} [${labelSection}]:`);
                 }
               } else {
                 const allIds = ids.join(',');
-                goroutineLines.push(`goroutine ${allIds} [${stateWait}]:`);
+                goroutineLines.push(`goroutine ${allIds} [${labelSection}]:`);
               }
             }
           }

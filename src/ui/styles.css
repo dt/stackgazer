@@ -2383,6 +2383,11 @@
     gap: 6px;
 }
 
+#stackgazer .group-header-label {
+    user-select: text;
+    cursor: text;
+}
+
 /* Group sub header styles */
 #stackgazer .group-sub-header {
     font-size: 1em;
